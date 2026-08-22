@@ -81,6 +81,7 @@ COMMON_FLAGS=(
   -DUSE_EDITLINE=OFF -DUSE_LUA=OFF -DUSE_JSON_C=OFF -DUSE_FREETYPE=OFF -DUSE_DISCORD_RPC=OFF
   -DPNG_HARDWARE_OPTIMIZATIONS=OFF -DPNG_TESTS=OFF -DPNG_TOOLS=OFF -DPNG_EXECUTABLES=OFF -DPNG_FRAMEWORK=OFF -DPNG_SHARED=OFF -DPNG_STATIC=ON
   -DSKIP_INSTALL_ALL=ON
+  -DCMAKE_EXPORT_COMPILE_COMMANDS=ON   # we read the real -D flags back out of compile_commands.json
 )
 # How mGBA resolves these: WANT_x is copied from USE_x, find_feature() flips USE_x
 # back OFF when the library is not found under CMAKE_FIND_ROOT_PATH (the SDK), and
@@ -104,6 +105,29 @@ build_slice() {   # name sysroot archs
   while IFS= read -r l; do libs+=("$l"); done < <(find "$dir" -name 'libpng*.a' -o -name 'libz*.a' | grep -v mgba || true)
   echo "    merging: ${libs[*]##*/}"
   xcrun libtool -static -o "$dir/libmgba-merged.a" "${libs[@]}"
+
+  # Record the exact preprocessor definitions libmgba was compiled with.
+  # mGBA's generated flags.h only reflects CMake *variables*; several
+  # definitions (ENABLE_DIRECTORIES, USE_MINIZIP, ENABLE_VFS_FD, …) are added
+  # straight to COMPILE_DEFINITIONS and never show up there — yet struct mCore's
+  # layout depends on them. The consumer must see the same set.
+  python3 - "$dir" <<'PY'
+import json, shlex, sys
+build = sys.argv[1]
+entries = json.load(open(f"{build}/compile_commands.json"))
+entry = next(e for e in entries if e["file"].replace("\\", "/").endswith("src/core/core.c"))
+args = entry.get("arguments") or shlex.split(entry["command"])
+defs = []
+skip = {"NDEBUG"}
+for a in args:
+    if a.startswith("-D"):
+        d = a[2:]
+        name = d.split("=")[0]
+        if name not in skip and d not in defs:
+            defs.append(d)
+open(f"{build}/mgba-defines.txt", "w").write("\n".join(defs) + "\n")
+print("    compile definitions:", " ".join(defs))
+PY
 }
 
 build_slice ios-arm64          iphoneos        "arm64"
@@ -114,13 +138,29 @@ rm -rf "$DIST"; mkdir -p "$DIST/include"
 cp -R "$SRC/include/mgba" "$SRC/include/mgba-util" "$DIST/include/"
 cp "$BUILD/ios-arm64/include/mgba/flags.h" "$DIST/include/mgba/flags.h"
 
-# Sanity: both slices must have been configured with identical feature flags,
+# Sanity: both slices must have been compiled with identical definitions,
 # otherwise struct mCore has a different layout per slice.
-if ! diff -q "$BUILD/ios-arm64/include/mgba/flags.h" "$BUILD/ios-simulator/include/mgba/flags.h" >/dev/null; then
-  echo "!! flags.h differs between device and simulator builds" >&2
-  diff "$BUILD/ios-arm64/include/mgba/flags.h" "$BUILD/ios-simulator/include/mgba/flags.h" || true
+if ! diff -q "$BUILD/ios-arm64/mgba-defines.txt" "$BUILD/ios-simulator/mgba-defines.txt" >/dev/null; then
+  echo "!! compile definitions differ between device and simulator builds" >&2
+  diff "$BUILD/ios-arm64/mgba-defines.txt" "$BUILD/ios-simulator/mgba-defines.txt" || true
   exit 1
 fi
+
+# Append the real definitions to the distributed flags.h so any consumer that
+# includes <mgba/flags.h> first sees exactly what the library saw.
+{
+  echo
+  echo "// ---- Added by Scripts/build-mgba.sh: definitions libmgba was actually compiled with."
+  echo "// ---- (mGBA's cmakedefine block above misses ones that are only COMPILE_DEFINITIONS.)"
+  while IFS= read -r d; do
+    [[ -z "$d" ]] && continue
+    name="${d%%=*}"
+    if [[ "$d" == *"="* ]]; then value="${d#*=}"; else value=""; fi
+    echo "#ifndef $name"
+    echo "#define $name $value"
+    echo "#endif"
+  done < "$BUILD/ios-arm64/mgba-defines.txt"
+} >> "$DIST/include/mgba/flags.h"
 
 # ---------------------------------------------------------------- xcframework
 xcodebuild -create-xcframework \
@@ -130,5 +170,5 @@ xcodebuild -create-xcframework \
 
 echo
 echo "==> Done: $DIST/mgba.xcframework"
-echo "    Effective feature flags:"
-grep -E '^#define (ENABLE_|USE_|M_CORE_|MINIMAL_CORE|COLOR_)' "$DIST/include/mgba/flags.h" | sed 's/^/      /'
+echo "    Effective definitions (must match the bridge's view of struct mCore):"
+grep -E '^#define ' "$DIST/include/mgba/flags.h" | sort -u | sed 's/^/      /'
