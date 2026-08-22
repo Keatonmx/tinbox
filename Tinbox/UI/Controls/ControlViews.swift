@@ -144,7 +144,9 @@ struct BottomPillView: View {
         Group {
             if accent {
                 Capsule()
-                    .fill(metrics.isLandscape ? theme.tint2 : theme.tint)
+                    .fill(metrics.isLandscape ? AnyShapeStyle(skin.padGradient) : AnyShapeStyle(theme.tint))
+                    // Landscape overlays sit on bright game pixels: keep a solid base under the tint.
+                    .overlay(Capsule().fill(metrics.isLandscape ? theme.tint2 : Color.clear))
                     .overlay(Capsule().stroke(metrics.isLandscape ? theme.tintBorder2 : theme.tintBorder, lineWidth: 1))
                     .shadow(color: .black.opacity(0.3), radius: 3, y: 2)
                     .overlay(
