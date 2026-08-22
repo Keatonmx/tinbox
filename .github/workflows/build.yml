@@ -60,8 +60,8 @@ jobs:
             -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath "$DERIVED" \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
-            2>&1 | tee xcodebuild-simulator.log | grep -E "error:|warning: unre|BUILD |Compiling|Linking" || true
-          test -d "$DERIVED/Build/Products/Debug-iphonesimulator/Tinbox.app"
+            2>&1 | tee xcodebuild-simulator.log | (grep -E "error:|BUILD " || true)
+          test -x "$DERIVED/Build/Products/Debug-iphonesimulator/Tinbox.app/Tinbox"
 
       - name: Simulator smoke test + screenshots
         continue-on-error: true
@@ -107,9 +107,9 @@ jobs:
             -destination 'generic/platform=iOS' \
             -derivedDataPath "$DERIVED" \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
-            2>&1 | tee xcodebuild-device.log | grep -E "error:|BUILD " || true
+            2>&1 | tee xcodebuild-device.log | (grep -E "error:|BUILD " || true)
           APP="$DERIVED/Build/Products/Release-iphoneos/Tinbox.app"
-          test -d "$APP"
+          test -x "$APP/Tinbox"
           rm -rf ipa && mkdir -p ipa/Payload
           cp -R "$APP" ipa/Payload/
           (cd ipa && zip -qry ../Tinbox-unsigned.ipa Payload)

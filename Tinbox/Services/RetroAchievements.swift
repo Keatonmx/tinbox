@@ -64,12 +64,14 @@ final class RetroAchievementsService: ObservableObject {
             error = e.localizedDescription
         }
         let userKey = self.userKey
+        let finalUser = newUser
+        let finalError = error
         await MainActor.run {
-            if let newUser {
-                self.user = newUser
-                UserDefaults.standard.set(try? JSONEncoder().encode(newUser), forKey: userKey)
+            if let finalUser {
+                self.user = finalUser
+                UserDefaults.standard.set(try? JSONEncoder().encode(finalUser), forKey: userKey)
             }
-            self.lastError = error
+            self.lastError = finalError
             self.isBusy = false
         }
     }
@@ -116,10 +118,13 @@ final class RetroAchievementsService: ObservableObject {
         } catch let e {
             error = e.localizedDescription
         }
+        let finalTitle = title
+        let finalResult = result
+        let finalError = error
         await MainActor.run {
-            self.gameName = title
-            self.achievements = result
-            self.lastError = error
+            self.gameName = finalTitle
+            self.achievements = finalResult
+            self.lastError = finalError
             self.isBusy = false
         }
     }

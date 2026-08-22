@@ -219,7 +219,7 @@ final class EmulatorSession: ObservableObject {
 
         sensors.onTilt = { [weak self] x, y, z in
             guard let self, self.settings.sensorsEnabled else { return }
-            self.runner.withCore { $0.setTiltX(x, tiltY: y, gyroZ: z) }
+            self.runner.withCore { $0.setTilt(x: x, y: y, gyroZ: z) }
         }
         applySettings()
     }
@@ -340,7 +340,7 @@ final class EmulatorSession: ObservableObject {
 
     func rewind(seconds: Double) -> Bool {
         let frames = UInt(max(1, seconds * 60))
-        let ok = runner.withCore { $0.rewindFrames(frames) }
+        let ok = runner.withCore { $0.rewind(frames: frames) }
         if ok { audio.ring.clear() }
         return ok
     }
@@ -367,11 +367,11 @@ final class EmulatorSession: ObservableObject {
         if turboB != settings.turboB { turboB = settings.turboB }
         runner.haptics.enabled = settings.hapticsEnabled
         runner.withCore { core in
-            core.setRewindEnabled(settings.rewindEnabled, seconds: UInt(settings.rewindSeconds), frameInterval: 2)
+            core.setRewind(enabled: settings.rewindEnabled, seconds: UInt(settings.rewindSeconds), frameInterval: 2)
             if settings.bootMode == .biosFile, let name = settings.biosFileName {
-                _ = core.setBIOSFileURL(FileLocations.bios.appendingPathComponent(name))
+                _ = core.setBIOSFile(FileLocations.bios.appendingPathComponent(name))
             } else {
-                _ = core.setBIOSFileURL(nil)
+                _ = core.setBIOSFile(nil)
             }
         }
         if !settings.sensorsEnabled { sensors.stop() }

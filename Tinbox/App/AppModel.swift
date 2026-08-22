@@ -376,7 +376,7 @@ final class AppModel: ObservableObject {
             showToast("Couldn't copy BIOS"); return
         }
         // Validate through the core (GBAIsBIOS).
-        let ok = session.runner.withCore { $0.setBIOSFileURL(dest) }
+        let ok = session.runner.withCore { $0.setBIOSFile(dest) }
         if ok {
             settings.biosFileName = "gba_bios.bin"
             settings.bootMode = .biosFile

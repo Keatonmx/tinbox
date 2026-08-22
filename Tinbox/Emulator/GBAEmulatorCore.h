@@ -17,16 +17,16 @@ NS_ASSUME_NONNULL_BEGIN
 
 /// Bit positions match mGBA's `enum GBAKey` (include/mgba/internal/gba/input.h).
 typedef NS_OPTIONS(uint32_t, GBAKeyMask) {
-    GBAKeyMaskA      = 1u << 0,
-    GBAKeyMaskB      = 1u << 1,
-    GBAKeyMaskSelect = 1u << 2,
-    GBAKeyMaskStart  = 1u << 3,
-    GBAKeyMaskRight  = 1u << 4,
-    GBAKeyMaskLeft   = 1u << 5,
-    GBAKeyMaskUp     = 1u << 6,
-    GBAKeyMaskDown   = 1u << 7,
-    GBAKeyMaskR      = 1u << 8,
-    GBAKeyMaskL      = 1u << 9,
+    GBAKeyMaskA      NS_SWIFT_NAME(a)      = 1u << 0,
+    GBAKeyMaskB      NS_SWIFT_NAME(b)      = 1u << 1,
+    GBAKeyMaskSelect NS_SWIFT_NAME(select) = 1u << 2,
+    GBAKeyMaskStart  NS_SWIFT_NAME(start)  = 1u << 3,
+    GBAKeyMaskRight  NS_SWIFT_NAME(right)  = 1u << 4,
+    GBAKeyMaskLeft   NS_SWIFT_NAME(left)   = 1u << 5,
+    GBAKeyMaskUp     NS_SWIFT_NAME(up)     = 1u << 6,
+    GBAKeyMaskDown   NS_SWIFT_NAME(down)   = 1u << 7,
+    GBAKeyMaskR      NS_SWIFT_NAME(r)      = 1u << 8,
+    GBAKeyMaskL      NS_SWIFT_NAME(l)      = 1u << 9,
 };
 
 /// Values match mGBA's `enum GBACheatType` (include/mgba/internal/gba/cheats.h).
@@ -39,11 +39,11 @@ typedef NS_ENUM(NSInteger, GBACheatCodeType) {
 
 typedef NS_OPTIONS(NSUInteger, GBACartridgeHardware) {
     GBACartridgeHardwareNone   = 0,
-    GBACartridgeHardwareRTC    = 1 << 0,
-    GBACartridgeHardwareRumble = 1 << 1,
-    GBACartridgeHardwareSolar  = 1 << 2,
-    GBACartridgeHardwareGyro   = 1 << 3,
-    GBACartridgeHardwareTilt   = 1 << 4,
+    GBACartridgeHardwareRTC    NS_SWIFT_NAME(rtc)    = 1 << 0,
+    GBACartridgeHardwareRumble NS_SWIFT_NAME(rumble) = 1 << 1,
+    GBACartridgeHardwareSolar  NS_SWIFT_NAME(solar)  = 1 << 2,
+    GBACartridgeHardwareGyro   NS_SWIFT_NAME(gyro)   = 1 << 3,
+    GBACartridgeHardwareTilt   NS_SWIFT_NAME(tilt)   = 1 << 4,
 };
 
 @class GBAEmulatorCore;
@@ -90,16 +90,16 @@ typedef NS_OPTIONS(NSUInteger, GBACartridgeHardware) {
 
 /// Loads a .gba (or .zip containing a .gba), attaches the battery save from
 /// the save directory, applies BIOS settings and resets the core.
-- (BOOL)loadROMAtURL:(NSURL *)romURL error:(NSError **)error;
+- (BOOL)loadROMAtURL:(NSURL *)romURL error:(NSError **)error NS_SWIFT_NAME(loadROM(at:));
 - (void)unloadROM;
 
 /// Applies an IPS/UPS/BPS patch in memory to the currently loaded ROM
 /// (the file on disk is untouched). Call after loadROM; the core is reset.
-- (BOOL)applyPatchAtURL:(NSURL *)patchURL;
+- (BOOL)applyPatchAtURL:(NSURL *)patchURL NS_SWIFT_NAME(applyPatch(at:));
 
 /// `nil` selects HLE BIOS. A real `gba_bios.bin` is validated before use.
 /// Takes effect on the next reset / ROM load.
-- (BOOL)setBIOSFileURL:(nullable NSURL *)biosURL;
+- (BOOL)setBIOSFileURL:(nullable NSURL *)biosURL NS_SWIFT_NAME(setBIOSFile(_:));
 @property (nonatomic, readonly) BOOL usesBIOSFile;
 /// Loads the configured BIOS into the running core via `core->loadBIOS` and
 /// resets. Used when the user imports a BIOS while a game is open.
@@ -124,7 +124,7 @@ typedef NS_OPTIONS(NSUInteger, GBACartridgeHardware) {
 /// Number of stereo frames currently buffered by the core.
 - (NSUInteger)availableAudioFrames;
 /// Copies up to `frames` interleaved stereo int16 frames into `out`. Returns frames written.
-- (NSUInteger)readAudioFrames:(int16_t *)out count:(NSUInteger)frames;
+- (NSUInteger)readAudioFrames:(int16_t *)out count:(NSUInteger)frames NS_SWIFT_NAME(readAudioFrames(_:count:));
 - (void)clearAudio;
 /// Resize the core-side ring buffer (frames). Default 4096.
 - (void)setAudioBufferFrames:(NSUInteger)frames;
@@ -135,8 +135,8 @@ typedef NS_OPTIONS(NSUInteger, GBACartridgeHardware) {
 #pragma mark - Save states
 
 /// Writes a full state (+ savedata, RTC, metadata and embedded screenshot).
-- (BOOL)saveStateToURL:(NSURL *)url;
-- (BOOL)loadStateFromURL:(NSURL *)url;
+- (BOOL)saveStateToURL:(NSURL *)url NS_SWIFT_NAME(saveState(to:));
+- (BOOL)loadStateFromURL:(NSURL *)url NS_SWIFT_NAME(loadState(from:));
 /// In-memory variants for auto-suspend / rewind-on-exit style use.
 - (nullable NSData *)serializeState;
 - (BOOL)deserializeState:(NSData *)data;
@@ -147,18 +147,18 @@ typedef NS_OPTIONS(NSUInteger, GBACartridgeHardware) {
 
 /// Keeps `seconds` of history. mGBA stores one delta-compressed snapshot every
 /// `interval` frames. Disabling frees the buffer.
-- (void)setRewindEnabled:(BOOL)enabled seconds:(NSUInteger)seconds frameInterval:(NSUInteger)interval;
+- (void)setRewindEnabled:(BOOL)enabled seconds:(NSUInteger)seconds frameInterval:(NSUInteger)interval NS_SWIFT_NAME(setRewind(enabled:seconds:frameInterval:));
 @property (nonatomic, readonly) BOOL isRewindEnabled;
 /// Steps back `frames` emulated frames (rounded to the snapshot interval).
 /// Returns NO if no history is available.
-- (BOOL)rewindFrames:(NSUInteger)frames;
+- (BOOL)rewindFrames:(NSUInteger)frames NS_SWIFT_NAME(rewind(frames:));
 
 #pragma mark - Cheats
 
 /// Replaces the whole cheat list. `code` may contain several lines separated by
 /// newlines. Returns the number of codes that parsed successfully.
 - (NSUInteger)setCheats:(NSArray<NSDictionary<NSString *, id> *> *)cheats; // keys: name, code, type(NSNumber), enabled(NSNumber)
-- (void)setCheatAtIndex:(NSUInteger)index enabled:(BOOL)enabled;
+- (void)setCheatAtIndex:(NSUInteger)index enabled:(BOOL)enabled NS_SWIFT_NAME(setCheat(at:enabled:));
 - (void)removeAllCheats;
 /// Validates a code without installing it.
 + (BOOL)validateCheatCode:(NSString *)code type:(GBACheatCodeType)type;
@@ -166,9 +166,9 @@ typedef NS_OPTIONS(NSUInteger, GBACartridgeHardware) {
 #pragma mark - Sensors
 
 /// Tilt in g (−1…1). Gyro Z in normalised units (−1…1 ≈ ±one full turn/s).
-- (void)setTiltX:(float)tiltX tiltY:(float)tiltY gyroZ:(float)gyroZ;
+- (void)setTiltX:(float)tiltX tiltY:(float)tiltY gyroZ:(float)gyroZ NS_SWIFT_NAME(setTilt(x:y:gyroZ:));
 /// Solar sensor brightness level 0 (dark) … 10 (direct sun).
-- (void)applyLuminanceLevel:(NSInteger)level;
+- (void)applyLuminanceLevel:(NSInteger)level NS_SWIFT_NAME(applyLuminanceLevel(_:));
 @property (nonatomic, readonly) NSInteger luminanceLevel;
 
 #pragma mark - Misc
