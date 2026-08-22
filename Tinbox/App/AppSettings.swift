@@ -78,6 +78,9 @@ struct AppSettings: Codable, Equatable {
 
     // Video
     var scaling: DisplayScaling = .pixelPerfect
+    /// Landscape fills the screen by default (the design's "fullscreen" look);
+    /// Fit keeps the 3:2 picture with bars at the sides.
+    var landscapeScaling: DisplayScaling = .stretch
     var filter: ScreenFilter = .none
     var bootMode: BootMode = .hle
     /// File name inside Documents/BIOS (normally "gba_bios.bin").
@@ -101,6 +104,43 @@ struct AppSettings: Codable, Equatable {
 
     // Not user-facing: remembered state
     var lastPlayedGameID: String?
+    /// Settings sections the user has collapsed.
+    var collapsedSections: [String] = []
+    var hasSeenFastForwardHint: Bool = false
+
+    init() {}
+
+    // Tolerant decoding: fields added in later versions fall back to their
+    // defaults instead of throwing the whole settings blob away.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let d = AppSettings()
+        theme = try c.decodeIfPresent(ThemeName.self, forKey: .theme) ?? d.theme
+        skin = try c.decodeIfPresent(ControllerSkinName.self, forKey: .skin) ?? d.skin
+        ffSpeed = try c.decodeIfPresent(Double.self, forKey: .ffSpeed) ?? d.ffSpeed
+        showFFButton = try c.decodeIfPresent(Bool.self, forKey: .showFFButton) ?? d.showFFButton
+        rewindEnabled = try c.decodeIfPresent(Bool.self, forKey: .rewindEnabled) ?? d.rewindEnabled
+        rewindSeconds = try c.decodeIfPresent(Int.self, forKey: .rewindSeconds) ?? d.rewindSeconds
+        autoSuspendSave = try c.decodeIfPresent(Bool.self, forKey: .autoSuspendSave) ?? d.autoSuspendSave
+        backgroundAudioMixing = try c.decodeIfPresent(Bool.self, forKey: .backgroundAudioMixing) ?? d.backgroundAudioMixing
+        scaling = try c.decodeIfPresent(DisplayScaling.self, forKey: .scaling) ?? d.scaling
+        landscapeScaling = try c.decodeIfPresent(DisplayScaling.self, forKey: .landscapeScaling) ?? d.landscapeScaling
+        filter = try c.decodeIfPresent(ScreenFilter.self, forKey: .filter) ?? d.filter
+        bootMode = try c.decodeIfPresent(BootMode.self, forKey: .bootMode) ?? d.bootMode
+        biosFileName = try c.decodeIfPresent(String.self, forKey: .biosFileName)
+        turboA = try c.decodeIfPresent(Bool.self, forKey: .turboA) ?? d.turboA
+        turboB = try c.decodeIfPresent(Bool.self, forKey: .turboB) ?? d.turboB
+        hapticsEnabled = try c.decodeIfPresent(Bool.self, forKey: .hapticsEnabled) ?? d.hapticsEnabled
+        controlOpacity = try c.decodeIfPresent(Double.self, forKey: .controlOpacity) ?? d.controlOpacity
+        sensorsEnabled = try c.decodeIfPresent(Bool.self, forKey: .sensorsEnabled) ?? d.sensorsEnabled
+        cloudProvider = try c.decodeIfPresent(CloudProvider.self, forKey: .cloudProvider) ?? d.cloudProvider
+        lastCloudSync = try c.decodeIfPresent(Date.self, forKey: .lastCloudSync)
+        raHardcore = try c.decodeIfPresent(Bool.self, forKey: .raHardcore) ?? d.raHardcore
+        autosaveOnExit = try c.decodeIfPresent(Bool.self, forKey: .autosaveOnExit) ?? d.autosaveOnExit
+        lastPlayedGameID = try c.decodeIfPresent(String.self, forKey: .lastPlayedGameID)
+        collapsedSections = try c.decodeIfPresent([String].self, forKey: .collapsedSections) ?? d.collapsedSections
+        hasSeenFastForwardHint = try c.decodeIfPresent(Bool.self, forKey: .hasSeenFastForwardHint) ?? d.hasSeenFastForwardHint
+    }
 }
 
 final class SettingsStore {
@@ -123,7 +163,7 @@ final class SettingsStore {
     }
 
     // Layout profiles live next to settings (small, user-editable).
-    private let profilesKey = "tinbox.layoutProfiles.v1"
+    private let profilesKey = "tinbox.layoutProfiles.v2"   // v2: new landscape default positions
 
     func loadProfiles() -> [LayoutProfile] {
         guard let data = defaults.data(forKey: profilesKey),

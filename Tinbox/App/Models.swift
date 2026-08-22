@@ -155,17 +155,19 @@ struct ControlLayout: Codable, Equatable {
         .start:       ControlPlacement(x: 0.76, y: 0.93),
     ])
 
-    /// Landscape overlay (coordinates relative to the full screen).
+    /// Landscape overlay (coordinates relative to the screen inside the safe
+    /// insets). MENU sits top-centre and SELECT/START in the bottom corners so
+    /// nothing covers the game's text box at the bottom of the screen.
     static let landscapeDefault = ControlLayout(placements: [
-        .l:           ControlPlacement(x: 0.135, y: 0.095),
-        .r:           ControlPlacement(x: 0.865, y: 0.095),
-        .dpad:        ControlPlacement(x: 0.155, y: 0.67),
-        .fastForward: ControlPlacement(x: 0.945, y: 0.24),
-        .a:           ControlPlacement(x: 0.90, y: 0.55),
-        .b:           ControlPlacement(x: 0.80, y: 0.72),
-        .select:      ControlPlacement(x: 0.395, y: 0.92),
-        .menu:        ControlPlacement(x: 0.50, y: 0.92),
-        .start:       ControlPlacement(x: 0.605, y: 0.92),
+        .l:           ControlPlacement(x: 0.12, y: 0.10),
+        .r:           ControlPlacement(x: 0.88, y: 0.10),
+        .menu:        ControlPlacement(x: 0.50, y: 0.08),
+        .dpad:        ControlPlacement(x: 0.135, y: 0.58),
+        .fastForward: ControlPlacement(x: 0.955, y: 0.30),
+        .a:           ControlPlacement(x: 0.905, y: 0.55),
+        .b:           ControlPlacement(x: 0.805, y: 0.72),
+        .select:      ControlPlacement(x: 0.135, y: 0.93),
+        .start:       ControlPlacement(x: 0.865, y: 0.93),
     ])
 }
 

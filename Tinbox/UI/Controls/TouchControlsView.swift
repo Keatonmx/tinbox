@@ -20,7 +20,10 @@ struct TouchControlsView: View {
     let showFastForward: Bool
     let onKeys: (GBAKeyMask) -> Void
     let onMenu: () -> Void
-    let onFastForward: () -> Void
+    /// Quick tap on » (no slide) — shows the hint.
+    let onFastForwardTap: () -> Void
+    /// Hold-and-slide on »: horizontal offset in points, nil on release.
+    let onScrub: (CGFloat?) -> Void
 
     @State private var pressed: Set<ControlID> = []
     @State private var dpadHighlight: GBAKeyMask = []
@@ -46,10 +49,11 @@ struct TouchControlsView: View {
                                 onTap: { control in
                                     switch control {
                                     case .menu: onMenu()
-                                    case .fastForward: onFastForward()
+                                    case .fastForward: onFastForwardTap()
                                     default: break
                                     }
-                                })
+                                },
+                                onScrub: onScrub)
                 .frame(width: size.width, height: size.height)
         }
         .frame(width: size.width, height: size.height)
@@ -79,7 +83,9 @@ struct TouchControlsView: View {
             case .menu:
                 BottomPillView(label: "MENU", metrics: metrics, pressed: pressed.contains(.menu), accent: true)
             case .fastForward:
-                FastForwardButtonView(active: session.isFastForward, pressed: pressed.contains(.fastForward))
+                FastForwardButtonView(active: session.isFastForward,
+                                      pressed: pressed.contains(.fastForward),
+                                      scrubLabel: pressed.contains(.fastForward) ? (session.scrub.label ?? "◀ rewind · fast-forward ▶") : nil)
             }
         }
         .frame(width: base.width, height: base.height)
@@ -94,6 +100,7 @@ struct MultiTouchInputView: UIViewRepresentable {
     let onKeys: (GBAKeyMask, GBAKeyMask) -> Void
     let onPressed: (Set<ControlID>) -> Void
     let onTap: (ControlID) -> Void
+    let onScrub: (CGFloat?) -> Void
 
     func makeUIView(context: Context) -> TouchLayerView {
         let view = TouchLayerView()
@@ -113,6 +120,7 @@ struct MultiTouchInputView: UIViewRepresentable {
         view.onKeys = onKeys
         view.onPressed = onPressed
         view.onTap = onTap
+        view.onScrub = onScrub
     }
 }
 
@@ -122,8 +130,14 @@ final class TouchLayerView: UIView {
     var onKeys: ((GBAKeyMask, GBAKeyMask) -> Void)?
     var onPressed: ((Set<ControlID>) -> Void)?
     var onTap: ((ControlID) -> Void)?
+    var onScrub: ((CGFloat?) -> Void)?
 
     private var touchControls: [ObjectIdentifier: ControlID] = [:]
+    /// The touch currently holding the » scrubber, where it started and when.
+    private var scrubTouch: ObjectIdentifier?
+    private var scrubStart = CGPoint.zero
+    private var scrubStartTime: TimeInterval = 0
+    private var scrubMoved = false
     private var lastKeys: GBAKeyMask = []
     private var lastPressed: Set<ControlID> = []
 
@@ -136,7 +150,13 @@ final class TouchLayerView: UIView {
             if let hit = control(at: point, slop: 0) {
                 touchControls[ObjectIdentifier(touch)] = hit
                 ButtonHaptics.shared.tap()
-                if hit == .fastForward { onTap?(.fastForward) }
+                if hit == .fastForward, scrubTouch == nil {
+                    scrubTouch = ObjectIdentifier(touch)
+                    scrubStart = point
+                    scrubStartTime = touch.timestamp
+                    scrubMoved = false
+                    onScrub?(0)
+                }
             }
         }
         recompute(touches: event?.allTouches ?? touches)
@@ -147,6 +167,13 @@ final class TouchLayerView: UIView {
             let id = ObjectIdentifier(touch)
             let point = touch.location(in: self)
             let current = touchControls[id]
+            // The » scrubber: report horizontal travel, never hand off to another control.
+            if id == scrubTouch {
+                let dx = point.x - scrubStart.x
+                if abs(dx) > 8 { scrubMoved = true }
+                onScrub?(dx)
+                continue
+            }
             // A touch that started on the d-pad stays on it (sliding between directions).
             if current == .dpad { continue }
             // Rolling from one face button onto another.
@@ -166,14 +193,27 @@ final class TouchLayerView: UIView {
             if touchControls[id] == .menu, let frame = frames[.menu], frame.insetBy(dx: -slop, dy: -slop).contains(touch.location(in: self)) {
                 onTap?(.menu)
             }
+            if id == scrubTouch {
+                let quickTap = !scrubMoved && (touch.timestamp - scrubStartTime) < 0.3
+                endScrub()
+                if quickTap { onTap?(.fastForward) }
+            }
             touchControls[id] = nil
         }
         recompute(touches: (event?.allTouches ?? []).subtracting(touches))
     }
 
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
-        for touch in touches { touchControls[ObjectIdentifier(touch)] = nil }
+        for touch in touches {
+            if ObjectIdentifier(touch) == scrubTouch { endScrub() }
+            touchControls[ObjectIdentifier(touch)] = nil
+        }
         recompute(touches: (event?.allTouches ?? []).subtracting(touches))
+    }
+
+    private func endScrub() {
+        scrubTouch = nil
+        onScrub?(nil)
     }
 
     private func control(at point: CGPoint, slop: CGFloat) -> ControlID? {

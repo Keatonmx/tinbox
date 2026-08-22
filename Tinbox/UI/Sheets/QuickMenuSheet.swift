@@ -22,15 +22,15 @@ struct QuickMenuSheet: View {
 
             // Action tiles
             HStack(spacing: 10) {
-                actionTile(title: "Save", subtitle: "Auto slot") { model.saveToAutoSlot() }
-                actionTile(title: "Load", subtitle: "Pick a slot") { model.openSheet(.saveStates) }
+                actionTile(title: "Save", subtitle: "To Auto slot") { model.saveToAutoSlot() }
+                actionTile(title: "Load", subtitle: model.latestStateDescription) { model.loadLatestState() }
                 Button {
                     ButtonHaptics.shared.tap()
                     model.rewindTenSeconds()
                 } label: {
                     VStack(spacing: 3) {
                         Text("↺ Rewind").font(.system(size: 15, weight: .bold)).foregroundColor(theme.accentText)
-                        Text("10 s back").font(.system(size: 11)).foregroundColor(theme.accentText.opacity(0.7))
+                        Text("Back 10 seconds").font(.system(size: 11)).foregroundColor(theme.accentText.opacity(0.7))
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 64)
@@ -47,8 +47,9 @@ struct QuickMenuSheet: View {
                 VStack(spacing: 10) {
                     HStack(spacing: 12) {
                         VStack(alignment: .leading, spacing: 1) {
-                            Text("Speed").font(Typography.row).foregroundColor(.white)
-                            Text("\(SpeedSteps.label(session.ffSpeed)) when engaged · below 1× is slow-mo")
+                            Text("Fast-forward").font(Typography.row).foregroundColor(.white)
+                            Text(session.isFastForward ? "Running at \(SpeedSteps.label(session.ffSpeed)) until you turn this off"
+                                                       : "Turn on for \(SpeedSteps.label(session.ffSpeed)) · or hold » in game")
                                 .font(Typography.rowSubtitle).foregroundColor(Palette.textTertiary)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -68,7 +69,7 @@ struct QuickMenuSheet: View {
 
             // Navigation
             Card {
-                NavRow(title: "Save States") { model.openSheet(.saveStates) }
+                NavRow(title: "All save states", detail: "\(model.gameData.slots.filter(\.isFilled).count) of \(SaveSlot.count) used") { model.openSheet(.saveStates) }
                 NavRow(title: "Cheats", detail: "\(model.activeCheatCount) active") { model.openSheet(.cheats) }
                 NavRow(title: "Settings", showsSeparator: false) { model.openSheet(.settings) }
             }
@@ -97,7 +98,7 @@ struct QuickMenuSheet: View {
         } label: {
             VStack(spacing: 3) {
                 Text(title).font(.system(size: 15, weight: .bold)).foregroundColor(.white)
-                Text(subtitle).font(.system(size: 11)).foregroundColor(Palette.textTertiary)
+                Text(subtitle).tileSubtitle().foregroundColor(Palette.textTertiary).padding(.horizontal, 6)
             }
             .frame(maxWidth: .infinity)
             .frame(height: 64)
@@ -107,6 +108,10 @@ struct QuickMenuSheet: View {
         }
         .buttonStyle(FadePressStyle(opacity: 0.75))
     }
+}
+
+private extension View {
+    func tileSubtitle() -> some View { self.font(.system(size: 11)).lineLimit(1).minimumScaleFactor(0.8) }
 }
 
 struct ExitPressStyle: ButtonStyle {
@@ -160,6 +165,9 @@ struct LandscapeQuickMenu: View {
                     tile(glyph: "▼", label: "Save", color: Palette.text85, background: theme.card) {
                         model.saveToAutoSlot()
                     }
+                    tile(glyph: "▲", label: "Load", color: Palette.text85, background: theme.card) {
+                        model.loadLatestState()
+                    }
                     tile(glyph: "⋯", label: "More", color: Palette.text85, background: theme.card) {
                         onMore()
                     }
@@ -171,7 +179,7 @@ struct LandscapeQuickMenu: View {
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 18)
-            .frame(width: 420)
+            .frame(width: 480)
             .background(theme.sheet)
             .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous).stroke(Palette.hairline10, lineWidth: 0.5))
             .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))

@@ -268,6 +268,46 @@ struct SectionHeader: View {
     }
 }
 
+/// Section header with a chevron; tapping collapses/expands the section body.
+struct CollapsibleSection<Content: View>: View {
+    let title: String
+    let collapsed: Bool
+    let onToggle: () -> Void
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Button {
+                ButtonHaptics.shared.tap()
+                withAnimation(.easeInOut(duration: 0.2)) { onToggle() }
+            } label: {
+                HStack(spacing: 8) {
+                    Text(title.uppercased())
+                        .font(Typography.sectionHeader)
+                        .tracking(0.8)
+                        .foregroundColor(Palette.textTertiary)
+                    Spacer()
+                    ChevronShape(direction: .right)
+                        .stroke(Palette.textQuaternary, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+                        .frame(width: 7, height: 12)
+                        .rotationEffect(.degrees(collapsed ? 0 : 90))
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(FadePressStyle())
+            if !collapsed {
+                content
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            } else {
+                Spacer().frame(height: 6)
+            }
+        }
+        .clipped()
+    }
+}
+
 /// Title (+ optional subtitle) on the left, custom trailing content on the right.
 struct SettingsRow<Trailing: View>: View {
     let title: String

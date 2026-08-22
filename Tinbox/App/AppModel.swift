@@ -253,6 +253,37 @@ final class AppModel: ObservableObject {
         session.isFastForward.toggle()
     }
 
+    /// A quick tap on » (no slide) — the button is a scrubber now.
+    func showFastForwardHint() {
+        showToast("Hold » and slide: ◀ rewind · fast-forward ▶")
+        if !settings.hasSeenFastForwardHint { settings.hasSeenFastForwardHint = true }
+    }
+
+    /// Quick Menu "Load": the most recently saved slot, one tap.
+    func loadLatestState() {
+        guard !settings.raHardcore else { showToast("Save states are off in Hardcore mode"); return }
+        guard let slot = gameData.slots.filter({ $0.isFilled }).max(by: { ($0.savedAt ?? .distantPast) < ($1.savedAt ?? .distantPast) }) else {
+            showToast("No saved state yet · use Save first")
+            return
+        }
+        load(fromSlot: slot.index)
+    }
+
+    /// Subtitle for the Quick Menu "Load" tile.
+    var latestStateDescription: String {
+        guard let slot = gameData.slots.filter({ $0.isFilled }).max(by: { ($0.savedAt ?? .distantPast) < ($1.savedAt ?? .distantPast) }),
+              let date = slot.savedAt else { return "Nothing saved yet" }
+        return "\(slot.name) · \(date.slotTimestampString)"
+    }
+
+    func toggleSectionCollapsed(_ name: String) {
+        if let i = settings.collapsedSections.firstIndex(of: name) {
+            settings.collapsedSections.remove(at: i)
+        } else {
+            settings.collapsedSections.append(name)
+        }
+    }
+
     func setSpeed(_ speed: Double) {
         settings.ffSpeed = speed
         session.ffSpeed = speed

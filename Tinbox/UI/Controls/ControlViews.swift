@@ -170,6 +170,8 @@ struct FastForwardButtonView: View {
     @Environment(\.theme) private var theme
     let active: Bool
     let pressed: Bool
+    /// Shown above the button while it is held (hint or current scrub speed).
+    var scrubLabel: String? = nil
 
     var body: some View {
         Circle()
@@ -181,6 +183,22 @@ struct FastForwardButtonView: View {
             .frame(width: 44, height: 44)
             .scaleEffect(pressed ? 0.92 : 1)
             .animation(.easeOut(duration: 0.06), value: pressed)
+            .overlay(alignment: .top) {
+                if let scrubLabel {
+                    Text(scrubLabel)
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.white)
+                        .lineLimit(1)
+                        .fixedSize()
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(theme.badge)
+                        .clipShape(Capsule())
+                        .shadow(color: .black.opacity(0.4), radius: 6, y: 3)
+                        .offset(y: -40)
+                        .transition(.opacity)
+                }
+            }
     }
 }
 

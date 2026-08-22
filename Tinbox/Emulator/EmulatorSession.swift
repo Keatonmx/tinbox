@@ -79,8 +79,12 @@ final class EmulationRunner: NSObject, @unchecked Sendable {
     // word-sized writes; torn reads are harmless here.
     var running = false
     var paused = false
+    /// Speed chosen in the menu (1 when fast-forward is off).
     var speed: Double = 1
-    var muteAudio = false
+    /// Momentary speed while the » button is held and slid right (0 = none).
+    var holdSpeed: Double = 0
+    /// Live rewind rate while the » button is held and slid left (snapshots per tick, 0 = none).
+    var holdRewind: Double = 0
     var touchKeys: GBAKeyMask = []
     var controllerKeys: GBAKeyMask = []
     var turboA = false
@@ -88,6 +92,8 @@ final class EmulationRunner: NSObject, @unchecked Sendable {
 
     private var accumulator: Double = 0
     private var frameTick: UInt64 = 0
+    private var lastTimestamp: CFTimeInterval = 0
+    private var wasSilent = false
 
     init(core: GBAEmulatorCore, frameStore: FrameStore, audio: AudioEngine) {
         self.core = core
@@ -100,7 +106,10 @@ final class EmulationRunner: NSObject, @unchecked Sendable {
     func resetTiming() {
         accumulator = 0
         frameTick = 0
+        lastTimestamp = 0
         touchKeys = []
+        holdSpeed = 0
+        holdRewind = 0
     }
 
     /// Serialised access to the core.
@@ -110,11 +119,44 @@ final class EmulationRunner: NSObject, @unchecked Sendable {
         return try body(core)
     }
 
-    /// Called on the emulation thread at 60 Hz.
-    func tick() {
-        guard running, !paused else { return }
+    /// Effective speed right now (menu speed unless the scrubber overrides it).
+    var effectiveSpeed: Double { holdSpeed > 0 ? holdSpeed : speed }
 
-        accumulator += speed
+    /// Called on the emulation thread at 60 Hz with the display link timestamp.
+    func tick(timestamp: CFTimeInterval) {
+        guard running, !paused else { lastTimestamp = 0; return }
+
+        // Live rewind while the scrubber is held to the left.
+        if holdRewind > 0 {
+            lock.lock()
+            // Rewind snapshots are taken every 2 frames, so 2 frames per step.
+            if core.rewind(frames: UInt(max(1, holdRewind) * 2)) {
+                frameStore.publish(from: core.videoBuffer)
+            }
+            core.clearAudio()
+            lock.unlock()
+            audio.ring.clear()
+            wasSilent = true
+            lastTimestamp = 0
+            return
+        }
+
+        // Pace against real time so a dropped display-link frame is caught up
+        // rather than slowing the game; at a steady 60 Hz this is exactly one
+        // frame per tick. Audio drift (59.73 vs 60 Hz) is absorbed by the
+        // audio engine's rate control, not here.
+        let elapsed = lastTimestamp > 0 ? min(timestamp - lastTimestamp, 0.05) : (1.0 / 60.0)
+        lastTimestamp = timestamp
+        let currentSpeed = effectiveSpeed
+        accumulator += elapsed * 60.0 * currentSpeed
+
+        // Audio is only meaningful at 1×.
+        let silent = currentSpeed != 1
+        if silent != wasSilent {
+            audio.ring.clear()
+            wasSilent = silent
+        }
+
         let budgetEnd = CACurrentMediaTime() + 0.0145
         var framesRun = 0
         lock.lock()
@@ -129,10 +171,11 @@ final class EmulationRunner: NSObject, @unchecked Sendable {
             core.runFrame()
             accumulator -= 1
             framesRun += 1
-            if muteAudio {
+            if silent {
                 core.clearAudio()
             } else {
                 drainAudioLocked()
+                audio.updateRateControl()
             }
             if CACurrentMediaTime() > budgetEnd {
                 // Can't keep up with the requested speed this tick; cap the backlog.
@@ -153,6 +196,10 @@ final class EmulationRunner: NSObject, @unchecked Sendable {
         audio.ring.write(maxFrames: available) { dst, capacity in
             Int(core.readAudioFrames(dst, count: UInt(capacity)))
         }
+        // Whatever did not fit (buffer full) is discarded on the core side.
+        if core.availableAudioFrames() > 0 {
+            core.clearAudio()
+        }
     }
 }
 
@@ -168,12 +215,28 @@ extension EmulationRunner: GBAEmulatorCoreDelegate {
 
 // MARK: - EmulatorSession (main thread API)
 
+/// What the » scrubber is currently doing, for the on-screen badge.
+enum ScrubState: Equatable {
+    case none
+    case fastForward(Double)
+    case rewind(Double)
+
+    var label: String? {
+        switch self {
+        case .none: return nil
+        case .fastForward(let s): return "▶▶ \(SpeedSteps.label((s * 10).rounded() / 10))"
+        case .rewind(let r): return "◀◀ \(SpeedSteps.label((r * 10).rounded() / 10))"
+        }
+    }
+}
+
 /// Main-thread only (not actor-annotated so plain closures can call it in Swift 5 mode).
 final class EmulatorSession: ObservableObject {
 
     @Published private(set) var game: Game?
     @Published private(set) var isRunning = false
     @Published private(set) var isPaused = false
+    /// "Permanent" fast-forward from the Quick Menu / Settings.
     @Published var isFastForward = false { didSet { syncSpeed() } }
     @Published var ffSpeed: Double = 3 { didSet { syncSpeed() } }
     @Published var turboA = false { didSet { runner.turboA = turboA } }
@@ -181,9 +244,16 @@ final class EmulatorSession: ObservableObject {
     @Published private(set) var cartridgeHardware: TinboxCartHardware = []
     @Published private(set) var controllerConnected = false
     @Published var luminanceLevel: Int = 0 { didSet { runner.withCore { $0.applyLuminanceLevel(luminanceLevel) } } }
+    /// Momentary state of the » scrubber.
+    @Published private(set) var scrub: ScrubState = .none
 
     /// Effective speed (1 when fast-forward is off).
     var currentSpeed: Double { isFastForward ? ffSpeed : 1 }
+    /// Badge text: scrubber state wins over the permanent FF badge.
+    var speedBadgeLabel: String? {
+        if let s = scrub.label { return s }
+        return isFastForward ? "» \(SpeedSteps.label(ffSpeed))" : nil
+    }
 
     let runner: EmulationRunner
     var frameStore: FrameStore { runner.frameStore }
@@ -208,7 +278,7 @@ final class EmulatorSession: ObservableObject {
         thread = EmulationThread()
 
         let runner = self.runner
-        thread.tick = { runner.tick() }
+        thread.tick = { timestamp in runner.tick(timestamp: timestamp) }
         thread.start()
 
         ControllerManager.shared.onKeysChanged = { [weak runner] mask in runner?.controllerKeys = mask }
@@ -245,6 +315,7 @@ final class EmulatorSession: ObservableObject {
         applyCheats(cheats)
         applySettings()
         runner.resetTiming()
+        scrub = .none
         if settings.sensorsEnabled, cartridgeHardware.contains(.tilt) || cartridgeHardware.contains(.gyro) {
             sensors.start()
         }
@@ -264,6 +335,7 @@ final class EmulatorSession: ObservableObject {
         guard isRunning, !isPaused else { return }
         isPaused = true
         runner.paused = true
+        setScrub(offset: nil)
         audio.pause()
     }
 
@@ -283,6 +355,7 @@ final class EmulatorSession: ObservableObject {
         isRunning = false
         isPaused = false
         isFastForward = false
+        scrub = .none
         audio.stop()
         sensors.stop()
         runner.withCore { $0.unloadROM() }
@@ -294,6 +367,42 @@ final class EmulatorSession: ObservableObject {
 
     func setTouchKeys(_ mask: GBAKeyMask) {
         runner.touchKeys = mask
+    }
+
+    /// Hold-and-slide on the » button. `offset` is the horizontal drag in points
+    /// (nil when released): right = momentary fast-forward up to the menu speed,
+    /// left = live rewind. Release returns to the permanent setting.
+    func setScrub(offset: CGFloat?) {
+        guard let offset else {
+            if runner.holdSpeed != 0 || runner.holdRewind != 0 {
+                runner.holdSpeed = 0
+                runner.holdRewind = 0
+                runner.withCore { $0.clearAudio() }
+                audio.ring.clear()
+            }
+            if scrub != .none { scrub = .none }
+            return
+        }
+        let dead: CGFloat = 10
+        let span: CGFloat = 90
+        if offset > dead {
+            let t = Double(min(1, (offset - dead) / span))
+            let top = max(2, ffSpeed)
+            let speed = 1 + t * (top - 1)
+            runner.holdRewind = 0
+            runner.holdSpeed = speed
+            scrub = .fastForward(speed)
+        } else if offset < -dead, settings.rewindEnabled, !settings.raHardcore {
+            let t = Double(min(1, (-offset - dead) / span))
+            let rate = 0.5 + t * 3.5           // 0.5× … 4× rewind
+            runner.holdSpeed = 0
+            runner.holdRewind = rate
+            scrub = .rewind(rate)
+        } else {
+            runner.holdSpeed = 0
+            runner.holdRewind = 0
+            if scrub != .none { scrub = .none }
+        }
     }
 
     // MARK: Save states
@@ -379,15 +488,7 @@ final class EmulatorSession: ObservableObject {
     }
 
     private func syncSpeed() {
-        let speed = currentSpeed
-        runner.speed = speed
-        // Audio is only meaningful at 1×; mute otherwise and drop buffered samples.
-        let mute = speed != 1
-        runner.muteAudio = mute
-        if mute {
-            runner.withCore { $0.clearAudio() }
-            audio.ring.clear()
-        }
+        runner.speed = currentSpeed
     }
 }
 
@@ -395,7 +496,7 @@ final class EmulatorSession: ObservableObject {
 
 /// A thread whose run loop hosts the CADisplayLink that paces emulation.
 final class EmulationThread: Thread {
-    var tick: (() -> Void)?
+    var tick: ((CFTimeInterval) -> Void)?
     private var displayLink: CADisplayLink?
 
     override init() {
@@ -405,7 +506,7 @@ final class EmulationThread: Thread {
     }
 
     override func main() {
-        let link = CADisplayLink(target: self, selector: #selector(onDisplayLink))
+        let link = CADisplayLink(target: self, selector: #selector(onDisplayLink(_:)))
         link.preferredFrameRateRange = CAFrameRateRange(minimum: 60, maximum: 60, preferred: 60)
         link.add(to: .current, forMode: .common)
         displayLink = link
@@ -415,7 +516,7 @@ final class EmulationThread: Thread {
         link.invalidate()
     }
 
-    @objc private func onDisplayLink() {
-        tick?()
+    @objc private func onDisplayLink(_ link: CADisplayLink) {
+        tick?(link.timestamp)
     }
 }

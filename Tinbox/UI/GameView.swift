@@ -2,28 +2,38 @@
 //  GameView.swift
 //  Tinbox
 //
-//  In-game screen. Picks the portrait or landscape layout from the rotate
-//  button state and the real interface orientation.
+//  In-game screen. Picks the portrait or landscape layout from the real
+//  interface orientation; the rotate buttons only request a rotation.
 //
 
 import SwiftUI
 
 struct GameContainerView: View {
     @EnvironmentObject private var model: AppModel
-    @EnvironmentObject private var session: EmulatorSession
 
     var body: some View {
         GeometryReader { geo in
-            // Layout follows the real geometry; the rotate buttons only request
-            // an orientation change (see OrientationLock / AppDelegate).
             let landscape = geo.size.width > geo.size.height
             if landscape {
-                LandscapeGameView(size: geo.size, safeArea: geo.safeAreaInsets)
-                    .ignoresSafeArea()
+                // Landscape is full-bleed: the GeometryReader ignores the safe
+                // area so `geo.size` is the real screen; insets come from the window.
+                LandscapeGameView(size: geo.size, safeArea: SafeArea.current)
             } else {
-                PortraitGameView(safeArea: geo.safeAreaInsets)
+                PortraitGameView(safeArea: SafeArea.current)
             }
         }
+        .ignoresSafeArea()
+    }
+}
+
+/// Window safe-area insets (the GeometryReader above ignores them on purpose).
+enum SafeArea {
+    static var current: EdgeInsets {
+        let insets = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap { $0.windows }
+            .first { $0.isKeyWindow }?.safeAreaInsets ?? .zero
+        return EdgeInsets(top: insets.top, leading: insets.left, bottom: insets.bottom, trailing: insets.right)
     }
 }
 
@@ -44,6 +54,8 @@ struct PortraitGameView: View {
             screenBand
             controlsArea
         }
+        .padding(.top, safeArea.top)
+        .padding(.bottom, safeArea.bottom)
         .background(theme.bg.ignoresSafeArea())
         .onChange(of: model.isLayoutEditing) { editing in
             if editing { editingLayout = model.currentProfile.portrait }
@@ -93,8 +105,8 @@ struct PortraitGameView: View {
                 .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).stroke(Palette.hairline06, lineWidth: 1))
                 .padding(.horizontal, 10)
                 .padding(.vertical, 10)
-            if session.isFastForward {
-                FFBadge(label: SpeedSteps.label(session.ffSpeed))
+            if let label = session.speedBadgeLabel {
+                FFBadge(label: label)
                     .padding(.top, 20)
                     .padding(.trailing, 22)
             }
@@ -120,7 +132,8 @@ struct PortraitGameView: View {
                                       showFastForward: model.settings.showFFButton,
                                       onKeys: { session.setTouchKeys($0) },
                                       onMenu: { model.openSheet(.quickMenu) },
-                                      onFastForward: { model.toggleFastForward() })
+                                      onFastForwardTap: { model.showFastForwardHint() },
+                                      onScrub: { session.setScrub(offset: $0) })
                 }
                 if model.showBrightnessOverlay {
                     BrightnessOverlay().padding(.top, 44)
@@ -185,24 +198,35 @@ struct LandscapeGameView: View {
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var session: EmulatorSession
     @Environment(\.theme) private var theme
+    /// Full screen size (safe area ignored).
     let size: CGSize
     let safeArea: EdgeInsets
     @State private var editingLayout: ControlLayout = .landscapeDefault
 
     private let metrics = ControlMetrics(isLandscape: true)
 
+    /// Controls live inside the safe insets so nothing sits under the Dynamic
+    /// Island, the rounded corners or the home indicator.
+    private var controlsRect: CGRect {
+        CGRect(x: safeArea.leading,
+               y: 0,
+               width: size.width - safeArea.leading - safeArea.trailing,
+               height: size.height - safeArea.bottom)
+    }
+
     var body: some View {
-        ZStack(alignment: .top) {
+        ZStack(alignment: .topLeading) {
             Color.black
             EmulatorScreen(frameStore: session.frameStore,
-                           scaling: model.settings.scaling,
+                           scaling: model.settings.landscapeScaling,
                            filter: model.settings.filter,
                            paused: false)
+                .frame(width: size.width, height: size.height)
 
             // Overlay controls at the configured opacity.
             Group {
                 if model.isLayoutEditing {
-                    LayoutEditorView(metrics: metrics, size: size, layout: $editingLayout) {
+                    LayoutEditorView(metrics: metrics, size: controlsRect.size, layout: $editingLayout) {
                         model.saveLayout(portrait: nil, landscape: editingLayout)
                         model.isLayoutEditing = false
                         session.resume()
@@ -211,21 +235,26 @@ struct LandscapeGameView: View {
                 } else {
                     TouchControlsView(layout: model.currentProfile.landscape,
                                       metrics: metrics,
-                                      size: size,
+                                      size: controlsRect.size,
                                       showFastForward: model.settings.showFFButton,
                                       onKeys: { session.setTouchKeys($0) },
                                       onMenu: { model.openSheet(.quickMenu) },
-                                      onFastForward: { model.toggleFastForward() })
+                                      onFastForwardTap: { model.showFastForwardHint() },
+                                      onScrub: { session.setScrub(offset: $0) })
                         .opacity(model.settings.controlOpacity)
                 }
             }
+            .frame(width: controlsRect.width, height: controlsRect.height)
+            .offset(x: controlsRect.minX, y: controlsRect.minY)
 
-            if session.isFastForward {
-                FFBadge(label: SpeedSteps.label(session.ffSpeed))
-                    .padding(.top, max(24, safeArea.top + 6))
+            // Speed badge sits left of the top-centre MENU pill.
+            if let label = session.speedBadgeLabel {
+                FFBadge(label: label)
+                    .position(x: size.width * 0.5 - 110, y: max(24, safeArea.top + 6) + 12)
             }
 
-            HStack {
+            // Round buttons top-right.
+            HStack(spacing: 8) {
                 if session.cartridgeHardware.contains(.solar) {
                     landscapeCircle(action: { model.showBrightnessOverlay.toggle() }) {
                         Image(systemName: "sun.max.fill").font(.system(size: 15, weight: .semibold))
@@ -236,12 +265,13 @@ struct LandscapeGameView: View {
                     RotateGlyph(primary: theme.accent, secondary: Palette.text70)
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .trailing)
-            .padding(.top, max(20, safeArea.top + 4))
-            .padding(.trailing, max(20, safeArea.trailing + 8))
+            .frame(width: size.width - max(20, safeArea.trailing + 8), alignment: .trailing)
+            .padding(.top, max(14, safeArea.top + 4))
 
             if model.showBrightnessOverlay {
-                BrightnessOverlay().padding(.top, 70).frame(maxWidth: 360)
+                BrightnessOverlay()
+                    .frame(width: min(360, size.width * 0.5))
+                    .position(x: size.width / 2, y: 90)
             }
         }
         .frame(width: size.width, height: size.height)

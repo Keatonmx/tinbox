@@ -15,6 +15,15 @@ struct SettingsSheet: View {
     private var settings: Binding<AppSettings> { $model.settings }
     private var inGame: Bool { model.screen == .game }
 
+    private enum Section: String, CaseIterable {
+        case appearance = "Appearance"
+        case playback = "Playback"
+        case video = "Video"
+        case controls = "Controls"
+        case sync = "Sync & Extras"
+        case general = "General"
+    }
+
     var body: some View {
         BottomSheet(maxHeightFraction: 0.84, onDismiss: { model.closeSheet() }) {
             SheetHeader(title: "Settings") {
@@ -22,27 +31,31 @@ struct SettingsSheet: View {
             }
             HuggingScrollView {
                 VStack(spacing: 0) {
-                    appearance
-                    playback
-                    video
-                    controls
-                    syncAndExtras
-                    general
+                    section(.appearance) { appearance }
+                    section(.playback) { playback }
+                    section(.video) { video }
+                    section(.controls) { controls }
+                    section(.sync) { syncAndExtras }
+                    section(.general) { general }
                 }
-                .padding(.horizontal, 0)
             }
+        }
+    }
+
+    private func section<Content: View>(_ s: Section, @ViewBuilder content: () -> Content) -> some View {
+        CollapsibleSection(title: s.rawValue,
+                           collapsed: model.settings.collapsedSections.contains(s.rawValue),
+                           onToggle: { model.toggleSectionCollapsed(s.rawValue) }) {
+            content()
         }
     }
 
     // MARK: Appearance
 
     private var appearance: some View {
-        Group {
-            SectionHeader(title: "Appearance")
-            Card(bottomSpacing: 14) {
-                SettingsRow(title: "Theme", subtitle: "Outpost is the Redfern's earth-tone look", showsSeparator: false) {
-                    SegmentedPill(options: ThemeName.allCases, label: { $0.rawValue }, selection: settings.theme)
-                }
+        Card(bottomSpacing: 8) {
+            SettingsRow(title: "Theme", subtitle: "Modern violet or Outpost copper", showsSeparator: false) {
+                SegmentedPill(options: ThemeName.allCases, label: { $0.rawValue }, selection: settings.theme)
             }
         }
     }
@@ -50,30 +63,29 @@ struct SettingsSheet: View {
     // MARK: Playback
 
     private var playback: some View {
-        Group {
-            SectionHeader(title: "Playback")
-            Card(bottomSpacing: 14) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Speed presets · \(SpeedSteps.label(model.settings.ffSpeed))").font(Typography.row).foregroundColor(.white)
-                    SpeedSlider(speed: model.settings.ffSpeed) { model.setSpeed($0) }
-                    SpeedChips(current: model.settings.ffSpeed) { model.setSpeed($0) }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                RowSeparator()
-                SettingsRow(title: "Show FF button in game") {
-                    TinboxToggle(isOn: settings.showFFButton)
-                }
-                SettingsRow(title: "Rewind buffer", subtitle: "Keeps the last \(model.settings.rewindSeconds) s in memory") {
-                    TinboxToggle(isOn: settings.rewindEnabled)
-                }
-                SettingsRow(title: "Auto-suspend save", subtitle: "Emergency state on calls or app switch") {
-                    TinboxToggle(isOn: settings.autoSuspendSave)
-                }
-                SettingsRow(title: "Background audio mixing", subtitle: "Your music keeps playing over game SFX", showsSeparator: false) {
-                    TinboxToggle(isOn: settings.backgroundAudioMixing)
-                }
+        Card(bottomSpacing: 8) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Fast-forward speed · \(SpeedSteps.label(model.settings.ffSpeed))").font(Typography.row).foregroundColor(.white)
+                Text("Used by the Quick Menu toggle and when you hold » and slide right")
+                    .font(Typography.rowSubtitle).foregroundColor(Palette.textTertiary)
+                SpeedSlider(speed: model.settings.ffSpeed) { model.setSpeed($0) }
+                SpeedChips(current: model.settings.ffSpeed) { model.setSpeed($0) }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            RowSeparator()
+            SettingsRow(title: "Show » button in game", subtitle: "Hold and slide it to rewind or fast-forward") {
+                TinboxToggle(isOn: settings.showFFButton)
+            }
+            SettingsRow(title: "Rewind", subtitle: "Keeps the last \(model.settings.rewindSeconds) seconds so you can undo mistakes") {
+                TinboxToggle(isOn: settings.rewindEnabled)
+            }
+            SettingsRow(title: "Save my spot if interrupted", subtitle: "A phone call or app switch won't lose progress") {
+                TinboxToggle(isOn: settings.autoSuspendSave)
+            }
+            SettingsRow(title: "Keep my music playing", subtitle: "Game sound mixes over Music, Spotify, etc.", showsSeparator: false) {
+                TinboxToggle(isOn: settings.backgroundAudioMixing)
             }
         }
     }
@@ -81,36 +93,39 @@ struct SettingsSheet: View {
     // MARK: Video
 
     private var video: some View {
-        Group {
-            SectionHeader(title: "Video")
-            Card(bottomSpacing: 14) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Display scaling").font(Typography.row).foregroundColor(.white)
-                    SegmentedPill(options: DisplayScaling.allCases, label: { $0.rawValue }, selection: settings.scaling)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                RowSeparator()
-                SettingsRow(title: "Screen filter") {
-                    SegmentedPill(options: ScreenFilter.allCases, label: { $0.rawValue }, selection: settings.filter)
-                }
-                SettingsRow(title: "Boot", subtitle: bootSubtitle) {
-                    SegmentedPill(options: BootMode.allCases, label: { $0.rawValue },
-                                  selection: Binding(get: { model.settings.bootMode }, set: { pickBoot($0) }))
-                }
-                NavRow(title: "Controller skin", detail: model.settings.skin.rawValue, showsSeparator: false) {
-                    model.openSheet(.skins)
-                }
+        Card(bottomSpacing: 8) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Portrait screen size").font(Typography.row).foregroundColor(.white)
+                Text("Pixel-perfect is sharpest · Fit uses the full width")
+                    .font(Typography.rowSubtitle).foregroundColor(Palette.textTertiary)
+                SegmentedPill(options: DisplayScaling.allCases, label: { $0.rawValue }, selection: settings.scaling)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            RowSeparator()
+            SettingsRow(title: "Landscape screen", subtitle: model.settings.landscapeScaling == .stretch ? "Fills the whole screen" : "Keeps the 3:2 picture with bars at the sides") {
+                SegmentedPill(options: [DisplayScaling.fit, .stretch], label: { $0 == .stretch ? "Fill" : "Fit" },
+                              selection: settings.landscapeScaling)
+            }
+            SettingsRow(title: "Screen filter") {
+                SegmentedPill(options: ScreenFilter.allCases, label: { $0.rawValue }, selection: settings.filter, fontSize: 12, horizontalPadding: 10)
+            }
+            SettingsRow(title: "BIOS", subtitle: bootSubtitle) {
+                SegmentedPill(options: BootMode.allCases, label: { $0 == .hle ? "Built-in" : "My file" },
+                              selection: Binding(get: { model.settings.bootMode }, set: { pickBoot($0) }))
+            }
+            NavRow(title: "Controller skin", detail: model.settings.skin.rawValue, showsSeparator: false) {
+                model.openSheet(.skins)
             }
         }
     }
 
     private var bootSubtitle: String {
         if model.settings.bootMode == .biosFile, let name = model.settings.biosFileName {
-            return "Using \(name) · applies on next launch"
+            return "Using \(name) · applies next time a game starts"
         }
-        return "HLE needs no BIOS file"
+        return "Built-in works for almost every game · no file needed"
     }
 
     private func pickBoot(_ mode: BootMode) {
@@ -131,36 +146,33 @@ struct SettingsSheet: View {
     // MARK: Controls
 
     private var controls: some View {
-        Group {
-            SectionHeader(title: "Controls")
-            Card(bottomSpacing: 14) {
-                NavRow(title: "Edit button layout", subtitle: inGame ? "Move and resize on-screen controls" : "Open a game to edit its layout") {
-                    guard inGame else { model.showToast("Open a game first"); return }
-                    model.activeSheet = nil
-                    model.isLayoutEditing = true
-                }
-                NavRow(title: "Bluetooth controller", detail: session.controllerConnected ? ControllerManager.shared.controllerName : "None connected") {
-                    model.openSheet(.controllers)
-                }
-                SettingsRow(title: "Turbo buttons", subtitle: "Rapid-fire A / B", gap: 14) {
-                    HStack(spacing: 14) {
-                        HStack(spacing: 6) {
-                            Text("A").font(Typography.segment).foregroundColor(Palette.textSecondary)
-                            TinboxToggle(isOn: settings.turboA)
-                        }
-                        HStack(spacing: 6) {
-                            Text("B").font(Typography.segment).foregroundColor(Palette.textSecondary)
-                            TinboxToggle(isOn: settings.turboB)
-                        }
+        Card(bottomSpacing: 8) {
+            NavRow(title: "Edit button layout", subtitle: inGame ? "Drag to move · pinch to resize" : "Open a game first, then come back here") {
+                guard inGame else { model.showToast("Open a game first"); return }
+                model.activeSheet = nil
+                model.isLayoutEditing = true
+            }
+            NavRow(title: "Bluetooth controller", detail: session.controllerConnected ? ControllerManager.shared.controllerName : "None connected") {
+                model.openSheet(.controllers)
+            }
+            SettingsRow(title: "Turbo", subtitle: "Holding A or B presses it repeatedly", gap: 14) {
+                HStack(spacing: 14) {
+                    HStack(spacing: 6) {
+                        Text("A").font(Typography.segment).foregroundColor(Palette.textSecondary)
+                        TinboxToggle(isOn: settings.turboA)
+                    }
+                    HStack(spacing: 6) {
+                        Text("B").font(Typography.segment).foregroundColor(Palette.textSecondary)
+                        TinboxToggle(isOn: settings.turboB)
                     }
                 }
-                SettingsRow(title: "Landscape overlay opacity", subtitle: "\(Int((model.settings.controlOpacity * 100).rounded()))%") {
-                    Slider(value: settings.controlOpacity, in: 0.3...1.0, step: 0.05).tint(theme.accent).frame(width: 150)
-                }
-                NavRow(title: "Layout profiles", subtitle: "Per-game button setups (RPG, platformer…)",
-                       detail: model.currentGame?.layoutProfile ?? LayoutProfile.defaultName, showsSeparator: false) {
-                    model.openSheet(.layoutProfiles)
-                }
+            }
+            SettingsRow(title: "Landscape button opacity", subtitle: "\(Int((model.settings.controlOpacity * 100).rounded()))%") {
+                Slider(value: settings.controlOpacity, in: 0.3...1.0, step: 0.05).tint(theme.accent).frame(width: 150)
+            }
+            NavRow(title: "Layout profiles", subtitle: "Different button layouts for different games",
+                   detail: model.currentGame?.layoutProfile ?? LayoutProfile.defaultName, showsSeparator: false) {
+                model.openSheet(.layoutProfiles)
             }
         }
     }
@@ -168,53 +180,47 @@ struct SettingsSheet: View {
     // MARK: Sync & extras
 
     private var syncAndExtras: some View {
-        Group {
-            SectionHeader(title: "Sync & Extras")
-            Card(bottomSpacing: 14) {
-                SettingsRow(title: "Cloud saves") {
-                    SegmentedPill(options: CloudProvider.allCases, label: { $0.rawValue }, selection: settings.cloudProvider,
-                                  fontSize: 12, horizontalPadding: 10)
-                }
-                NavRow(title: "Sync now", detail: model.lastSyncText, titleColor: theme.accentText, showsChevron: false) {
-                    model.syncNow()
-                }
-                NavRow(title: "RetroAchievements", detail: RetroAchievementsService.shared.userChipText) {
-                    model.openSheet(.retroAchievements)
-                }
-                NavRow(title: "Apply ROM patch…", subtitle: patchSubtitle) {
-                    guard inGame else { model.showToast("Open a game first"); return }
-                    model.importKind = .patch
-                }
-                SettingsRow(title: "Sensor cartridges", subtitle: "Tilt, solar & rumble — auto-detected", showsSeparator: false) {
-                    TinboxToggle(isOn: settings.sensorsEnabled)
-                }
+        Card(bottomSpacing: 8) {
+            SettingsRow(title: "Cloud saves") {
+                SegmentedPill(options: CloudProvider.allCases, label: { $0.rawValue }, selection: settings.cloudProvider,
+                              fontSize: 12, horizontalPadding: 10)
+            }
+            NavRow(title: "Sync now", detail: model.lastSyncText, titleColor: theme.accentText, showsChevron: false) {
+                model.syncNow()
+            }
+            NavRow(title: "RetroAchievements", detail: RetroAchievementsService.shared.userChipText) {
+                model.openSheet(.retroAchievements)
+            }
+            NavRow(title: "Apply a ROM patch", subtitle: patchSubtitle) {
+                guard inGame else { model.showToast("Open a game first"); return }
+                model.importKind = .patch
+            }
+            SettingsRow(title: "Motion & rumble cartridges", subtitle: "Tilt, solar and rumble games use the phone's sensors", showsSeparator: false) {
+                TinboxToggle(isOn: settings.sensorsEnabled)
             }
         }
     }
 
     private var patchSubtitle: String {
         if let patch = model.currentGame?.patchFileName { return "Active: \(patch)" }
-        return "IPS / UPS — fan translations & hacks"
+        return "IPS / UPS files for fan translations and ROM hacks"
     }
 
     // MARK: General
 
     private var general: some View {
-        Group {
-            SectionHeader(title: "General")
-            Card(bottomSpacing: 0) {
-                SettingsRow(title: "Haptics on buttons") {
-                    TinboxToggle(isOn: settings.hapticsEnabled)
-                }
-                SettingsRow(title: "Battery saves", subtitle: "Native .sav files, backed up automatically") {
-                    Text("On").font(Typography.detail).foregroundColor(Palette.text40)
-                }
-                SettingsRow(title: "Auto-save on exit", subtitle: "Writes a state to the Auto slot") {
-                    TinboxToggle(isOn: settings.autosaveOnExit)
-                }
-                SettingsRow(title: "About", showsSeparator: false) {
-                    Text("Tinbox 1.0 · Redfern's Outpost").font(Typography.detail).foregroundColor(Palette.text40)
-                }
+        Card(bottomSpacing: 0) {
+            SettingsRow(title: "Haptic feedback", subtitle: "A light tap when you press a button") {
+                TinboxToggle(isOn: settings.hapticsEnabled)
+            }
+            SettingsRow(title: "In-game saves", subtitle: "Saved automatically to Files › Tinbox › Saves") {
+                Text("On").font(Typography.detail).foregroundColor(Palette.text40)
+            }
+            SettingsRow(title: "Save state when leaving a game", subtitle: "Fills the Auto slot so you can pick up where you left off") {
+                TinboxToggle(isOn: settings.autosaveOnExit)
+            }
+            SettingsRow(title: "About", showsSeparator: false) {
+                Text("Tinbox 1.0 · Redfern's Outpost").font(Typography.detail).foregroundColor(Palette.text40)
             }
         }
     }
