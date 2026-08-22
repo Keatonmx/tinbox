@@ -69,11 +69,14 @@ struct LibraryView: View {
             ButtonHaptics.shared.tap()
             model.importKind = .rom
         } label: {
-            VStack(spacing: 6) {
-                Text("+").font(.system(size: 26, weight: .regular)).foregroundColor(theme.accent)
-                Text("Import ROM").font(.system(size: 13, weight: .semibold)).foregroundColor(Palette.text55)
+            ZStack {
+                Color.clear
+                VStack(spacing: 6) {
+                    Text("+").font(.system(size: 26, weight: .regular)).foregroundColor(theme.accent)
+                    Text("Import ROM").font(.system(size: 13, weight: .semibold)).foregroundColor(Palette.text55)
+                        .lineLimit(1)
+                }
             }
-            .frame(maxWidth: .infinity)
             .aspectRatio(1, contentMode: .fit)
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
