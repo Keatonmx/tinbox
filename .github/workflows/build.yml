@@ -104,6 +104,21 @@ jobs:
           xcrun simctl io "$UDID" screenshot screenshots/03-ingame-later.png
           xcrun simctl terminate "$UDID" "$BUNDLE_ID" || true
 
+          # Settings + theme picker (Ember theme), Quick Menu over a running game.
+          xcrun simctl terminate "$UDID" "$BUNDLE_ID" || true
+          xcrun simctl launch "$UDID" "$BUNDLE_ID" -tinbox-theme Ember -tinbox-sheet themes > /dev/null 2>&1
+          sleep 6
+          xcrun simctl io "$UDID" screenshot screenshots/05-themes.png
+          xcrun simctl terminate "$UDID" "$BUNDLE_ID" || true
+          xcrun simctl launch "$UDID" "$BUNDLE_ID" -tinbox-theme Midnight -tinbox-sheet settings > /dev/null 2>&1
+          sleep 6
+          xcrun simctl io "$UDID" screenshot screenshots/06-settings.png
+          xcrun simctl terminate "$UDID" "$BUNDLE_ID" || true
+          xcrun simctl launch "$UDID" "$BUNDLE_ID" -tinbox-autoplay -tinbox-sheet quickMenu > /dev/null 2>&1
+          sleep 8
+          xcrun simctl io "$UDID" screenshot screenshots/07-quickmenu.png
+          xcrun simctl terminate "$UDID" "$BUNDLE_ID" || true
+
           # Landscape layout check.
           xcrun simctl launch "$UDID" "$BUNDLE_ID" -tinbox-autoplay -tinbox-landscape > screenshots/launch-landscape.log 2>&1
           sleep 9

@@ -95,6 +95,23 @@ final class AppModel: ObservableObject {
             }
             .store(in: &cancellables)
 
+        // CI screenshots: `-tinbox-theme <Name>` and `-tinbox-sheet <settings|themes|skins|quickMenu>`.
+        let args = CommandLine.arguments
+        if let i = args.firstIndex(of: "-tinbox-theme"), i + 1 < args.count, let t = ThemeName(rawValue: args[i + 1]) {
+            self.settings.theme = t
+        }
+        if let i = args.firstIndex(of: "-tinbox-sheet"), i + 1 < args.count {
+            let name = args[i + 1]
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+                switch name {
+                case "settings": self?.openSheet(.settings)
+                case "themes": self?.openSheet(.themes)
+                case "skins": self?.openSheet(.skins)
+                case "quickMenu": self?.openSheet(.quickMenu)
+                default: break
+                }
+            }
+        }
         // CI smoke test: `-tinbox-autoplay` boots the first ROM in Documents/ROMs
         // so a simulator screenshot shows real emulator output.
         if CommandLine.arguments.contains("-tinbox-autoplay"), let first = games.first {
