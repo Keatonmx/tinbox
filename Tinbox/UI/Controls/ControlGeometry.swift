@@ -39,6 +39,9 @@ enum ControlGeometry {
     static func frames(layout: ControlLayout, metrics: ControlMetrics, in size: CGSize,
                        showFastForward: Bool) -> [ControlID: CGRect] {
         var result: [ControlID: CGRect] = [:]
+        // Nothing sensible can be placed before the area has a real size
+        // (SwiftUI's first layout pass can propose zero).
+        guard size.width.isFinite, size.height.isFinite, size.width >= 100, size.height >= 100 else { return result }
         for control in ControlID.allCases {
             if control == .fastForward && !showFastForward { continue }
             let placement = layout[control]

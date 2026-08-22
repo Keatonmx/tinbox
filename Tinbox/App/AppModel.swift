@@ -595,8 +595,8 @@ final class AppModel: ObservableObject {
 
     func saveLayout(portrait: ControlLayout?, landscape: ControlLayout?) {
         var profile = currentProfile
-        if let portrait { profile.portrait = portrait }
-        if let landscape { profile.landscape = landscape }
+        if let portrait { profile.portrait = portrait.sanitized(fallback: .portraitDefault) }
+        if let landscape { profile.landscape = landscape.sanitized(fallback: .landscapeDefault) }
         if let i = profiles.firstIndex(where: { $0.name == profile.name }) {
             profiles[i] = profile
         } else {

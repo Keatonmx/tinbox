@@ -190,6 +190,7 @@ final class EmulationRunner: NSObject, @unchecked Sendable {
 
     /// Moves whatever the core produced this frame into the audio ring buffer.
     private func drainAudioLocked() {
+        audio.sourceRate = Double(core.audioSampleRate)
         let available = Int(core.availableAudioFrames())
         guard available > 0 else { return }
         audio.ring.write(maxFrames: available) { dst, capacity in

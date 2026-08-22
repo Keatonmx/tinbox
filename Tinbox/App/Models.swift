@@ -146,6 +146,22 @@ struct ControlLayout: Codable, Equatable {
         set { placements[id] = newValue }
     }
 
+    /// Replaces non-finite / out-of-range values (a bad save would otherwise
+    /// pile every control into the top-left corner).
+    func sanitized(fallback: ControlLayout) -> ControlLayout {
+        var out = self
+        for id in ControlID.allCases {
+            var p = out[id]
+            let f = fallback[id]
+            if !p.x.isFinite || !p.y.isFinite || !p.scale.isFinite { p = f }
+            p.x = min(1, max(0, p.x))
+            p.y = min(1, max(0, p.y))
+            p.scale = min(1.6, max(0.7, p.scale))
+            out.placements[id] = p
+        }
+        return out
+    }
+
     /// Matches the portrait design: L/R pills top corners, D-pad left / A-B
     /// cluster right, SELECT · MENU · START bottom row. Coordinates are relative
     /// to the controls region (below the screen band).
@@ -185,6 +201,13 @@ struct LayoutProfile: Identifiable, Codable, Equatable {
 
     static let defaultName = "Default"
     static let `default` = LayoutProfile(name: defaultName, portrait: .portraitDefault, landscape: .landscapeDefault)
+
+    func sanitized() -> LayoutProfile {
+        var p = self
+        p.portrait = portrait.sanitized(fallback: .portraitDefault)
+        p.landscape = landscape.sanitized(fallback: .landscapeDefault)
+        return p
+    }
 }
 
 // MARK: - RetroAchievements

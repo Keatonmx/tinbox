@@ -2,12 +2,17 @@
 //  AudioEngine.swift
 //  Tinbox
 //
-//  AVAudioEngine graph:  source node (32768 Hz stereo float32) → mixer → output
+//  AVAudioEngine graph:  source node (48 kHz stereo float32) → mixer → output
 //
 //  The emulation thread pushes the core's int16 samples into a ring buffer.
-//  The audio thread pulls them through a small linear-interpolation resampler
-//  whose ratio is steered by the buffer fill level (dynamic rate control):
+//  The audio thread pulls them through a small linear-interpolation resampler.
+//  Its ratio is (core rate ÷ 48 kHz) × a small correction from the buffer fill
+//  level (dynamic rate control):
 //
+//  • The GBA's sample rate is NOT fixed: SOUNDBIAS resolution bits switch it
+//    between 32768 / 65536 / 131072 / 262144 Hz, and games change it at
+//    runtime (Pokémon's m4a driver runs at 65536 Hz). The emulation thread
+//    reports the current rate after every frame and the ratio follows it.
 //  • The GBA produces audio at 59.73 fps while the display link runs at 60, so
 //    production outruns consumption by ~0.45 %. Instead of dropping samples in
 //    chunks (audible clicks) the read ratio drifts by ≤ ±1 % — inaudible.
@@ -103,10 +108,14 @@ final class AudioRingBuffer: @unchecked Sendable {
 }
 
 final class AudioEngine: @unchecked Sendable {
-    let sampleRate: Double
+    /// Rate we render at (the mixer then needs no resampling on most devices).
+    let outputRate: Double = 48_000
+    /// Current core sample rate; the emulation thread updates this every frame.
+    var sourceRate: Double
     let ring: AudioRingBuffer
-    /// Buffer fill the rate controller steers towards (frames). ~80 ms.
-    let targetFrames: Int
+    /// Buffered audio the rate controller steers towards, in seconds.
+    private let targetSeconds = 0.08
+    private var targetFrames: Int { Int(sourceRate * targetSeconds) }
     private let engine = AVAudioEngine()
     private var sourceNode: AVAudioSourceNode?
     private var mixWithOthers = false
@@ -125,13 +134,13 @@ final class AudioEngine: @unchecked Sendable {
     private var resetRequested = false
 
     init(sampleRate: Double) {
-        self.sampleRate = sampleRate
-        targetFrames = Int(sampleRate * 0.08)
-        ring = AudioRingBuffer(capacityFrames: Int(sampleRate * 0.5))   // 500 ms headroom
+        sourceRate = sampleRate
+        // Enough for 250 ms at the fastest GBA rate (262144 Hz).
+        ring = AudioRingBuffer(capacityFrames: 65_536)
         scratch = .allocate(capacity: (scratchFrames + 2) * 2)
         scratch.initialize(repeating: 0, count: (scratchFrames + 2) * 2)
 
-        let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 2)!
+        let format = AVAudioFormat(standardFormatWithSampleRate: outputRate, channels: 2)!
         let node = AVAudioSourceNode(format: format) { [unowned self] _, _, frameCount, audioBufferList -> OSStatus in
             let abl = UnsafeMutableAudioBufferListPointer(audioBufferList)
             guard abl.count >= 2, let left = abl[0].mData, let right = abl[1].mData else { return noErr }
@@ -201,14 +210,17 @@ final class AudioEngine: @unchecked Sendable {
             }
         }
 
-        // Rate control: low-pass the fill level, steer the read ratio by ≤ ±1 %.
+        // Rate control: low-pass the fill level, steer the read ratio by ≤ ±1 %
+        // around the nominal core-rate / output-rate conversion.
+        let target = Double(targetFrames)
         fillEMA += (Double(available) - fillEMA) * 0.08
-        let error = max(-1.0, min(1.0, (fillEMA - Double(targetFrames)) / Double(targetFrames)))
-        ratio = 1.0 + error * 0.01
+        let error = max(-1.0, min(1.0, (fillEMA - target) / target))
+        ratio = (sourceRate / outputRate) * (1.0 + error * 0.01)
 
         var done = 0
         while done < frames {
-            let n = min(frames - done, scratchFrames - 128)   // headroom for ratio > 1
+            // Bound n so the source frames needed always fit in `scratch`.
+            let n = min(frames - done, Int(Double(scratchFrames - 4) / max(ratio, 1)))
             // Source frames needed for n output frames at the current ratio.
             let total = phase + Double(n) * ratio
             let consumed = Int(total)                 // whole frames to consume

@@ -145,7 +145,7 @@ static void _rumbleSet(struct mRumbleIntegrator* integrator, float value) {
     mCoreConfigSetIntValue(&_core->config, "volume", 0x100);   // GBA_AUDIO_VOLUME_MAX; unset == silent
     mCoreConfigSetIntValue(&_core->config, "mute", 0);
     mCoreConfigSetIntValue(&_core->config, "frameskip", 0);
-    mCoreConfigSetUIntValue(&_core->config, "audioBuffers", 4096);
+    mCoreConfigSetUIntValue(&_core->config, "audioBuffers", 16384);   // ≥ one frame even at 262144 Hz
     mCoreConfigSetIntValue(&_core->config, "cheatAutosave", 0);
     mCoreConfigSetIntValue(&_core->config, "cheatAutoload", 0);
     mCoreConfigSetValue(&_core->config, "idleOptimization", "remove");

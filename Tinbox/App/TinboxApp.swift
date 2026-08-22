@@ -61,6 +61,8 @@ struct RootView: View {
                         .transition(.opacity)
                 case .game:
                     GameContainerView()
+                        // Controls must never animate from a zero-size first pass.
+                        .transaction { $0.animation = nil }
                         .transition(.opacity)
                 }
 

@@ -193,7 +193,7 @@ final class SettingsStore {
               !profiles.isEmpty else {
             return [.default]
         }
-        return profiles
+        return profiles.map { $0.sanitized() }
     }
 
     func saveProfiles(_ profiles: [LayoutProfile]) {

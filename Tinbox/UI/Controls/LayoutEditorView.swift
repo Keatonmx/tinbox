@@ -99,7 +99,7 @@ struct LayoutEditorView: View {
                     dragStart = layout[control]
                     selected = control
                 }
-                guard let start = dragStart else { return }
+                guard let start = dragStart, size.width > 0, size.height > 0 else { return }
                 var p = layout[control]
                 p.x = min(1, max(0, start.x + Double(value.translation.width / size.width)))
                 p.y = min(1, max(0, start.y + Double(value.translation.height / size.height)))
