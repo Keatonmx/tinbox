@@ -26,8 +26,14 @@ struct Game: Identifiable, Codable, Equatable, Hashable {
     var gameCode: String?
     /// Deterministic hue for the generated cover.
     var coverHue: Double
+    /// Absolute path when the ROM lives in the user's chosen folder instead of Documents/ROMs.
+    var externalPath: String?
 
-    var romURL: URL { FileLocations.roms.appendingPathComponent(fileName) }
+    var romURL: URL {
+        if let externalPath { return URL(fileURLWithPath: externalPath) }
+        return FileLocations.roms.appendingPathComponent(fileName)
+    }
+    var isExternal: Bool { externalPath != nil }
 
     static func makeID(fileName: String) -> String {
         let base = (fileName as NSString).deletingPathExtension

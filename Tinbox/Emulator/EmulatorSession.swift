@@ -135,7 +135,7 @@ final class EmulationRunner: NSObject, @unchecked Sendable {
             }
             core.clearAudio()
             lock.unlock()
-            audio.ring.clear()
+            audio.reset()
             wasSilent = true
             lastTimestamp = 0
             return
@@ -153,7 +153,7 @@ final class EmulationRunner: NSObject, @unchecked Sendable {
         // Audio is only meaningful at 1×.
         let silent = currentSpeed != 1
         if silent != wasSilent {
-            audio.ring.clear()
+            audio.reset()
             wasSilent = silent
         }
 
@@ -175,7 +175,6 @@ final class EmulationRunner: NSObject, @unchecked Sendable {
                 core.clearAudio()
             } else {
                 drainAudioLocked()
-                audio.updateRateControl()
             }
             if CACurrentMediaTime() > budgetEnd {
                 // Can't keep up with the requested speed this tick; cap the backlog.
@@ -343,7 +342,7 @@ final class EmulatorSession: ObservableObject {
         guard isRunning, isPaused else { return }
         isPaused = false
         runner.withCore { $0.clearAudio() }
-        audio.ring.clear()
+        audio.reset()
         runner.paused = false
         audio.start(mixWithOthers: settings.backgroundAudioMixing)
     }
@@ -378,7 +377,7 @@ final class EmulatorSession: ObservableObject {
                 runner.holdSpeed = 0
                 runner.holdRewind = 0
                 runner.withCore { $0.clearAudio() }
-                audio.ring.clear()
+                audio.reset()
             }
             if scrub != .none { scrub = .none }
             return
@@ -431,7 +430,7 @@ final class EmulatorSession: ObservableObject {
     func loadState(from url: URL) -> Bool {
         guard FileManager.default.fileExists(atPath: url.path) else { return false }
         let ok = runner.withCore { $0.loadState(from: url) }
-        if ok { audio.ring.clear() }
+        if ok { audio.reset() }
         return ok
     }
 
@@ -450,7 +449,7 @@ final class EmulatorSession: ObservableObject {
     func rewind(seconds: Double) -> Bool {
         let frames = UInt(max(1, seconds * 60))
         let ok = runner.withCore { $0.rewind(frames: frames) }
-        if ok { audio.ring.clear() }
+        if ok { audio.reset() }
         return ok
     }
 
@@ -485,6 +484,7 @@ final class EmulatorSession: ObservableObject {
         }
         if !settings.sensorsEnabled { sensors.stop() }
         audio.setMixWithOthers(settings.backgroundAudioMixing)
+        audio.volume = Float(settings.volume) / 100
     }
 
     private func syncSpeed() {

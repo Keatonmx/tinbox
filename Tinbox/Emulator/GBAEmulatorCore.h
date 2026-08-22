@@ -97,6 +97,9 @@ typedef NS_OPTIONS(NSUInteger, TinboxCartHardware) {
 /// (the file on disk is untouched). Call after loadROM; the core is reset.
 - (BOOL)applyPatchAtURL:(NSURL *)patchURL NS_SWIFT_NAME(applyPatch(at:));
 
+/// The ROM image currently in memory (patched, if a patch was applied).
+- (nullable NSData *)copyROMData;
+
 /// `nil` selects HLE BIOS. A real `gba_bios.bin` is validated before use.
 /// Takes effect on the next reset / ROM load.
 - (BOOL)setBIOSFileURL:(nullable NSURL *)biosURL NS_SWIFT_NAME(setBIOSFile(_:));

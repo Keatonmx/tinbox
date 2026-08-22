@@ -10,7 +10,18 @@ import Foundation
 enum DisplayScaling: String, CaseIterable, Codable, Identifiable {
     case pixelPerfect = "Pixel-perfect"
     case fit = "Fit"
-    case stretch = "Stretch"
+    /// Landscape only: fills the height and stretches just 10 % wider than 3:2.
+    case wide = "Wide"
+    case stretch = "Fill"
+    var id: String { rawValue }
+
+    static let portraitOptions: [DisplayScaling] = [.pixelPerfect, .fit, .stretch]
+    static let landscapeOptions: [DisplayScaling] = [.fit, .wide, .stretch]
+}
+
+enum ImportMode: String, CaseIterable, Codable, Identifiable {
+    case move = "Move"
+    case copy = "Copy"
     var id: String { rawValue }
 }
 
@@ -78,9 +89,10 @@ struct AppSettings: Codable, Equatable {
 
     // Video
     var scaling: DisplayScaling = .pixelPerfect
-    /// Landscape fills the screen by default (the design's "fullscreen" look);
-    /// Fit keeps the 3:2 picture with bars at the sides.
-    var landscapeScaling: DisplayScaling = .stretch
+    /// Landscape: Fit keeps the real 3:2 proportions; Wide/Fill stretch.
+    var landscapeScaling: DisplayScaling = .fit
+    /// 0…100 output volume.
+    var volume: Int = 100
     var filter: ScreenFilter = .none
     var bootMode: BootMode = .hle
     /// File name inside Documents/BIOS (normally "gba_bios.bin").
@@ -100,7 +112,13 @@ struct AppSettings: Codable, Equatable {
     var raHardcore: Bool = false
 
     // General
+    /// Always on — leaving a game writes the Auto slot. Kept for compatibility.
     var autosaveOnExit: Bool = true
+    /// Importing a ROM moves it into the library folder (or copies it).
+    var importMode: ImportMode = .move
+    /// Security-scoped bookmark of a user-chosen ROM folder (nil == Tinbox › ROMs).
+    var customROMFolderBookmark: Data?
+    var customROMFolderName: String?
 
     // Not user-facing: remembered state
     var lastPlayedGameID: String?
@@ -136,7 +154,11 @@ struct AppSettings: Codable, Equatable {
         cloudProvider = try c.decodeIfPresent(CloudProvider.self, forKey: .cloudProvider) ?? d.cloudProvider
         lastCloudSync = try c.decodeIfPresent(Date.self, forKey: .lastCloudSync)
         raHardcore = try c.decodeIfPresent(Bool.self, forKey: .raHardcore) ?? d.raHardcore
-        autosaveOnExit = try c.decodeIfPresent(Bool.self, forKey: .autosaveOnExit) ?? d.autosaveOnExit
+        autosaveOnExit = true
+        importMode = try c.decodeIfPresent(ImportMode.self, forKey: .importMode) ?? d.importMode
+        customROMFolderBookmark = try c.decodeIfPresent(Data.self, forKey: .customROMFolderBookmark)
+        customROMFolderName = try c.decodeIfPresent(String.self, forKey: .customROMFolderName)
+        volume = try c.decodeIfPresent(Int.self, forKey: .volume) ?? d.volume
         lastPlayedGameID = try c.decodeIfPresent(String.self, forKey: .lastPlayedGameID)
         collapsedSections = try c.decodeIfPresent([String].self, forKey: .collapsedSections) ?? d.collapsedSections
         hasSeenFastForwardHint = try c.decodeIfPresent(Bool.self, forKey: .hasSeenFastForwardHint) ?? d.hasSeenFastForwardHint

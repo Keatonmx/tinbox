@@ -30,20 +30,24 @@ final class GameLibraryStore {
             for g in games { known[g.id] = g }
         }
 
-        // Merge with what is actually on disk (the user may have added files via Files.app).
+        // Merge with what is actually on disk (the user may have added files via
+        // Files.app) — the default folder plus the user's chosen folder, if any.
         let fm = FileManager.default
-        let files = (try? fm.contentsOfDirectory(at: FileLocations.roms, includingPropertiesForKeys: [.fileSizeKey, .creationDateKey], options: [.skipsHiddenFiles])) ?? []
+        let defaultFiles = (try? fm.contentsOfDirectory(at: FileLocations.roms, includingPropertiesForKeys: [.fileSizeKey, .creationDateKey], options: [.skipsHiddenFiles])) ?? []
+        let scan: [(URL, Bool)] = defaultFiles.map { ($0, false) } + ROMFolderAccess.shared.customFolderROMs().map { ($0, true) }
         var result: [Game] = []
         var seen = Set<String>()
-        for url in files where FileLocations.romExtensions.contains(url.pathExtension.lowercased()) {
+        for (url, external) in scan where FileLocations.romExtensions.contains(url.pathExtension.lowercased()) {
             let fileName = url.lastPathComponent
-            let id = Game.makeID(fileName: fileName)
+            let id = (external ? "ext-" : "") + Game.makeID(fileName: fileName)
+            if seen.contains(id) { continue }
             seen.insert(id)
             let values = try? url.resourceValues(forKeys: [.fileSizeKey, .creationDateKey])
             let size = Int64(values?.fileSize ?? 0)
             if var existing = known[id] {
                 existing.fileName = fileName
                 existing.fileSize = size
+                existing.externalPath = external ? url.path : nil
                 result.append(existing)
             } else {
                 result.append(Game(
@@ -57,7 +61,8 @@ final class GameLibraryStore {
                     patchFileName: nil,
                     internalTitle: nil,
                     gameCode: nil,
-                    coverHue: Self.hue(for: id)))
+                    coverHue: Self.hue(for: id),
+                    externalPath: external ? url.path : nil))
             }
         }
         result.sort { ($0.lastPlayed ?? $0.addedAt) > ($1.lastPlayed ?? $1.addedAt) }
@@ -71,35 +76,108 @@ final class GameLibraryStore {
         }
     }
 
-    /// Copies a picked ROM into Documents/ROMs and returns the new Game.
-    func importROM(from sourceURL: URL) throws -> Game {
+    struct ImportResult {
+        let game: Game
+        /// True when the original file was removed (move succeeded).
+        let movedOriginal: Bool
+    }
+
+    /// Brings a picked ROM into the library folder (the default Documents/ROMs or
+    /// the user's chosen folder). With `move`, the original is deleted afterwards
+    /// when the provider allows it; otherwise it is left in place.
+    func importROM(from sourceURL: URL, move: Bool) throws -> ImportResult {
         FileLocations.createAll()
         let ext = sourceURL.pathExtension.lowercased()
         guard FileLocations.romExtensions.contains(ext) else {
             throw ImportError.unsupportedType(ext)
         }
-        let dest = FileLocations.uniqueURL(in: FileLocations.roms, preferredName: sourceURL.lastPathComponent)
+        let folder = ROMFolderAccess.shared.activeFolderURL
+        let external = ROMFolderAccess.shared.isCustom
         let accessed = sourceURL.startAccessingSecurityScopedResource()
         defer { if accessed { sourceURL.stopAccessingSecurityScopedResource() } }
-        try FileManager.default.copyItem(at: sourceURL, to: dest)
-        let size = (try? dest.resourceValues(forKeys: [.fileSizeKey]).fileSize).map(Int64.init) ?? 0
-        let fileName = dest.lastPathComponent
-        let id = Game.makeID(fileName: fileName)
-        return Game(id: id, fileName: fileName, title: Game.prettyTitle(fromFileName: fileName),
-                    fileSize: size, addedAt: Date(), lastPlayed: nil, layoutProfile: nil,
-                    patchFileName: nil, internalTitle: nil, gameCode: nil, coverHue: Self.hue(for: id))
+
+        // Already inside the library folder? Just register it.
+        if sourceURL.standardizedFileURL.deletingLastPathComponent() == folder.standardizedFileURL {
+            return ImportResult(game: makeGame(for: sourceURL, external: external), movedOriginal: false)
+        }
+
+        let dest = FileLocations.uniqueURL(in: folder, preferredName: sourceURL.lastPathComponent)
+        var coordinatorError: NSError?
+        var copyError: Error?
+        NSFileCoordinator().coordinate(readingItemAt: sourceURL, options: [], error: &coordinatorError) { readURL in
+            do { try FileManager.default.copyItem(at: readURL, to: dest) } catch { copyError = error }
+        }
+        if let coordinatorError { throw coordinatorError }
+        if let copyError { throw copyError }
+
+        var moved = false
+        if move {
+            var deleteError: NSError?
+            NSFileCoordinator().coordinate(writingItemAt: sourceURL, options: .forDeleting, error: &deleteError) { writeURL in
+                moved = (try? FileManager.default.removeItem(at: writeURL)) != nil
+            }
+        }
+        return ImportResult(game: makeGame(for: dest, external: external), movedOriginal: moved)
     }
 
-    func deleteGame(_ game: Game) {
-        try? FileManager.default.removeItem(at: game.romURL)
+    private func makeGame(for url: URL, external: Bool) -> Game {
+        let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize).map(Int64.init) ?? 0
+        let fileName = url.lastPathComponent
+        let id = (external ? "ext-" : "") + Game.makeID(fileName: fileName)
+        return Game(id: id, fileName: fileName, title: Game.prettyTitle(fromFileName: fileName),
+                    fileSize: size, addedAt: Date(), lastPlayed: nil, layoutProfile: nil,
+                    patchFileName: nil, internalTitle: nil, gameCode: nil, coverHue: Self.hue(for: id),
+                    externalPath: external ? url.path : nil)
+    }
+
+    /// Writes a patched ROM next to the original as a new, permanent library entry.
+    /// The original file is never modified.
+    func createPatchedCopy(of game: Game, patchURL: URL) throws -> Game {
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("tinbox-patch-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        // A throwaway core so the running game (if any) is untouched; its save
+        // directory is the temp folder so no real .sav is opened twice.
+        guard let core = GBAEmulatorCore(saveDirectory: tmp, stateDirectory: tmp, screenshotDirectory: tmp) else {
+            throw ImportError.patchFailed("Emulator core unavailable")
+        }
+        try core.loadROM(at: game.romURL)
+        guard core.applyPatch(at: patchURL) else {
+            core.unloadROM()
+            throw ImportError.patchFailed("The patch doesn't match this ROM")
+        }
+        guard let data = core.copyROMData() else {
+            core.unloadROM()
+            throw ImportError.patchFailed("Couldn't read the patched ROM")
+        }
+        core.unloadROM()
+
+        let patchName = (patchURL.lastPathComponent as NSString).deletingPathExtension
+        let base = (game.fileName as NSString).deletingPathExtension
+        let folder = game.isExternal ? game.romURL.deletingLastPathComponent() : FileLocations.roms
+        let dest = FileLocations.uniqueURL(in: folder, preferredName: "\(base) [\(patchName)].gba")
+        try data.write(to: dest, options: .atomic)
+        var patched = makeGame(for: dest, external: game.isExternal)
+        patched.title = "\(game.title) (\(patchName))"
+        return patched
+    }
+
+    /// Removes the ROM file and its states. External ROMs (user folder) are
+    /// left on disk unless `deleteFile` is set.
+    func deleteGame(_ game: Game, deleteFile: Bool) {
+        if deleteFile || !game.isExternal {
+            try? FileManager.default.removeItem(at: game.romURL)
+        }
         try? FileManager.default.removeItem(at: FileLocations.stateDirectory(for: game.id))
     }
 
     enum ImportError: LocalizedError {
         case unsupportedType(String)
+        case patchFailed(String)
         var errorDescription: String? {
             switch self {
             case .unsupportedType(let ext): return "Unsupported file type .\(ext)"
+            case .patchFailed(let reason): return reason
             }
         }
     }

@@ -2,39 +2,34 @@
 //  AudioEngine.swift
 //  Tinbox
 //
-//  AVAudioEngine graph:  source node (32768 Hz stereo float32) → varispeed → mixer
-//  The ring buffer holds the core's native int16 samples; the render callback
-//  converts to float (varispeed only accepts standard float formats).
+//  AVAudioEngine graph:  source node (32768 Hz stereo float32) → mixer → output
 //
-//  The emulation thread pushes every frame's samples into a ring buffer; the
-//  audio thread pulls from it. Two things keep that glitch-free:
+//  The emulation thread pushes the core's int16 samples into a ring buffer.
+//  The audio thread pulls them through a small linear-interpolation resampler
+//  whose ratio is steered by the buffer fill level (dynamic rate control):
 //
-//  • Priming — after any reset the output stays silent until ~60 ms of audio
-//    has accumulated, so normal scheduling jitter never drains the buffer.
-//  • Dynamic rate control — the GBA makes audio at 59.73 fps while the display
-//    link runs at 60, so production outruns consumption by ~0.45 %. Rather
-//    than dropping chunks, the varispeed rate is nudged (±2 % max, inaudible)
-//    to hold the buffer at its target fill level.
+//  • The GBA produces audio at 59.73 fps while the display link runs at 60, so
+//    production outruns consumption by ~0.45 %. Instead of dropping samples in
+//    chunks (audible clicks) the read ratio drifts by ≤ ±1 % — inaudible.
+//  • Playback starts only after `primeFrames` of audio are buffered so normal
+//    scheduling jitter never drains it; the fill level is low-pass filtered so
+//    the ratio changes smoothly rather than per callback.
 //
 
 import AVFoundation
 import os
 
-/// Interleaved stereo int16 ring buffer (counts are in frames).
+/// Interleaved stereo int16 ring buffer (counts are in frames). Single
+/// producer (emulation thread), single consumer (audio thread).
 final class AudioRingBuffer: @unchecked Sendable {
     let capacityFrames: Int
-    /// Playback stays silent until this many frames are buffered after a reset.
-    let primeFrames: Int
     private let storage: UnsafeMutablePointer<Int16>
-    private var head: Int = 0   // frames written (producer)
-    private var tail: Int = 0   // frames read (consumer)
-    private var primed = false
+    private var head: Int = 0   // frames written
+    private var tail: Int = 0   // frames consumed
     private let lock = os_unfair_lock_t.allocate(capacity: 1)
-    private(set) var underruns = 0
 
-    init(capacityFrames: Int, primeFrames: Int) {
+    init(capacityFrames: Int) {
         self.capacityFrames = capacityFrames
-        self.primeFrames = primeFrames
         storage = .allocate(capacity: capacityFrames * 2)
         storage.initialize(repeating: 0, count: capacityFrames * 2)
         lock.initialize(to: os_unfair_lock())
@@ -54,14 +49,12 @@ final class AudioRingBuffer: @unchecked Sendable {
         os_unfair_lock_lock(lock)
         head = 0
         tail = 0
-        primed = false
         os_unfair_lock_unlock(lock)
     }
 
     /// Producer. `fill` receives a contiguous destination and its capacity in
     /// frames and returns how many frames it wrote; called again if the free
-    /// region wraps. Frames that do not fit are dropped (the caller drains the
-    /// core anyway, so nothing piles up on the emulator side).
+    /// region wraps. Frames that do not fit are dropped.
     func write(maxFrames: Int, _ fill: (UnsafeMutablePointer<Int16>, Int) -> Int) {
         os_unfair_lock_lock(lock)
         var free = capacityFrames - (head - tail)
@@ -80,98 +73,77 @@ final class AudioRingBuffer: @unchecked Sendable {
         }
     }
 
-    /// Consumer (audio thread). Fills `frames` frames into `out`; silence while
-    /// priming or on underrun.
-    func read(into out: UnsafeMutablePointer<Int16>, frames: Int) {
+    /// Consumer. Copies up to `frames` frames starting at the read position
+    /// WITHOUT consuming them. Returns the number copied; the rest of `out` is zeroed.
+    func peek(into out: UnsafeMutablePointer<Int16>, frames: Int) -> Int {
         os_unfair_lock_lock(lock)
         let available = head - tail
-        if !primed {
-            if available >= primeFrames {
-                primed = true
-            } else {
-                os_unfair_lock_unlock(lock)
-                out.update(repeating: 0, count: frames * 2)
-                return
-            }
-        }
-        if available < frames {
-            // Underrun: output what we have, then re-prime so the next glitch
-            // doesn't follow immediately.
-            underruns += 1
-            primed = false
-        }
+        let start = tail
         os_unfair_lock_unlock(lock)
-
         let toCopy = min(frames, available)
         var copied = 0
         while copied < toCopy {
-            let readIndex = tail % capacityFrames
+            let readIndex = (start + copied) % capacityFrames
             let contiguous = min(toCopy - copied, capacityFrames - readIndex)
             (out + copied * 2).update(from: storage + readIndex * 2, count: contiguous * 2)
             copied += contiguous
-            os_unfair_lock_lock(lock)
-            tail += contiguous
-            os_unfair_lock_unlock(lock)
         }
         if copied < frames {
             (out + copied * 2).update(repeating: 0, count: (frames - copied) * 2)
         }
+        return copied
+    }
+
+    /// Consumer. Marks `frames` frames as consumed.
+    func advance(frames: Int) {
+        os_unfair_lock_lock(lock)
+        tail = min(head, tail + frames)
+        os_unfair_lock_unlock(lock)
     }
 }
 
 final class AudioEngine: @unchecked Sendable {
     let sampleRate: Double
     let ring: AudioRingBuffer
-    /// Buffer fill the rate controller steers towards (frames).
+    /// Buffer fill the rate controller steers towards (frames). ~80 ms.
     let targetFrames: Int
     private let engine = AVAudioEngine()
-    private let varispeed = AVAudioUnitVarispeed()
     private var sourceNode: AVAudioSourceNode?
     private var mixWithOthers = false
     private var isRunning = false
-    private var rateUpdateCounter = 0
-    /// Scratch for int16 → float conversion on the audio thread (frames × 2 channels).
+
+    // Resampler state (audio thread only).
     private let scratch: UnsafeMutablePointer<Int16>
     private let scratchFrames = 8192
+    private var phase: Double = 0          // fractional position into the next source frame
+    private var histL: Float = 0           // last consumed sample (for interpolation)
+    private var histR: Float = 0
+    private var primed = false
+    private var fillEMA: Double = 0
+    private var ratio: Double = 1
+    /// Set from other threads; the audio thread applies it at the next callback.
+    private var resetRequested = false
 
     init(sampleRate: Double) {
         self.sampleRate = sampleRate
-        targetFrames = Int(sampleRate * 0.06)                                   // 60 ms
-        ring = AudioRingBuffer(capacityFrames: Int(sampleRate * 0.5),          // 500 ms headroom
-                               primeFrames: targetFrames)
-        scratch = .allocate(capacity: scratchFrames * 2)
-        scratch.initialize(repeating: 0, count: scratchFrames * 2)
-        // Standard (float32, non-interleaved) format — required by AVAudioUnitVarispeed.
+        targetFrames = Int(sampleRate * 0.08)
+        ring = AudioRingBuffer(capacityFrames: Int(sampleRate * 0.5))   // 500 ms headroom
+        scratch = .allocate(capacity: (scratchFrames + 2) * 2)
+        scratch.initialize(repeating: 0, count: (scratchFrames + 2) * 2)
+
         let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 2)!
-        let ring = self.ring
-        let scratch = self.scratch
-        let scratchFrames = self.scratchFrames
-        let node = AVAudioSourceNode(format: format) { _, _, frameCount, audioBufferList -> OSStatus in
+        let node = AVAudioSourceNode(format: format) { [unowned self] _, _, frameCount, audioBufferList -> OSStatus in
             let abl = UnsafeMutableAudioBufferListPointer(audioBufferList)
             guard abl.count >= 2, let left = abl[0].mData, let right = abl[1].mData else { return noErr }
-            let l = left.assumingMemoryBound(to: Float.self)
-            let r = right.assumingMemoryBound(to: Float.self)
-            var done = 0
-            let total = Int(frameCount)
-            while done < total {
-                let n = min(total - done, scratchFrames)
-                ring.read(into: scratch, frames: n)
-                let scale: Float = 1.0 / 32768.0
-                for i in 0..<n {
-                    l[done + i] = Float(scratch[i * 2]) * scale
-                    r[done + i] = Float(scratch[i * 2 + 1]) * scale
-                }
-                done += n
-            }
+            self.render(frames: Int(frameCount),
+                        left: left.assumingMemoryBound(to: Float.self),
+                        right: right.assumingMemoryBound(to: Float.self))
             return noErr
         }
         sourceNode = node
         engine.attach(node)
-        engine.attach(varispeed)
-        engine.connect(node, to: varispeed, format: format)
-        engine.connect(varispeed, to: engine.mainMixerNode, format: format)
+        engine.connect(node, to: engine.mainMixerNode, format: format)
         engine.mainMixerNode.outputVolume = 1
-        varispeed.rate = 1
         configureSession(mixWithOthers: false)
 
         NotificationCenter.default.addObserver(forName: AVAudioSession.interruptionNotification, object: nil, queue: .main) { [weak self] note in
@@ -179,27 +151,103 @@ final class AudioEngine: @unchecked Sendable {
                   let typeValue = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
                   let type = AVAudioSession.InterruptionType(rawValue: typeValue) else { return }
             if type == .ended, self.isRunning {
-                self.ring.clear()
+                self.reset()
                 try? self.engine.start()
             }
         }
         NotificationCenter.default.addObserver(forName: .AVAudioEngineConfigurationChange, object: engine, queue: .main) { [weak self] _ in
             guard let self, self.isRunning else { return }
-            self.ring.clear()
+            self.reset()
             try? self.engine.start()
         }
     }
 
-    /// Called by the emulation thread after each emulated frame. Steers the
-    /// playback rate so the buffer hovers around `targetFrames`.
-    func updateRateControl() {
-        rateUpdateCounter += 1
-        guard rateUpdateCounter % 4 == 0 else { return }
-        let fill = ring.availableFrames
-        let error = Double(fill - targetFrames) / Double(targetFrames)   // -1 … +∞
-        let rate = 1.0 + max(-1.0, min(1.0, error)) * 0.02                // ±2 % max
-        varispeed.rate = Float(rate)
+    /// Output volume 0…1 (main thread).
+    var volume: Float {
+        get { engine.mainMixerNode.outputVolume }
+        set { engine.mainMixerNode.outputVolume = max(0, min(1, newValue)) }
     }
+
+    /// Drops buffered audio and re-primes. Call whenever playback position jumps
+    /// (load state, rewind, speed change, resume).
+    func reset() {
+        ring.clear()
+        resetRequested = true
+    }
+
+    // MARK: Audio thread
+
+    private func render(frames: Int, left: UnsafeMutablePointer<Float>, right: UnsafeMutablePointer<Float>) {
+        if resetRequested {
+            resetRequested = false
+            primed = false
+            phase = 0
+            histL = 0
+            histR = 0
+            ratio = 1
+        }
+        let available = ring.availableFrames
+
+        // Prime: stay silent until enough audio is queued.
+        if !primed {
+            if available >= targetFrames {
+                primed = true
+                fillEMA = Double(available)
+                ratio = 1
+            } else {
+                left.update(repeating: 0, count: frames)
+                right.update(repeating: 0, count: frames)
+                return
+            }
+        }
+
+        // Rate control: low-pass the fill level, steer the read ratio by ≤ ±1 %.
+        fillEMA += (Double(available) - fillEMA) * 0.08
+        let error = max(-1.0, min(1.0, (fillEMA - Double(targetFrames)) / Double(targetFrames)))
+        ratio = 1.0 + error * 0.01
+
+        var done = 0
+        while done < frames {
+            let n = min(frames - done, scratchFrames - 128)   // headroom for ratio > 1
+            // Source frames needed for n output frames at the current ratio.
+            let total = phase + Double(n) * ratio
+            let consumed = Int(total)                 // whole frames to consume
+            let need = consumed + 1                   // +1 for the interpolation neighbour
+            let got = ring.peek(into: scratch + 2, frames: need)   // scratch[0] holds the history sample
+            if got < need {
+                // Underrun: go silent and re-prime rather than crackle.
+                (left + done).update(repeating: 0, count: frames - done)
+                (right + done).update(repeating: 0, count: frames - done)
+                primed = false
+                phase = 0
+                return
+            }
+            scratch[0] = Int16(max(-32768, min(32767, histL * 32768)))
+            scratch[1] = Int16(max(-32768, min(32767, histR * 32768)))
+
+            let scale: Float = 1.0 / 32768.0
+            var p = phase
+            for i in 0..<n {
+                let j = Int(p)                        // 0 == history sample, 1 == first new frame
+                let f = Float(p - Double(j))
+                let l0 = Float(scratch[j * 2]) * scale
+                let l1 = Float(scratch[(j + 1) * 2]) * scale
+                let r0 = Float(scratch[j * 2 + 1]) * scale
+                let r1 = Float(scratch[(j + 1) * 2 + 1]) * scale
+                left[done + i] = l0 + (l1 - l0) * f
+                right[done + i] = r0 + (r1 - r0) * f
+                p += ratio
+            }
+            // Keep the last consumed source frame as the new history sample.
+            histL = Float(scratch[consumed * 2]) * scale
+            histR = Float(scratch[consumed * 2 + 1]) * scale
+            ring.advance(frames: consumed)
+            phase = total - Double(consumed)
+            done += n
+        }
+    }
+
+    // MARK: Session
 
     private func configureSession(mixWithOthers: Bool) {
         let session = AVAudioSession.sharedInstance()
@@ -209,7 +257,6 @@ final class AudioEngine: @unchecked Sendable {
             } else {
                 try session.setCategory(.playback, mode: .default, options: [])
             }
-            try session.setPreferredSampleRate(48_000)
             try session.setPreferredIOBufferDuration(0.01)
         } catch {
             NSLog("AVAudioSession configuration failed: \(error)")
@@ -222,7 +269,7 @@ final class AudioEngine: @unchecked Sendable {
         configureSession(mixWithOthers: mix)
         if isRunning {
             engine.stop()
-            ring.clear()
+            reset()
             try? engine.start()
         }
     }
@@ -234,8 +281,7 @@ final class AudioEngine: @unchecked Sendable {
         do {
             try AVAudioSession.sharedInstance().setActive(true)
             if !engine.isRunning {
-                ring.clear()
-                varispeed.rate = 1
+                reset()
                 try engine.start()
             }
             isRunning = true
@@ -247,13 +293,13 @@ final class AudioEngine: @unchecked Sendable {
     func pause() {
         isRunning = false
         engine.pause()
-        ring.clear()
+        reset()
     }
 
     func stop() {
         isRunning = false
         engine.stop()
-        ring.clear()
+        reset()
         try? AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
     }
 }

@@ -108,6 +108,12 @@ final class MetalRenderer: NSObject, MTKViewDelegate {
             let scale = min(viewW / texW, viewH / texH)
             quadW = texW * scale
             quadH = texH * scale
+        case .wide:
+            // 10 % wider than 3:2 (1.65:1), fitted to the view.
+            let targetW = texH * 1.65
+            let scale = min(viewW / targetW, viewH / texH)
+            quadW = targetW * scale
+            quadH = texH * scale
         case .pixelPerfect:
             // Largest integer multiple that fits; fall back to "fit" when the
             // view is smaller than one texture (never on an iPhone).

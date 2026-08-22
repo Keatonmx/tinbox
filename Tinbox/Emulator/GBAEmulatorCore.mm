@@ -303,6 +303,13 @@ static void _rumbleSet(struct mRumbleIntegrator* integrator, float value) {
     return ok;
 }
 
+- (NSData*)copyROMData {
+    if (!_romPath) return nil;
+    struct GBA* gba = (struct GBA*) _core->board;
+    if (!gba->memory.rom || !gba->memory.romSize) return nil;
+    return [NSData dataWithBytes:gba->memory.rom length:gba->memory.romSize];
+}
+
 #pragma mark - BIOS
 
 - (BOOL)usesBIOSFile {

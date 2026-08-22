@@ -12,28 +12,23 @@ struct GameContainerView: View {
     @EnvironmentObject private var model: AppModel
 
     var body: some View {
+        // The reader respects the safe area so its insets are SwiftUI's own
+        // (reading them from the key window was unreliable: zero whenever a
+        // picker or alert window was key, which shifted the layout around).
         GeometryReader { geo in
-            let landscape = geo.size.width > geo.size.height
-            if landscape {
-                // Landscape is full-bleed: the GeometryReader ignores the safe
-                // area so `geo.size` is the real screen; insets come from the window.
-                LandscapeGameView(size: geo.size, safeArea: SafeArea.current)
+            let insets = geo.safeAreaInsets
+            let full = CGSize(width: geo.size.width + insets.leading + insets.trailing,
+                              height: geo.size.height + insets.top + insets.bottom)
+            if full.width > full.height {
+                // Landscape is full-bleed: draw at the real screen size, shifted
+                // back over the insets.
+                LandscapeGameView(size: full, safeArea: insets)
+                    .frame(width: full.width, height: full.height)
+                    .offset(x: -insets.leading, y: -insets.top)
             } else {
-                PortraitGameView(safeArea: SafeArea.current)
+                PortraitGameView()
             }
         }
-        .ignoresSafeArea()
-    }
-}
-
-/// Window safe-area insets (the GeometryReader above ignores them on purpose).
-enum SafeArea {
-    static var current: EdgeInsets {
-        let insets = UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .flatMap { $0.windows }
-            .first { $0.isKeyWindow }?.safeAreaInsets ?? .zero
-        return EdgeInsets(top: insets.top, leading: insets.left, bottom: insets.bottom, trailing: insets.right)
     }
 }
 
@@ -43,7 +38,6 @@ struct PortraitGameView: View {
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var session: EmulatorSession
     @Environment(\.theme) private var theme
-    let safeArea: EdgeInsets
     @State private var editingLayout: ControlLayout = .portraitDefault
 
     private let metrics = ControlMetrics(isLandscape: false)
@@ -54,8 +48,6 @@ struct PortraitGameView: View {
             screenBand
             controlsArea
         }
-        .padding(.top, safeArea.top)
-        .padding(.bottom, safeArea.bottom)
         .background(theme.bg.ignoresSafeArea())
         .onChange(of: model.isLayoutEditing) { editing in
             if editing { editingLayout = model.currentProfile.portrait }

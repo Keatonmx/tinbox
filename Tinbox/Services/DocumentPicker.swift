@@ -10,28 +10,25 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-enum ImportKind {
+enum ImportKind: Equatable {
     case rom
+    /// Save file for the running game.
     case saveState
+    /// Save file for a specific library game (from the game's action sheet).
+    case saveForGame
     case bios
-    case patch
+    /// Patch → permanent patched copy of a specific library game.
+    case patchForGame
+    /// Choose the ROM library folder.
+    case romFolder
 
     var title: String {
         switch self {
         case .rom: return "Import ROM"
-        case .saveState: return "Import Save States"
+        case .saveState, .saveForGame: return "Load Save File"
         case .bios: return "Import BIOS"
-        case .patch: return "Apply ROM patch"
-        }
-    }
-
-    /// Destination shown in the import chip.
-    var destination: String {
-        switch self {
-        case .rom: return "On My iPhone › Tinbox › ROMs"
-        case .saveState: return "On My iPhone › Tinbox › States"
-        case .bios: return "On My iPhone › Tinbox › BIOS"
-        case .patch: return "On My iPhone › Tinbox › Patches"
+        case .patchForGame: return "Choose a patch"
+        case .romFolder: return "Choose ROM folder"
         }
     }
 
@@ -39,19 +36,30 @@ enum ImportKind {
         switch self {
         case .rom:
             return [UTType.gbaROM, .zip, .archive, .data]
-        case .saveState:
+        case .saveState, .saveForGame:
             return [UTType.gbaSaveState, UTType.gbaBatterySave, .data]
         case .bios:
             return [UTType.gbaBIOS, .data]
-        case .patch:
+        case .patchForGame:
             return [UTType.ipsPatch, UTType.upsPatch, UTType.bpsPatch, .data]
+        case .romFolder:
+            return [.folder]
         }
     }
 
     var allowsMultiple: Bool {
         switch self {
-        case .rom, .saveState: return true
-        case .bios, .patch: return false
+        case .rom, .saveState, .saveForGame: return true
+        case .bios, .patchForGame, .romFolder: return false
+        }
+    }
+
+    /// ROMs are opened in place (not copied to a temp file) so "Move" can
+    /// remove the original afterwards.
+    var opensInPlace: Bool {
+        switch self {
+        case .rom, .romFolder: return true
+        default: return false
         }
     }
 }
@@ -74,7 +82,7 @@ struct DocumentPicker: UIViewControllerRepresentable {
     let onCancel: () -> Void
 
     func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
-        let picker = UIDocumentPickerViewController(forOpeningContentTypes: kind.contentTypes, asCopy: true)
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: kind.contentTypes, asCopy: !kind.opensInPlace)
         picker.allowsMultipleSelection = kind.allowsMultiple
         picker.shouldShowFileExtensions = true
         picker.delegate = context.coordinator

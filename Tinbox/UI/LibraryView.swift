@@ -23,7 +23,7 @@ struct LibraryView: View {
                         GameTile(game: game)
                             .onTapGesture {
                                 ButtonHaptics.shared.tap()
-                                model.open(game)
+                                model.select(game)
                             }
                             .contextMenu {
                                 Button(role: .destructive) { model.deleteGame(game) } label: {

@@ -27,6 +27,9 @@ enum ActiveSheet: Equatable, Identifiable {
     case raLogin
     case layoutProfiles
     case controllers
+    /// Play / load save / patch / remove for `AppModel.selectedGame`.
+    case gameActions
+    case romFolder
     var id: Self { self }
 }
 
@@ -50,6 +53,8 @@ final class AppModel: ObservableObject {
     let session: EmulatorSession
     @Published private(set) var screen: Screen = .library
     @Published private(set) var currentGame: Game?
+    /// Game whose action sheet is open (tapped in the library).
+    @Published private(set) var selectedGame: Game?
     @Published var gameData = GameData()
     @Published var activeSheet: ActiveSheet?
     @Published var importKind: ImportKind?
@@ -72,6 +77,7 @@ final class AppModel: ObservableObject {
         self.profiles = SettingsStore.shared.loadProfiles()
         self.session = EmulatorSession(settings: settings)
         ButtonHaptics.shared.enabled = settings.hapticsEnabled
+        ROMFolderAccess.shared.activate(bookmark: settings.customROMFolderBookmark)
         refreshLibrary()
         updateSyncText()
 
@@ -109,6 +115,31 @@ final class AppModel: ObservableObject {
         games = GameLibraryStore.shared.loadGames()
     }
 
+    /// Tapping a library tile opens the game's action sheet.
+    func select(_ game: Game) {
+        selectedGame = game
+        activeSheet = .gameActions
+    }
+
+    /// "Continue" from the action sheet: boot and load the newest save state.
+    func openAndContinue(_ game: Game) {
+        open(game)
+        guard currentGame?.id == game.id else { return }
+        let slots = gameData.slots.filter { $0.isFilled }
+        guard let newest = slots.max(by: { ($0.savedAt ?? .distantPast) < ($1.savedAt ?? .distantPast) }) else { return }
+        if session.loadState(slot: newest.index) {
+            showToast("Continued from \(newest.name)")
+        }
+    }
+
+    var selectedGameLatestSave: String? {
+        guard let game = selectedGame else { return nil }
+        let data = GameLibraryStore.shared.loadGameData(for: game.id)
+        guard let newest = data.slots.filter({ $0.isFilled }).max(by: { ($0.savedAt ?? .distantPast) < ($1.savedAt ?? .distantPast) }),
+              let date = newest.savedAt else { return nil }
+        return "\(newest.name) · \(date.slotTimestampString)"
+    }
+
     func open(_ game: Game) {
         var game = game
         let data = GameLibraryStore.shared.loadGameData(for: game.id)
@@ -129,6 +160,7 @@ final class AppModel: ObservableObject {
         gameData = data
         forceLandscape = false
         activeSheet = nil
+        selectedGame = nil
         screen = .game
         session.start()
 
@@ -145,7 +177,7 @@ final class AppModel: ObservableObject {
     func exitGame() {
         guard let game = currentGame else { return }
         var autosaved = false
-        if settings.autosaveOnExit, session.isRunning {
+        if session.isRunning {
             autosaved = session.saveState(slot: 0)
             if autosaved {
                 gameData.slots[0].savedAt = Date()
@@ -174,10 +206,11 @@ final class AppModel: ObservableObject {
     }
 
     func deleteGame(_ game: Game) {
-        GameLibraryStore.shared.deleteGame(game)
+        GameLibraryStore.shared.deleteGame(game, deleteFile: !game.isExternal)
         games.removeAll { $0.id == game.id }
         GameLibraryStore.shared.saveGames(games)
-        showToast("Removed \(game.title)")
+        if selectedGame?.id == game.id { selectedGame = nil; activeSheet = nil }
+        showToast(game.isExternal ? "Removed from library · file kept in \(ROMFolderAccess.shared.displayName)" : "Removed \(game.title)")
     }
 
     private func persistGameData() {
@@ -343,65 +376,151 @@ final class AppModel: ObservableObject {
         importKind = nil
         switch kind {
         case .rom:
-            var imported = 0
-            for url in urls {
-                do {
-                    let game = try GameLibraryStore.shared.importROM(from: url)
-                    games.insert(game, at: 0)
-                    imported += 1
-                } catch {
-                    showToast(error.localizedDescription)
+            importROMs(urls)
+        case .saveState:
+            guard let game = currentGame else { return }
+            let loaded = importSaveFiles(urls, for: game, running: true)
+            if loaded.state != nil || loaded.battery { activeSheet = .saveStates }
+        case .saveForGame:
+            guard let game = selectedGame else { return }
+            let loaded = importSaveFiles(urls, for: game, running: false)
+            // Start the game on what was just imported.
+            if loaded.battery || loaded.state != nil {
+                open(game)
+                if let slot = loaded.state, currentGame?.id == game.id {
+                    _ = session.loadState(slot: slot)
                 }
             }
-            if imported > 0 {
-                GameLibraryStore.shared.saveGames(games)
-                showToast(imported == 1 ? "Copied to Tinbox › ROMs" : "Copied \(imported) ROMs")
-            }
-        case .saveState:
-            importSaveFiles(urls)
         case .bios:
             guard let url = urls.first else { return }
             importBIOS(url)
-        case .patch:
+        case .patchForGame:
+            guard let url = urls.first, let game = selectedGame else { return }
+            createPatchedCopy(of: game, patchURL: url)
+        case .romFolder:
             guard let url = urls.first else { return }
-            applyPatch(url)
+            chooseROMFolder(url)
         }
     }
 
-    private func importSaveFiles(_ urls: [URL]) {
-        guard let game = currentGame else { return }
+    private func importROMs(_ urls: [URL]) {
+        var imported = 0
+        var movedCount = 0
+        for url in urls {
+            do {
+                let result = try GameLibraryStore.shared.importROM(from: url, move: settings.importMode == .move)
+                if !games.contains(where: { $0.id == result.game.id }) {
+                    games.insert(result.game, at: 0)
+                }
+                imported += 1
+                if result.movedOriginal { movedCount += 1 }
+            } catch {
+                showToast(error.localizedDescription)
+            }
+        }
+        guard imported > 0 else { return }
+        GameLibraryStore.shared.saveGames(games)
+        let where_ = ROMFolderAccess.shared.displayName
+        if settings.importMode == .move {
+            if movedCount == imported {
+                showToast(imported == 1 ? "Moved to \(where_)" : "Moved \(imported) ROMs to \(where_)")
+            } else {
+                showToast("Copied to \(where_) · original couldn't be removed")
+            }
+        } else {
+            showToast(imported == 1 ? "Copied to \(where_)" : "Copied \(imported) ROMs to \(where_)")
+        }
+    }
+
+    /// Imports .sav (battery) / .sst (state) files for `game`. Returns what was
+    /// imported; `state` is the slot index a save state landed in.
+    @discardableResult
+    private func importSaveFiles(_ urls: [URL], for game: Game, running: Bool) -> (battery: Bool, state: Int?) {
+        var data = running ? gameData : GameLibraryStore.shared.loadGameData(for: game.id)
+        var battery = false
+        var stateSlot: Int?
         for url in urls {
             let ext = url.pathExtension.lowercased()
             let accessed = url.startAccessingSecurityScopedResource()
             defer { if accessed { url.stopAccessingSecurityScopedResource() } }
             if FileLocations.batteryExtensions.contains(ext) {
-                // Battery save: replace <rom>.sav next to mGBA's save dir.
+                // Battery save: replace <rom>.sav in mGBA's save dir.
                 let base = (game.fileName as NSString).deletingPathExtension
                 let dest = FileLocations.saves.appendingPathComponent("\(base).sav")
-                session.pause()
+                if running { session.pause() }
                 try? FileManager.default.removeItem(at: dest)
                 if (try? FileManager.default.copyItem(at: url, to: dest)) != nil {
-                    // Reload so the core maps the new file.
-                    let cheats = gameData.cheats
-                    try? session.load(game, cheats: cheats)
-                    session.start()
-                    showToast("Imported battery save")
+                    battery = true
+                    if running {
+                        // Reload so the core maps the new file.
+                        try? session.load(game, cheats: data.cheats)
+                        session.start()
+                    }
+                    showToast("Loaded in-game save")
                 }
-                session.resume()
+                if running { session.resume() }
             } else if FileLocations.stateExtensions.contains(ext) {
-                guard let slot = gameData.slots.first(where: { !$0.isFilled }) ?? gameData.slots.last else { continue }
+                guard let slot = data.slots.first(where: { !$0.isFilled }) ?? data.slots.last else { continue }
                 let dest = FileLocations.stateFile(gameID: game.id, slot: slot.index)
                 try? FileManager.default.removeItem(at: dest)
                 if (try? FileManager.default.copyItem(at: url, to: dest)) != nil {
-                    gameData.slots[slot.index].savedAt = Date()
-                    persistGameData()
-                    showToast("Imported to \(slot.name)")
+                    data.slots[slot.index].savedAt = Date()
+                    stateSlot = slot.index
+                    showToast("Save state placed in \(slot.name)")
                 }
             } else {
                 showToast("Only .sav and .sst files")
             }
         }
-        activeSheet = .saveStates
+        if running {
+            gameData = data
+            persistGameData()
+        } else {
+            GameLibraryStore.shared.saveGameData(data, for: game.id)
+        }
+        return (battery, stateSlot)
+    }
+
+    private func createPatchedCopy(of game: Game, patchURL: URL) {
+        showToast("Patching…")
+        let accessed = patchURL.startAccessingSecurityScopedResource()
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let result = Result { try GameLibraryStore.shared.createPatchedCopy(of: game, patchURL: patchURL) }
+            if accessed { patchURL.stopAccessingSecurityScopedResource() }
+            DispatchQueue.main.async {
+                guard let self else { return }
+                switch result {
+                case .success(let patched):
+                    self.refreshLibrary()
+                    if let i = self.games.firstIndex(where: { $0.id == patched.id }) {
+                        self.games[i].title = patched.title
+                        GameLibraryStore.shared.saveGames(self.games)
+                    }
+                    self.activeSheet = nil
+                    self.showToast("Saved \(patched.fileName) · original untouched")
+                case .failure(let error):
+                    self.showToast(error.localizedDescription)
+                }
+            }
+        }
+    }
+
+    private func chooseROMFolder(_ url: URL) {
+        guard let bookmark = ROMFolderAccess.shared.adopt(folder: url) else {
+            showToast("Couldn't access that folder"); return
+        }
+        settings.customROMFolderBookmark = bookmark
+        settings.customROMFolderName = url.lastPathComponent
+        refreshLibrary()
+        showToast("ROM folder: \(url.lastPathComponent)")
+    }
+
+    func useDefaultROMFolder() {
+        ROMFolderAccess.shared.release()
+        settings.customROMFolderBookmark = nil
+        settings.customROMFolderName = nil
+        refreshLibrary()
+        showToast("ROM folder: Tinbox › ROMs")
     }
 
     private func importBIOS(_ url: URL) {
@@ -431,32 +550,6 @@ final class AppModel: ObservableObject {
             settings.bootMode = .hle
             showToast("Not a valid gba_bios.bin")
         }
-    }
-
-    private func applyPatch(_ url: URL) {
-        guard var game = currentGame else { showToast("Open a game first"); return }
-        let accessed = url.startAccessingSecurityScopedResource()
-        defer { if accessed { url.stopAccessingSecurityScopedResource() } }
-        let dest = FileLocations.uniqueURL(in: FileLocations.patches, preferredName: url.lastPathComponent)
-        guard (try? FileManager.default.copyItem(at: url, to: dest)) != nil else { showToast("Couldn't copy patch"); return }
-        let ok = session.runner.withCore { $0.applyPatch(at: dest) }
-        if ok {
-            game.patchFileName = dest.lastPathComponent
-            currentGame = game
-            updateGame(game)
-            showToast("Patch applied · \(dest.lastPathComponent)")
-        } else {
-            try? FileManager.default.removeItem(at: dest)
-            showToast("Patch didn't apply to this ROM")
-        }
-    }
-
-    func clearPatch() {
-        guard var game = currentGame, game.patchFileName != nil else { return }
-        game.patchFileName = nil
-        currentGame = game
-        updateGame(game)
-        showToast("Patch removed · restarts on next launch")
     }
 
     // MARK: Cloud

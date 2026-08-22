@@ -75,6 +75,10 @@ struct SettingsSheet: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
             RowSeparator()
+            SettingsRow(title: "Volume", subtitle: "\(model.settings.volume)%") {
+                Slider(value: Binding(get: { Double(model.settings.volume) }, set: { model.settings.volume = Int($0.rounded()) }),
+                       in: 0...100, step: 5).tint(theme.accent).frame(width: 150)
+            }
             SettingsRow(title: "Show » button in game", subtitle: "Hold and slide it to rewind or fast-forward") {
                 TinboxToggle(isOn: settings.showFFButton)
             }
@@ -98,14 +102,14 @@ struct SettingsSheet: View {
                 Text("Portrait screen size").font(Typography.row).foregroundColor(.white)
                 Text("Pixel-perfect is sharpest · Fit uses the full width")
                     .font(Typography.rowSubtitle).foregroundColor(Palette.textTertiary)
-                SegmentedPill(options: DisplayScaling.allCases, label: { $0.rawValue }, selection: settings.scaling)
+                SegmentedPill(options: DisplayScaling.portraitOptions, label: { $0.rawValue }, selection: settings.scaling)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
             RowSeparator()
-            SettingsRow(title: "Landscape screen", subtitle: model.settings.landscapeScaling == .stretch ? "Fills the whole screen" : "Keeps the 3:2 picture with bars at the sides") {
-                SegmentedPill(options: [DisplayScaling.fit, .stretch], label: { $0 == .stretch ? "Fill" : "Fit" },
+            SettingsRow(title: "Landscape screen", subtitle: landscapeSubtitle) {
+                SegmentedPill(options: DisplayScaling.landscapeOptions, label: { $0.rawValue },
                               selection: settings.landscapeScaling)
             }
             SettingsRow(title: "Screen filter") {
@@ -118,6 +122,14 @@ struct SettingsSheet: View {
             NavRow(title: "Controller skin", detail: model.settings.skin.rawValue, showsSeparator: false) {
                 model.openSheet(.skins)
             }
+        }
+    }
+
+    private var landscapeSubtitle: String {
+        switch model.settings.landscapeScaling {
+        case .fit: return "True proportions · bars at the sides"
+        case .wide: return "Slightly stretched (10 %) · smaller bars"
+        default: return "Fills the screen · noticeably stretched"
         }
     }
 
@@ -191,9 +203,8 @@ struct SettingsSheet: View {
             NavRow(title: "RetroAchievements", detail: RetroAchievementsService.shared.userChipText) {
                 model.openSheet(.retroAchievements)
             }
-            NavRow(title: "Apply a ROM patch", subtitle: patchSubtitle) {
-                guard inGame else { model.showToast("Open a game first"); return }
-                model.importKind = .patch
+            SettingsRow(title: "ROM patches", subtitle: "Tap a game in the Library › Make a patched copy", showsSeparator: true) {
+                EmptyView()
             }
             SettingsRow(title: "Motion & rumble cartridges", subtitle: "Tilt, solar and rumble games use the phone's sensors", showsSeparator: false) {
                 TinboxToggle(isOn: settings.sensorsEnabled)
@@ -201,23 +212,25 @@ struct SettingsSheet: View {
         }
     }
 
-    private var patchSubtitle: String {
-        if let patch = model.currentGame?.patchFileName { return "Active: \(patch)" }
-        return "IPS / UPS files for fan translations and ROM hacks"
-    }
-
     // MARK: General
 
     private var general: some View {
         Card(bottomSpacing: 0) {
+            NavRow(title: "ROM folder", subtitle: "Where your games live · shown in the Files app",
+                   detail: ROMFolderAccess.shared.displayName) {
+                model.openSheet(.romFolder)
+            }
+            SettingsRow(title: "When importing a ROM", subtitle: model.settings.importMode == .move ? "The file moves into the ROM folder" : "The file is copied; the original stays") {
+                SegmentedPill(options: ImportMode.allCases, label: { $0.rawValue }, selection: settings.importMode)
+            }
             SettingsRow(title: "Haptic feedback", subtitle: "A light tap when you press a button") {
                 TinboxToggle(isOn: settings.hapticsEnabled)
             }
             SettingsRow(title: "In-game saves", subtitle: "Saved automatically to Files › Tinbox › Saves") {
                 Text("On").font(Typography.detail).foregroundColor(Palette.text40)
             }
-            SettingsRow(title: "Save state when leaving a game", subtitle: "Fills the Auto slot so you can pick up where you left off") {
-                TinboxToggle(isOn: settings.autosaveOnExit)
+            SettingsRow(title: "Save when leaving a game", subtitle: "Always on · the Auto slot is written every time you exit") {
+                Text("On").font(Typography.detail).foregroundColor(Palette.text40)
             }
             SettingsRow(title: "About", showsSeparator: false) {
                 Text("Tinbox 1.0 · Redfern's Outpost").font(Typography.detail).foregroundColor(Palette.text40)

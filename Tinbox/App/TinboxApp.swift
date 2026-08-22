@@ -116,6 +116,8 @@ struct RootView: View {
                 case .raLogin: RALoginSheet()
                 case .layoutProfiles: LayoutProfilesSheet()
                 case .controllers: ControllersSheet()
+                case .gameActions: GameActionsSheet()
+                case .romFolder: ROMFolderSheet()
                 }
             }
             .zIndex(40)
