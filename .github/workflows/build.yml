@@ -1,0 +1,141 @@
+name: Build Tinbox
+
+# Runs on GitHub's free macOS runners — the Mac you don't have.
+#   • builds libmgba as an xcframework (cached between runs)
+#   • compiles the app for the iOS Simulator and for devices
+#   • boots a simulator, launches Tinbox, takes screenshots
+#   • uploads an UNSIGNED .ipa you can sign + install from Windows with Sideloadly
+#
+# Optional: set a repository variable TEST_ROM_URL (Settings › Secrets and
+# variables › Actions › Variables) pointing at a .gba/.zip you own; the
+# simulator run then auto-opens it so the screenshot shows the core running.
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-14
+    timeout-minutes: 60
+    env:
+      SCHEME: Tinbox
+      BUNDLE_ID: com.redfernsoutpost.tinbox
+      DERIVED: ${{ github.workspace }}/DerivedData
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s /Applications/Xcode_15.4.app 2>/dev/null || sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -n 1)"
+          xcodebuild -version
+          cmake --version | head -n 1
+
+      - name: Cache libmgba xcframework
+        id: mgba-cache
+        uses: actions/cache@v4
+        with:
+          path: Vendor/mgba-dist
+          key: mgba-dist-${{ runner.os }}-${{ hashFiles('Scripts/build-mgba.sh', 'Scripts/mgba-ios.patch') }}-v1
+
+      - name: Build libmgba (ios-arm64 + simulator)
+        if: steps.mgba-cache.outputs.cache-hit != 'true'
+        run: |
+          chmod +x Scripts/build-mgba.sh
+          Scripts/build-mgba.sh 2>&1 | tee mgba-build.log
+          ls -la Vendor/mgba-dist/mgba.xcframework
+
+      - name: Build for iOS Simulator
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project Tinbox.xcodeproj -scheme "$SCHEME" -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$DERIVED" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
+            2>&1 | tee xcodebuild-simulator.log | grep -E "error:|warning: unre|BUILD |Compiling|Linking" || true
+          test -d "$DERIVED/Build/Products/Debug-iphonesimulator/Tinbox.app"
+
+      - name: Simulator smoke test + screenshots
+        continue-on-error: true
+        env:
+          TEST_ROM_URL: ${{ vars.TEST_ROM_URL }}
+        run: |
+          APP="$DERIVED/Build/Products/Debug-iphonesimulator/Tinbox.app"
+          UDID=$(xcrun simctl list devices available -j | jq -r '
+            .devices | to_entries[] | select(.key | contains("iOS")) | .value[]
+            | select(.name | test("^iPhone (16|15) Pro$")) | .udid' | head -n 1)
+          if [ -z "$UDID" ]; then
+            UDID=$(xcrun simctl list devices available -j | jq -r '
+              .devices | to_entries[] | select(.key | contains("iOS")) | .value[]
+              | select(.name | test("^iPhone")) | .udid' | head -n 1)
+          fi
+          echo "Simulator: $UDID"
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl install "$UDID" "$APP"
+          mkdir -p screenshots
+
+          ARGS=""
+          if [ -n "$TEST_ROM_URL" ]; then
+            CONTAINER=$(xcrun simctl get_app_container "$UDID" "$BUNDLE_ID" data)
+            mkdir -p "$CONTAINER/Documents/ROMs"
+            curl -fsSL "$TEST_ROM_URL" -o "$CONTAINER/Documents/ROMs/test-rom.${TEST_ROM_URL##*.}"
+            ARGS="-tinbox-autoplay"
+          fi
+
+          xcrun simctl launch --console-pty "$UDID" "$BUNDLE_ID" $ARGS > screenshots/launch.log 2>&1 &
+          sleep 8
+          xcrun simctl io "$UDID" screenshot screenshots/01-launch.png
+          sleep 6
+          xcrun simctl io "$UDID" screenshot screenshots/02-after-14s.png
+          xcrun simctl spawn "$UDID" log show --last 30s --predicate 'process == "Tinbox"' > screenshots/device.log 2>/dev/null || true
+          xcrun simctl terminate "$UDID" "$BUNDLE_ID" || true
+
+      - name: Build for device (unsigned)
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project Tinbox.xcodeproj -scheme "$SCHEME" -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$DERIVED" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            2>&1 | tee xcodebuild-device.log | grep -E "error:|BUILD " || true
+          APP="$DERIVED/Build/Products/Release-iphoneos/Tinbox.app"
+          test -d "$APP"
+          rm -rf ipa && mkdir -p ipa/Payload
+          cp -R "$APP" ipa/Payload/
+          (cd ipa && zip -qry ../Tinbox-unsigned.ipa Payload)
+          ls -la Tinbox-unsigned.ipa
+
+      - name: Upload IPA (sign with Sideloadly on Windows)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tinbox-unsigned-ipa
+          path: Tinbox-unsigned.ipa
+
+      - name: Upload simulator screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: simulator-screenshots
+          path: screenshots/
+          if-no-files-found: ignore
+
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: |
+            mgba-build.log
+            xcodebuild-simulator.log
+            xcodebuild-device.log
+          if-no-files-found: ignore

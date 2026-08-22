@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  html,body{margin:0;padding:0;background:#101014;}
+  a{color:{{ th.ac }};text-decoration:none;} a:hover{color:{{ th.acText }};}
+  @keyframes toastIn{from{opacity:0;transform:translate(-50%,8px)}to{opacity:1;transform:translate(-50%,0)}}
+</style>
+</helmet>
+<div style="min-height:100vh;background:#101014;display:flex;align-items:center;justify-content:center;padding:40px;box-sizing:border-box;font-family:-apple-system,system-ui,sans-serif;">
+  <sc-if value="{{ portrait }}" hint-placeholder-val="{{ true }}">
+    <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ true }}" hint-size="402px,874px">
+      <div style="height:100%;position:relative;display:flex;flex-direction:column;background:{{ th.bg }};">
+        <sc-if value="{{ isLibrary }}" hint-placeholder-val="{{ true }}">
+          <div data-screen-label="Library" style="height:100%;display:flex;flex-direction:column;overflow:hidden;">
+            <div style="padding:76px 20px 12px;display:flex;align-items:flex-end;justify-content:space-between;">
+              <div style="display:flex;flex-direction:column;gap:2px;">
+                <div style="font-size:12px;font-weight:600;color:rgba(235,235,245,0.45);letter-spacing:1.2px;text-transform:uppercase;">Tinbox</div>
+                <div style="font-size:34px;font-weight:700;color:#fff;letter-spacing:0.3px;">Library</div>
+              </div>
+              <div onClick="{{ openSettings }}" style="width:44px;height:44px;border-radius:22px;background:{{ th.chip }};border:0.5px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;cursor:pointer;" style-active="transform:scale(0.94)">
+                <svg width="20" height="16" viewBox="0 0 20 16"><rect x="0" y="2" width="20" height="2" rx="1" fill="rgba(235,235,245,0.7)"></rect><rect x="0" y="12" width="20" height="2" rx="1" fill="rgba(235,235,245,0.7)"></rect><circle cx="6" cy="3" r="3" fill="{{ th.ac }}"></circle><circle cx="14" cy="13" r="3" fill="{{ th.ac }}"></circle></svg>
+              </div>
+            </div>
+            <div style="flex:1;overflow:auto;padding:8px 20px 60px;scrollbar-width:none;">
+              <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;">
+                <sc-for list="{{ games }}" as="g" hint-placeholder-count="6">
+                  <div onClick="{{ g.open }}" style="display:flex;flex-direction:column;gap:8px;cursor:pointer;" style-active="opacity:0.7">
+                    <div style="aspect-ratio:1/1;border-radius:14px;background:{{ th.chip }};border:0.5px solid rgba(255,255,255,0.07);display:flex;align-items:center;justify-content:center;background-image:repeating-linear-gradient(135deg,{{ g.stripe }} 0 8px,transparent 8px 20px);">
+                      <span style="font-family:ui-monospace,monospace;font-size:10px;color:rgba(255,255,255,0.35);letter-spacing:0.5px;">box art</span>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:1px;padding:0 2px;">
+                      <div style="font-size:15px;font-weight:600;color:#fff;letter-spacing:-0.2px;">{{ g.name }}</div>
+                      <div style="font-size:12px;color:rgba(235,235,245,0.45);">{{ g.meta }}</div>
+                    </div>
+                  </div>
+                </sc-for>
+                <div onClick="{{ openImportRom }}" style="aspect-ratio:1/1;border-radius:14px;border:1.5px dashed rgba(235,235,245,0.2);display:flex;flex-direction:column;gap:6px;align-items:center;justify-content:center;cursor:pointer;" style-active="opacity:0.7">
+                  <div style="font-size:26px;color:{{ th.ac }};font-weight:400;line-height:1;">+</div>
+                  <div style="font-size:13px;font-weight:600;color:rgba(235,235,245,0.55);">Import ROM</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ isGame }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="In-game (portrait)" style="height:100%;display:flex;flex-direction:column;overflow:hidden;">
+            <div style="padding:66px 14px 8px;display:flex;align-items:center;justify-content:space-between;">
+              <div onClick="{{ exitGame }}" style="width:40px;height:40px;border-radius:20px;background:{{ th.chip }};border:0.5px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;cursor:pointer;" style-active="transform:scale(0.94)">
+                <svg width="10" height="17" viewBox="0 0 10 17"><path d="M8.5 1.5L2 8.5l6.5 7" stroke="rgba(235,235,245,0.8)" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+              </div>
+              <div style="font-size:15px;font-weight:600;color:#fff;letter-spacing:-0.2px;">{{ gameTitle }}</div>
+              <div onClick="{{ rotate }}" style="width:40px;height:40px;border-radius:20px;background:{{ th.chip }};border:0.5px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;cursor:pointer;" style-active="transform:scale(0.94)">
+                <svg width="18" height="14" viewBox="0 0 18 14"><rect x="1" y="1" width="10" height="12" rx="2" stroke="rgba(235,235,245,0.7)" stroke-width="1.5" fill="none"></rect><rect x="8" y="6" width="9" height="7" rx="2" fill="{{ th.bg }}" stroke="{{ th.ac }}" stroke-width="1.5"></rect></svg>
+              </div>
+            </div>
+            <div style="position:relative;margin:6px 0 0;background:#000;padding:10px 0;">
+              <div style="aspect-ratio:3/2;margin:0 10px;border-radius:6px;background:{{ th.well }};border:1px solid rgba(255,255,255,0.06);background-image:repeating-linear-gradient(135deg,{{ th.stripe }} 0 10px,transparent 10px 26px);display:flex;align-items:center;justify-content:center;">
+                <span style="font-family:ui-monospace,monospace;font-size:11px;color:rgba(255,255,255,0.3);letter-spacing:1px;">ROM VIDEO OUT · 240 × 160</span>
+              </div>
+              <sc-if value="{{ ff }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute;top:20px;right:22px;background:{{ th.badge }};color:#fff;font-size:12px;font-weight:700;padding:4px 10px;border-radius:12px;letter-spacing:0.5px;">&#187; {{ ffLabel }}</div>
+              </sc-if>
+            </div>
+            <div style="flex:1;position:relative;display:flex;flex-direction:column;padding:14px 18px 46px;">
+              <div style="display:flex;justify-content:space-between;">
+                <div style="width:96px;height:34px;border-radius:17px;background:linear-gradient(#3A3A40,#2A2A2F);border:0.5px solid rgba(255,255,255,0.1);box-shadow:inset 0 1px 0 rgba(255,255,255,0.12),0 2px 5px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:rgba(235,235,245,0.75);cursor:pointer;" style-active="transform:translateY(1px);filter:brightness(0.85)">L</div>
+                <div style="width:96px;height:34px;border-radius:17px;background:linear-gradient(#3A3A40,#2A2A2F);border:0.5px solid rgba(255,255,255,0.1);box-shadow:inset 0 1px 0 rgba(255,255,255,0.12),0 2px 5px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:rgba(235,235,245,0.75);cursor:pointer;" style-active="transform:translateY(1px);filter:brightness(0.85)">R</div>
+              </div>
+              <div style="flex:1;display:flex;align-items:center;justify-content:space-between;padding:0 4px;">
+                <div style="width:150px;height:150px;position:relative;">
+                  <div style="position:absolute;left:50px;top:0;width:50px;height:150px;border-radius:14px;background:{{ skin.pad }};border:0.5px solid rgba(255,255,255,0.1);box-shadow:inset 0 1px 0 rgba(255,255,255,0.12),0 3px 8px rgba(0,0,0,0.4);"></div>
+                  <div style="position:absolute;left:0;top:50px;width:150px;height:50px;border-radius:14px;background:{{ skin.pad }};border:0.5px solid rgba(255,255,255,0.1);box-shadow:inset 0 1px 0 rgba(255,255,255,0.1),0 3px 8px rgba(0,0,0,0.4);"></div>
+                  <svg width="12" height="9" viewBox="0 0 12 9" style="position:absolute;left:69px;top:11px;"><path d="M6 0L12 9H0z" fill="rgba(255,255,255,0.3)"></path></svg>
+                  <svg width="12" height="9" viewBox="0 0 12 9" style="position:absolute;left:69px;bottom:11px;transform:rotate(180deg);"><path d="M6 0L12 9H0z" fill="rgba(255,255,255,0.3)"></path></svg>
+                  <svg width="9" height="12" viewBox="0 0 9 12" style="position:absolute;left:11px;top:69px;"><path d="M0 6L9 0v12z" fill="rgba(255,255,255,0.3)"></path></svg>
+                  <svg width="9" height="12" viewBox="0 0 9 12" style="position:absolute;right:11px;top:69px;"><path d="M9 6L0 0v12z" fill="rgba(255,255,255,0.3)"></path></svg>
+                  <div style="position:absolute;left:63px;top:63px;width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,0.25);box-shadow:inset 0 1px 3px rgba(0,0,0,0.5);"></div>
+                </div>
+                <div style="width:158px;height:150px;position:relative;">
+                  <sc-if value="{{ showFF }}" hint-placeholder-val="{{ true }}">
+                    <div onClick="{{ toggleFF }}" style="position:absolute;right:2px;top:-6px;width:44px;height:44px;border-radius:50%;background:{{ ffBtnBg }};border:0.5px solid rgba(255,255,255,0.12);display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;color:{{ ffBtnColor }};cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.35);" style-active="transform:scale(0.92)">&#187;</div>
+                  </sc-if>
+                  <div style="position:absolute;right:8px;top:42px;width:66px;height:66px;border-radius:50%;background:{{ skin.btn }};border:0.5px solid rgba(255,255,255,0.14);box-shadow:inset 0 1.5px 0 rgba(255,255,255,0.16),0 4px 10px rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:rgba(235,235,245,0.85);cursor:pointer;" style-active="transform:translateY(1px) scale(0.96);filter:brightness(0.85)">A</div>
+                  <sc-if value="{{ turboA }}" hint-placeholder-val="{{ false }}">
+                    <div style="position:absolute;right:4px;top:38px;width:12px;height:12px;border-radius:50%;background:{{ th.ac }};border:2px solid {{ th.bg }};"></div>
+                  </sc-if>
+                  <div style="position:absolute;left:0;bottom:6px;width:66px;height:66px;border-radius:50%;background:{{ skin.btn }};border:0.5px solid rgba(255,255,255,0.14);box-shadow:inset 0 1.5px 0 rgba(255,255,255,0.16),0 4px 10px rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:rgba(235,235,245,0.85);cursor:pointer;" style-active="transform:translateY(1px) scale(0.96);filter:brightness(0.85)">B</div>
+                  <sc-if value="{{ turboB }}" hint-placeholder-val="{{ false }}">
+                    <div style="position:absolute;left:52px;bottom:62px;width:12px;height:12px;border-radius:50%;background:{{ th.ac }};border:2px solid {{ th.bg }};"></div>
+                  </sc-if>
+                </div>
+              </div>
+              <div style="display:flex;justify-content:center;gap:14px;">
+                <div style="width:84px;height:34px;border-radius:17px;background:{{ skin.pad }};border:0.5px solid rgba(255,255,255,0.1);box-shadow:inset 0 1px 0 rgba(255,255,255,0.1),0 2px 5px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;letter-spacing:1px;color:rgba(235,235,245,0.6);cursor:pointer;" style-active="transform:translateY(1px);filter:brightness(0.85)">SELECT</div>
+                <div onClick="{{ openMenu }}" style="width:84px;height:34px;border-radius:17px;background:{{ th.tint }};border:1px solid {{ th.tintBorder }};box-shadow:0 2px 6px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;letter-spacing:1px;color:{{ th.acText }};cursor:pointer;" style-active="transform:translateY(1px);filter:brightness(0.85)">MENU</div>
+                <div style="width:84px;height:34px;border-radius:17px;background:{{ skin.pad }};border:0.5px solid rgba(255,255,255,0.1);box-shadow:inset 0 1px 0 rgba(255,255,255,0.1),0 2px 5px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;letter-spacing:1px;color:rgba(235,235,245,0.6);cursor:pointer;" style-active="transform:translateY(1px);filter:brightness(0.85)">START</div>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ sheetMenu }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;inset:0;z-index:40;display:flex;flex-direction:column;justify-content:flex-end;">
+            <div onClick="{{ closeSheet }}" style="position:absolute;inset:0;background:rgba(0,0,0,0.55);"></div>
+            <div data-screen-label="Quick Menu" style="position:relative;background:{{ th.sheet }};border-radius:34px 34px 0 0;padding:10px 20px 44px;box-shadow:0 -10px 40px rgba(0,0,0,0.5);">
+              <div style="width:36px;height:5px;border-radius:3px;background:rgba(235,235,245,0.25);margin:0 auto 14px;"></div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                <div style="font-size:20px;font-weight:700;color:#fff;">Quick Menu</div>
+                <div onClick="{{ closeSheet }}" style="padding:8px 18px;border-radius:18px;background:{{ th.ac }};color:#fff;font-size:14px;font-weight:700;cursor:pointer;" style-active="filter:brightness(0.85)">Resume</div>
+              </div>
+              <div style="display:flex;gap:10px;margin-bottom:12px;">
+                <div onClick="{{ doSave }}" style="flex:1;height:64px;border-radius:16px;background:{{ th.card }};border:0.5px solid rgba(255,255,255,0.08);display:flex;flex-direction:column;gap:3px;align-items:center;justify-content:center;cursor:pointer;" style-active="opacity:0.75">
+                  <div style="font-size:15px;font-weight:700;color:#fff;line-height:1;">Save</div>
+                  <div style="font-size:11px;color:rgba(235,235,245,0.45);">Auto slot</div>
+                </div>
+                <div onClick="{{ openSaves }}" style="flex:1;height:64px;border-radius:16px;background:{{ th.card }};border:0.5px solid rgba(255,255,255,0.08);display:flex;flex-direction:column;gap:3px;align-items:center;justify-content:center;cursor:pointer;" style-active="opacity:0.75">
+                  <div style="font-size:15px;font-weight:700;color:#fff;line-height:1;">Load</div>
+                  <div style="font-size:11px;color:rgba(235,235,245,0.45);">Pick a slot</div>
+                </div>
+                <div onClick="{{ doRewind }}" style="flex:1;height:64px;border-radius:16px;background:{{ th.tint }};border:1px solid {{ th.tintBorder }};display:flex;flex-direction:column;gap:3px;align-items:center;justify-content:center;cursor:pointer;" style-active="opacity:0.75">
+                  <div style="font-size:15px;font-weight:700;color:{{ th.acText }};line-height:1;">&#8630; Rewind</div>
+                  <div style="font-size:11px;color:{{ th.acText }};opacity:0.7;">10 s back</div>
+                </div>
+              </div>
+              <div style="background:{{ th.card }};border-radius:18px;overflow:hidden;margin-bottom:12px;">
+                <div style="display:flex;flex-direction:column;gap:10px;padding:12px 16px 14px;">
+                  <div style="display:flex;align-items:center;gap:12px;">
+                    <div style="flex:1;display:flex;flex-direction:column;gap:1px;">
+                      <div style="font-size:16px;color:#fff;">Speed</div>
+                      <div style="font-size:12px;color:rgba(235,235,245,0.45);">{{ ffLabel }} when engaged · below 1× is slow-mo</div>
+                    </div>
+                    <div onClick="{{ toggleFF }}" style="width:51px;height:31px;border-radius:16px;background:{{ ffSw.track }};position:relative;cursor:pointer;flex-shrink:0;">
+                      <div style="position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,0.3);transition:transform 0.18s;transform:{{ ffSw.knob }};"></div>
+                    </div>
+                  </div>
+                  <input type="range" min="0" max="{{ speedMax }}" value="{{ speedIdx }}" onChange="{{ onSpeed }}" style="width:100%;height:24px;accent-color:{{ th.ac }};margin:0;" />
+                  <div style="display:flex;gap:4px;flex-wrap:wrap;">
+                    <sc-for list="{{ speeds }}" as="sp" hint-placeholder-count="6">
+                      <div onClick="{{ sp.set }}" style="padding:4px 10px;border-radius:12px;background:{{ sp.bg }};color:{{ sp.color }};font-size:12px;font-weight:700;cursor:pointer;border:0.5px solid rgba(255,255,255,0.08);">{{ sp.label }}</div>
+                    </sc-for>
+                  </div>
+                </div>
+
+              </div>
+              <div style="background:{{ th.card }};border-radius:18px;overflow:hidden;margin-bottom:12px;">
+                <div onClick="{{ openSaves }}" style="display:flex;align-items:center;min-height:54px;padding:0 16px;gap:8px;cursor:pointer;border-bottom:0.5px solid rgba(84,84,88,0.5);" style-active="background:rgba(255,255,255,0.05)">
+                  <div style="flex:1;font-size:16px;color:#fff;">Save States</div>
+                  <svg width="8" height="14" viewBox="0 0 8 14"><path d="M1 1l6 6-6 6" stroke="rgba(235,235,245,0.3)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                </div>
+                <div onClick="{{ openCheats }}" style="display:flex;align-items:center;min-height:54px;padding:0 16px;gap:8px;cursor:pointer;border-bottom:0.5px solid rgba(84,84,88,0.5);" style-active="background:rgba(255,255,255,0.05)">
+                  <div style="flex:1;font-size:16px;color:#fff;">Cheats</div>
+                  <div style="font-size:14px;color:rgba(235,235,245,0.4);">{{ cheatCount }}</div>
+                  <svg width="8" height="14" viewBox="0 0 8 14"><path d="M1 1l6 6-6 6" stroke="rgba(235,235,245,0.3)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                </div>
+                <div onClick="{{ openSettings }}" style="display:flex;align-items:center;min-height:54px;padding:0 16px;gap:8px;cursor:pointer;" style-active="background:rgba(255,255,255,0.05)">
+                  <div style="flex:1;font-size:16px;color:#fff;">Settings</div>
+                  <svg width="8" height="14" viewBox="0 0 8 14"><path d="M1 1l6 6-6 6" stroke="rgba(235,235,245,0.3)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                </div>
+              </div>
+              <div onClick="{{ exitGame }}" style="background:{{ th.card }};border-radius:18px;min-height:54px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600;color:#FF6961;cursor:pointer;" style-active="background:rgba(255,105,97,0.12)">Exit Game</div>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ sheetSaves }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;inset:0;z-index:40;display:flex;flex-direction:column;justify-content:flex-end;">
+            <div onClick="{{ closeSheet }}" style="position:absolute;inset:0;background:rgba(0,0,0,0.55);"></div>
+            <div data-screen-label="Save States" style="position:relative;background:{{ th.sheet }};border-radius:34px 34px 0 0;padding:10px 20px 44px;box-shadow:0 -10px 40px rgba(0,0,0,0.5);max-height:72%;display:flex;flex-direction:column;">
+              <div style="width:36px;height:5px;border-radius:3px;background:rgba(235,235,245,0.25);margin:0 auto 14px;flex-shrink:0;"></div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-shrink:0;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                  <div onClick="{{ backToMenu }}" style="width:34px;height:34px;border-radius:17px;background:{{ th.card }};display:flex;align-items:center;justify-content:center;cursor:pointer;" style-active="opacity:0.7">
+                    <svg width="8" height="14" viewBox="0 0 8 14"><path d="M7 1L1 7l6 6" stroke="rgba(235,235,245,0.8)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                  </div>
+                  <div style="font-size:20px;font-weight:700;color:#fff;">Save States</div>
+                </div>
+                <div onClick="{{ openImportState }}" style="padding:8px 16px;border-radius:18px;background:{{ th.tint }};border:1px solid {{ th.tintBorder }};color:{{ th.acText }};font-size:14px;font-weight:700;cursor:pointer;" style-active="filter:brightness(0.85)">Import</div>
+              </div>
+              <div style="font-size:13px;color:rgba(235,235,245,0.4);padding:0 4px 8px;flex-shrink:0;">{{ gameTitle }}</div>
+              <div style="overflow:auto;background:{{ th.card }};border-radius:18px;">
+                <sc-for list="{{ slots }}" as="sl" hint-placeholder-count="5">
+                  <div onClick="{{ sl.act }}" style="display:flex;align-items:center;gap:14px;padding:12px 16px;cursor:pointer;border-bottom:0.5px solid rgba(84,84,88,0.5);" style-active="background:rgba(255,255,255,0.05)">
+                    <sc-if value="{{ sl.full }}" hint-placeholder-val="{{ true }}">
+                      <div style="width:84px;height:56px;border-radius:8px;background:{{ th.well }};border:0.5px solid rgba(255,255,255,0.08);background-image:repeating-linear-gradient(135deg,{{ th.stripe2 }} 0 6px,transparent 6px 16px);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                        <span style="font-family:ui-monospace,monospace;font-size:9px;color:rgba(255,255,255,0.3);">snapshot</span>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{ sl.empty }}" hint-placeholder-val="{{ false }}">
+                      <div style="width:84px;height:56px;border-radius:8px;border:1.5px dashed rgba(235,235,245,0.15);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                        <span style="font-family:ui-monospace,monospace;font-size:9px;color:rgba(255,255,255,0.2);">empty</span>
+                      </div>
+                    </sc-if>
+                    <div style="flex:1;display:flex;flex-direction:column;gap:2px;">
+                      <div style="font-size:16px;font-weight:600;color:#fff;">{{ sl.name }}</div>
+                      <div style="font-size:13px;color:rgba(235,235,245,0.45);">{{ sl.time }}</div>
+                    </div>
+                    <div style="font-size:14px;font-weight:600;color:{{ th.ac }};">{{ sl.actionLabel }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ sheetCheats }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;inset:0;z-index:40;display:flex;flex-direction:column;justify-content:flex-end;">
+            <div onClick="{{ closeSheet }}" style="position:absolute;inset:0;background:rgba(0,0,0,0.55);"></div>
+            <div data-screen-label="Cheats" style="position:relative;background:{{ th.sheet }};border-radius:34px 34px 0 0;padding:10px 20px 44px;box-shadow:0 -10px 40px rgba(0,0,0,0.5);max-height:72%;display:flex;flex-direction:column;">
+              <div style="width:36px;height:5px;border-radius:3px;background:rgba(235,235,245,0.25);margin:0 auto 14px;flex-shrink:0;"></div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-shrink:0;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                  <div onClick="{{ backToMenu }}" style="width:34px;height:34px;border-radius:17px;background:{{ th.card }};display:flex;align-items:center;justify-content:center;cursor:pointer;" style-active="opacity:0.7">
+                    <svg width="8" height="14" viewBox="0 0 8 14"><path d="M7 1L1 7l6 6" stroke="rgba(235,235,245,0.8)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                  </div>
+                  <div style="font-size:20px;font-weight:700;color:#fff;">Cheats</div>
+                </div>
+                <sc-if value="{{ notAdding }}" hint-placeholder-val="{{ true }}">
+                  <div onClick="{{ startAdd }}" style="padding:8px 16px;border-radius:18px;background:{{ th.tint }};border:1px solid {{ th.tintBorder }};color:{{ th.acText }};font-size:14px;font-weight:700;cursor:pointer;" style-active="filter:brightness(0.85)">+ Add</div>
+                </sc-if>
+              </div>
+              <sc-if value="{{ adding }}" hint-placeholder-val="{{ false }}">
+                <div style="background:{{ th.card }};border-radius:18px;padding:14px 16px;margin-bottom:12px;display:flex;flex-direction:column;gap:10px;flex-shrink:0;">
+                  <div style="display:flex;gap:2px;background:rgba(0,0,0,0.3);border-radius:14px;padding:2px;align-self:flex-start;">
+                    <sc-for list="{{ ctypes }}" as="ct" hint-placeholder-count="3">
+                      <div onClick="{{ ct.set }}" style="padding:5px 11px;border-radius:12px;background:{{ ct.bg }};color:{{ ct.color }};font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">{{ ct.label }}</div>
+                    </sc-for>
+                  </div>
+                  <input onChange="{{ onCheatName }}" placeholder="Cheat name" style="background:{{ th.well }};border:0.5px solid rgba(255,255,255,0.1);border-radius:10px;padding:11px 14px;font-size:15px;color:#fff;outline:none;font-family:-apple-system,system-ui;" />
+                  <input onChange="{{ onCheatCode }}" placeholder="Code — e.g. 3E2A19C4 77F0210B" style="background:{{ th.well }};border:0.5px solid rgba(255,255,255,0.1);border-radius:10px;padding:11px 14px;font-size:14px;color:#fff;outline:none;font-family:ui-monospace,monospace;letter-spacing:0.5px;" />
+                  <div style="display:flex;gap:10px;justify-content:flex-end;">
+                    <div onClick="{{ cancelAdd }}" style="padding:9px 18px;border-radius:16px;background:{{ th.btn2 }};color:rgba(235,235,245,0.8);font-size:14px;font-weight:600;cursor:pointer;" style-active="opacity:0.7">Cancel</div>
+                    <div onClick="{{ addCheat }}" style="padding:9px 18px;border-radius:16px;background:{{ th.ac }};color:#fff;font-size:14px;font-weight:700;cursor:pointer;" style-active="filter:brightness(0.85)">Add Cheat</div>
+                  </div>
+                </div>
+              </sc-if>
+              <div style="overflow:auto;background:{{ th.card }};border-radius:18px;">
+                <sc-for list="{{ cheats }}" as="c" hint-placeholder-count="3">
+                  <div style="display:flex;align-items:center;gap:12px;min-height:58px;padding:8px 16px;border-bottom:0.5px solid rgba(84,84,88,0.5);">
+                    <div style="flex:1;display:flex;flex-direction:column;gap:2px;">
+                      <div style="display:flex;align-items:center;gap:8px;">
+                        <div style="font-size:16px;color:#fff;">{{ c.name }}</div>
+                        <div style="font-size:10px;font-weight:700;color:rgba(235,235,245,0.45);background:rgba(255,255,255,0.07);border-radius:8px;padding:2px 7px;letter-spacing:0.3px;">{{ c.type }}</div>
+                      </div>
+                      <div style="font-family:ui-monospace,monospace;font-size:12px;color:rgba(235,235,245,0.4);letter-spacing:0.5px;">{{ c.code }}</div>
+                    </div>
+                    <div onClick="{{ c.toggle }}" style="width:51px;height:31px;border-radius:16px;background:{{ c.track }};position:relative;cursor:pointer;flex-shrink:0;">
+                      <div style="position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,0.3);transition:transform 0.18s;transform:{{ c.knob }};"></div>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ sheetSettings }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;inset:0;z-index:40;display:flex;flex-direction:column;justify-content:flex-end;">
+            <div onClick="{{ closeSheet }}" style="position:absolute;inset:0;background:rgba(0,0,0,0.55);"></div>
+            <div data-screen-label="Settings" style="position:relative;background:{{ th.sheet }};border-radius:34px 34px 0 0;padding:10px 20px 44px;box-shadow:0 -10px 40px rgba(0,0,0,0.5);max-height:84%;display:flex;flex-direction:column;">
+              <div style="width:36px;height:5px;border-radius:3px;background:rgba(235,235,245,0.25);margin:0 auto 14px;flex-shrink:0;"></div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-shrink:0;">
+                <div style="font-size:20px;font-weight:700;color:#fff;">Settings</div>
+                <div onClick="{{ closeSheet }}" style="padding:8px 18px;border-radius:18px;background:{{ th.btn2 }};color:rgba(235,235,245,0.85);font-size:14px;font-weight:600;cursor:pointer;" style-active="opacity:0.7">Done</div>
+              </div>
+              <div style="overflow:auto;scrollbar-width:none;margin:0 -4px;padding:0 4px;">
+              <div style="font-size:12px;font-weight:600;color:rgba(235,235,245,0.45);letter-spacing:0.8px;text-transform:uppercase;padding:0 16px 6px;">Appearance</div>
+              <div style="background:{{ th.card }};border-radius:18px;overflow:hidden;margin-bottom:14px;">
+                <div style="display:flex;align-items:center;min-height:54px;padding:0 16px;gap:12px;">
+                  <div style="flex:1;display:flex;flex-direction:column;gap:1px;">
+                    <div style="font-size:16px;color:#fff;">Theme</div>
+                    <div style="font-size:12px;color:rgba(235,235,245,0.45);">Outpost is the Redfern's earth-tone look</div>
+                  </div>
+                  <div style="display:flex;gap:2px;background:rgba(0,0,0,0.3);border-radius:14px;padding:2px;">
+                    <sc-for list="{{ themes }}" as="sp" hint-placeholder-count="2">
+                      <div onClick="{{ sp.set }}" style="padding:5px 12px;border-radius:12px;background:{{ sp.bg }};color:{{ sp.color }};font-size:13px;font-weight:700;cursor:pointer;">{{ sp.label }}</div>
+                    </sc-for>
+                  </div>
+                </div>
+              </div>
+              <div style="font-size:12px;font-weight:600;color:rgba(235,235,245,0.45);letter-spacing:0.8px;text-transform:uppercase;padding:0 16px 6px;">Playback</div>
+              <div style="background:{{ th.card }};border-radius:18px;overflow:hidden;margin-bottom:14px;">
+                <div style="display:flex;flex-direction:column;gap:8px;padding:12px 16px;border-bottom:0.5px solid rgba(84,84,88,0.5);">
+                  <div style="font-size:16px;color:#fff;">Speed presets · {{ ffLabel }}</div>
+                  <div style="display:flex;gap:4px;flex-wrap:wrap;">
+                    <sc-for list="{{ speeds }}" as="sp" hint-placeholder-count="6">
+                      <div onClick="{{ sp.set }}" style="padding:4px 10px;border-radius:12px;background:{{ sp.bg }};color:{{ sp.color }};font-size:12px;font-weight:700;cursor:pointer;border:0.5px solid rgba(255,255,255,0.08);">{{ sp.label }}</div>
+                    </sc-for>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;min-height:54px;padding:0 16px;gap:12px;border-bottom:0.5px solid rgba(84,84,88,0.5);">
+                  <div style="flex:1;font-size:16px;color:#fff;">Show FF button in game</div>
+                  <div onClick="{{ toggleShowFF }}" style="width:51px;height:31px;border-radius:16px;background:{{ showFFSw.track }};position:relative;cursor:pointer;flex-shrink:0;">
+                    <div style="position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,0.3);transition:transform 0.18s;transform:{{ showFFSw.knob }};"></div>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;min-height:54px;padding:0 16px;gap:12px;border-bottom:0.5px solid rgba(84,84,88,0.5);">
+                  <div style="flex:1;display:flex;flex-direction:column;gap:1px;">
+                    <div style="font-size:16px;color:#fff;">Rewind buffer</div>
+                    <div style="font-size:12px;color:rgba(235,235,245,0.45);">Keeps the last 30 s in memory</div>
+                  </div>
+                  <div onClick="{{ toggleRewind }}" style="width:51px;height:31px;border-radius:16px;background:{{ rewindSw.track }};position:relative;cursor:pointer;flex-shrink:0;">
+                    <div style="position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,0.3);transition:transform 0.18s;transform:{{ rewindSw.knob }};"></div>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;min-height:54px;padding:0 16px;gap:12px;border-bottom:0.5px solid rgba(84,84,88,0.5);">
+                  <div style="flex:1;display:flex;flex-direction:column;gap:1px;">
+                    <div style="font-size:16px;color:#fff;">Auto-suspend save</div>
+                    <div style="font-size:12px;color:rgba(235,235,245,0.45);">Emergency state on calls or app switch</div>
+                  </div>
+                  <div onClick="{{ toggleSuspend }}" style="width:51px;height:31px;border-radius:16px;background:{{ suspendSw.track }};position:relative;cursor:pointer;flex-shrink:0;">
+                    <div style="position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,0.3);transition:transform 0.18s;transform:{{ suspendSw.knob }};"></div>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;min-height:54px;padding:0 16px;gap:12px;">
+                  <div style="flex:1;display:flex;flex-direction:column;gap:1px;">
+                    <div style="font-size:16px;color:#fff;">Background audio mixing</div>
+                    <div style="font-size:12px;color:rgba(235,235,245,0.45);">Your music keeps playing over game SFX</div>
+                  </div>
+                  <div onClick="{{ toggleBgAudio }}" style="width:51px;height:31px;border-radius:16px;background:{{ bgAudioSw.track }};position:relative;cursor:pointer;flex-shrink:0;">
+                    <div style="position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,0.3);transition:transform 0.18s;transform:{{ bgAudioSw.knob }};"></div>
+                  </div>
+                </div>
+              </div>
+              <div style="font-size:12px;font-weight:600;color:rgba(235,235,245,0.45);letter-spacing:0.8px;text-transform:uppercase;padding:0 16px 6px;">Video</div>
+              <div style="background:{{ th.card }};border-radius:18px;overflow:hidden;margin-bottom:14px;">
+                <div style="display:flex;flex-direction:column;gap:8px;padding:12px 16px;border-bottom:0.5px solid rgba(84,84,88,0.5);">
+                  <div style="font-size:16px;color:#fff;">Display scaling</div>
+                  <div style="display:flex;gap:2px;background:rgba(0,0,0,0.3);border-radius:14px;padding:2px;align-self:flex-start;">
+                    <sc-for list="{{ scalings }}" as="sp" hint-placeholder-count="3">
+                      <div onClick="{{ sp.set }}" style="padding:5px 12px;border-radius:12px;background:{{ sp.bg }};color:{{ sp.color }};font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">{{ sp.label }}</div>
+                    </sc-for>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;min-height:54px;padding:0 16px;gap:12px;border-bottom:0.5px solid rgba(84,84,88,0.5);">
+                  <div style="flex:1;font-size:16px;color:#fff;">Screen filter</div>
+                  <div style="display:flex;gap:2px;background:rgba(0,0,0,0.3);border-radius:14px;padding:2px;">
+                    <sc-for list="{{ filters }}" as="sp" hint-placeholder-count="3">
+                      <div onClick="{{ sp.set }}" style="padding:5px 12px;border-radius:12px;background:{{ sp.bg }};color:{{ sp.color }};font-size:13px;font-weight:700;cursor:pointer;">{{ sp.label }}</div>
+                    </sc-for>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;min-height:54px;padding:0 16px;gap:12px;">
+                  <div style="flex:1;display:flex;flex-direction:column;gap:1px;">
+                    <div style="font-size:16px;color:#fff;">Boot</div>
+                    <div style="font-size:12px;color:rgba(235,235,245,0.45);">HLE needs no BIOS file</div>
+                  </div>
+                  <div style="display:flex;gap:2px;background:rgba(0,0,0,0.3);border-radius:14px;padding:2px;">
+                    <sc-for list="{{ bioses }}" as="sp" hint-placeholder-count="2">
+                      <div onClick="{{ sp.set }}" style="padding:5px 12px;border-radius:12px;background:{{ sp.bg }};color:{{ sp.color }};font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">{{ sp.label }}</div>
+                    </sc-for>
+                  </div>
+                </div>
+                <div onClick="{{ openSkins }}" style="display:flex;align-items:center;min-height:54px;padding:0 16px;gap:8px;cursor:pointer;border-top:0.5px solid rgba(84,84,88,0.5);" style-active="background:rgba(255,255,255,0.05)">
+                  <div style="flex:1;font-size:16px;color:#fff;">Controller skin</div>
+                  <div style="font-size:14px;color:rgba(235,235,245,0.4);">{{ skinName }}</div>
+                  <svg width="8" height="14" viewBox="0 0 8 14"><path d="M1 1l6 6-6 6" stroke="rgba(235,235,245,0.3)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                </div>
+              </div>
+              <div style="font-size:12px;font-weight:600;color:rgba(235,235,245,0.45);letter-spacing:0.8px;text-transform:uppercase;padding:0 16px 6px;">Controls</div>
+              <div style="background:{{ th.card }};border-radius:18px;overflow:hidden;margin-bottom:14px;">
+                <div onClick="{{ editLayout }}" style="display:flex;align-items:center;min-height:54px;padding:0 16px;gap:8px;cursor:pointer;border-bottom:0.5px solid rgba(84,84,88,0.5);" style-active="background:rgba(255,255,255,0.05)">
+                  <div style="flex:1;display:flex;flex-direction:column;gap:1px;">
+                    <div style="font-size:16px;color:#fff;">Edit button layout</div>
+                    <div style="font-size:12px;color:rgba(235,235,245,0.45);">Move and resize on-screen controls</div>
+                  </div>
+                  <svg width="8" height="14" viewBox="0 0 8 14"><path d="M1 1l6 6-6 6" stroke="rgba(235,235,245,0.3)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                </div>
+                <div onClick="{{ pairController }}" style="display:flex;align-items:center;min-height:54px;padding:0 16px;gap:8px;cursor:pointer;border-bottom:0.5px solid rgba(84,84,88,0.5);" style-active="background:rgba(255,255,255,0.05)">
+                  <div style="flex:1;font-size:16px;color:#fff;">Bluetooth controller</div>
+                  <div style="font-size:14px;color:rgba(235,235,245,0.4);">None connected</div>
+                  <svg width="8" height="14" viewBox="0 0 8 14"><path d="M1 1l6 6-6 6" stroke="rgba(235,235,245,0.3)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                </div>
+                <div style="display:flex;align-items:center;min-height:54px;padding:0 16px;gap:14px;border-bottom:0.5px solid rgba(84,84,88,0.5);">
+                  <div style="flex:1;display:flex;flex-direction:column;gap:1px;">
+                    <div style="font-size:16px;color:#fff;">Turbo buttons</div>
+                    <div style="font-size:12px;color:rgba(235,235,245,0.45);">Rapid-fire A / B</div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:6px;">
+                    <span style="font-size:13px;font-weight:700;color:rgba(235,235,245,0.6);">A</span>
+                    <div onClick="{{ toggleTurboA }}" style="width:51px;height:31px;border-radius:16px;background:{{ turboASw.track }};position:relative;cursor:pointer;">
+                      <div style="position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,0.3);transition:transform 0.18s;transform:{{ turboASw.knob }};"></div>
+                    </div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:6px;">
+                    <span style="font-size:13px;font-weight:700;color:rgba(235,235,245,0.6);">B</span>
+                    <div onClick="{{ toggleTurboB }}" style="width:51px;height:31px;border-radius:16px;background:{{ turboBSw.track }};position:relative;cursor:pointer;">
+                      <div style="position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,0.3);transition:transform 0.18s;transform:{{ turboBSw.knob }};"></div>
+                    </div>
+                  </div>
+                </div>
+                <div onClick="{{ profiles }}" style="display:flex;align-items:center;min-height:54px;padding:0 16px;gap:8px;cursor:pointer;" style-active="background:rgba(255,255,255,0.05)">
+                  <div style="flex:1;display:flex;flex-direction:column;gap:1px;">
+                    <div style="font-size:16px;color:#fff;">Layout profiles</div>
+                    <div style="font-size:12px;color:rgba(235,235,245,0.45);">Per-game button setups (RPG, platformer…)</div>
+                  </div>
+                  <div style="font-size:14px;color:rgba(235,235,245,0.4);">Default</div>
+                  <svg width="8" height="14" viewBox="0 0 8 14"><path d="M1 1l6 6-6 6" stroke="rgba(235,235,245,0.3)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                </div>
+              </div>
+              <div style="font-size:12px;font-weight:600;color:rgba(235,235,245,0.45);letter-spacing:0.8px;text-transform:uppercase;padding:0 16px 6px;">Sync &amp; Extras</div>
+              <div style="background:{{ th.card }};border-radius:18px;overflow:hidden;margin-bottom:14px;">
+                <div style="display:flex;align-items:center;min-height:54px;padding:0 16px;gap:12px;border-bottom:0.5px solid rgba(84,84,88,0.5);">
+                  <div style="flex:1;font-size:16px;color:#fff;">Cloud saves</div>
+                  <div style="display:flex;gap:2px;background:rgba(0,0,0,0.3);border-radius:14px;padding:2px;">
+                    <sc-for list="{{ clouds }}" as="sp" hint-placeholder-count="3">
+                      <div onClick="{{ sp.set }}" style="padding:5px 10px;border-radius:12px;background:{{ sp.bg }};color:{{ sp.color }};font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">{{ sp.label }}</div>
+                    </sc-for>
+                  </div>
+                </div>
+                <div onClick="{{ syncNow }}" style="display:flex;align-items:center;min-height:54px;padding:0 16px;gap:8px;cursor:pointer;border-bottom:0.5px solid rgba(84,84,88,0.5);" style-active="background:rgba(255,255,255,0.05)">
+                  <div style="flex:1;font-size:16px;color:{{ th.acText }};">Sync now</div>
+                  <div style="font-size:14px;color:rgba(235,235,245,0.4);">Last synced 2 min ago</div>
+                </div>
+                <div onClick="{{ openRA }}" style="display:flex;align-items:center;min-height:54px;padding:0 16px;gap:8px;cursor:pointer;border-bottom:0.5px solid rgba(84,84,88,0.5);" style-active="background:rgba(255,255,255,0.05)">
+                  <div style="flex:1;font-size:16px;color:#fff;">RetroAchievements</div>
+                  <div style="font-size:14px;color:rgba(235,235,245,0.4);">redfern · 1,240 pts</div>
+                  <svg width="8" height="14" viewBox="0 0 8 14"><path d="M1 1l6 6-6 6" stroke="rgba(235,235,245,0.3)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                </div>
+                <div onClick="{{ applyPatch }}" style="display:flex;align-items:center;min-height:54px;padding:0 16px;gap:8px;cursor:pointer;border-bottom:0.5px solid rgba(84,84,88,0.5);" style-active="background:rgba(255,255,255,0.05)">
+                  <div style="flex:1;display:flex;flex-direction:column;gap:1px;">
+                    <div style="font-size:16px;color:#fff;">Apply ROM patch…</div>
+                    <div style="font-size:12px;color:rgba(235,235,245,0.45);">IPS / UPS — fan translations &amp; hacks</div>
+                  </div>
+                  <svg width="8" height="14" viewBox="0 0 8 14"><path d="M1 1l6 6-6 6" stroke="rgba(235,235,245,0.3)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                </div>
+                <div style="display:flex;align-items:center;min-height:54px;padding:0 16px;gap:12px;">
+                  <div style="flex:1;display:flex;flex-direction:column;gap:1px;">
+                    <div style="font-size:16px;color:#fff;">Sensor cartridges</div>
+                    <div style="font-size:12px;color:rgba(235,235,245,0.45);">Tilt, solar &amp; rumble — auto-detected</div>
+                  </div>
+                  <div style="font-size:14px;color:rgba(235,235,245,0.4);">On</div>
+                </div>
+              </div>
+              <div style="font-size:12px;font-weight:600;color:rgba(235,235,245,0.45);letter-spacing:0.8px;text-transform:uppercase;padding:0 16px 6px;">General</div>
+              <div style="background:{{ th.card }};border-radius:18px;overflow:hidden;">
+                <div style="display:flex;align-items:center;min-height:54px;padding:0 16px;gap:12px;border-bottom:0.5px solid rgba(84,84,88,0.5);">
+                  <div style="flex:1;font-size:16px;color:#fff;">Haptics on buttons</div>
+                  <div onClick="{{ toggleHaptics }}" style="width:51px;height:31px;border-radius:16px;background:{{ hapticsSw.track }};position:relative;cursor:pointer;flex-shrink:0;">
+                    <div style="position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,0.3);transition:transform 0.18s;transform:{{ hapticsSw.knob }};"></div>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;min-height:54px;padding:0 16px;gap:12px;border-bottom:0.5px solid rgba(84,84,88,0.5);">
+                  <div style="flex:1;display:flex;flex-direction:column;gap:1px;">
+                    <div style="font-size:16px;color:#fff;">Battery saves</div>
+                    <div style="font-size:12px;color:rgba(235,235,245,0.45);">Native .sav files, backed up automatically</div>
+                  </div>
+                  <div style="font-size:14px;color:rgba(235,235,245,0.4);">On</div>
+                </div>
+                <div style="display:flex;align-items:center;min-height:54px;padding:0 16px;gap:12px;border-bottom:0.5px solid rgba(84,84,88,0.5);">
+                  <div style="flex:1;display:flex;flex-direction:column;gap:1px;">
+                    <div style="font-size:16px;color:#fff;">Auto-save on exit</div>
+                    <div style="font-size:12px;color:rgba(235,235,245,0.45);">Writes a state to the Auto slot</div>
+                  </div>
+                  <div onClick="{{ toggleAutosave }}" style="width:51px;height:31px;border-radius:16px;background:{{ autosaveSw.track }};position:relative;cursor:pointer;flex-shrink:0;">
+                    <div style="position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,0.3);transition:transform 0.18s;transform:{{ autosaveSw.knob }};"></div>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;min-height:54px;padding:0 16px;">
+                  <div style="flex:1;font-size:16px;color:#fff;">About</div>
+                  <div style="font-size:14px;color:rgba(235,235,245,0.4);">Tinbox 1.0 · Redfern's Outpost</div>
+                </div>
+              </div>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ sheetSkins }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;inset:0;z-index:42;display:flex;flex-direction:column;justify-content:flex-end;">
+            <div onClick="{{ openSettings }}" style="position:absolute;inset:0;background:rgba(0,0,0,0.55);"></div>
+            <div data-screen-label="Skins" style="position:relative;background:{{ th.sheet }};border-radius:34px 34px 0 0;padding:10px 20px 44px;box-shadow:0 -10px 40px rgba(0,0,0,0.5);">
+              <div style="width:36px;height:5px;border-radius:3px;background:rgba(235,235,245,0.25);margin:0 auto 14px;"></div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                  <div onClick="{{ openSettings }}" style="width:34px;height:34px;border-radius:17px;background:{{ th.card }};display:flex;align-items:center;justify-content:center;cursor:pointer;" style-active="opacity:0.7">
+                    <svg width="8" height="14" viewBox="0 0 8 14"><path d="M7 1L1 7l6 6" stroke="rgba(235,235,245,0.8)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                  </div>
+                  <div style="font-size:20px;font-weight:700;color:#fff;">Controller Skins</div>
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:12px;">
+                <sc-for list="{{ skins }}" as="sk" hint-placeholder-count="3">
+                  <div onClick="{{ sk.pick }}" style="display:flex;flex-direction:column;gap:8px;cursor:pointer;" style-active="opacity:0.75">
+                    <div style="position:relative;height:92px;border-radius:14px;background:{{ th.well }};border:{{ sk.border }};display:flex;align-items:center;justify-content:space-between;padding:0 14px;">
+                      <div style="width:34px;height:34px;position:relative;">
+                        <div style="position:absolute;left:11px;top:0;width:12px;height:34px;border-radius:4px;background:{{ sk.pad }};"></div>
+                        <div style="position:absolute;left:0;top:11px;width:34px;height:12px;border-radius:4px;background:{{ sk.pad }};"></div>
+                      </div>
+                      <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;">
+                        <div style="width:20px;height:20px;border-radius:50%;background:{{ sk.btn }};"></div>
+                        <div style="width:20px;height:20px;border-radius:50%;background:{{ sk.btn }};margin-right:14px;"></div>
+                      </div>
+                      <div style="position:absolute;top:6px;right:6px;width:18px;height:18px;border-radius:50%;background:{{ th.ac }};color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;">{{ sk.check }}</div>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:1px;">
+                      <div style="font-size:13px;font-weight:700;color:#fff;">{{ sk.name }}</div>
+                      <div style="font-size:11px;color:rgba(235,235,245,0.45);">{{ sk.desc }}</div>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="background:{{ th.card }};border-radius:18px;min-height:54px;display:flex;align-items:center;padding:0 16px;gap:8px;">
+                <div style="flex:1;display:flex;flex-direction:column;gap:1px;">
+                  <div style="font-size:16px;color:#fff;">Skin marketplace</div>
+                  <div style="font-size:12px;color:rgba(235,235,245,0.45);">Community handheld-style skins</div>
+                </div>
+                <div style="font-size:12px;font-weight:700;color:{{ th.acText }};background:{{ th.tint }};border-radius:10px;padding:4px 10px;">Coming soon</div>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ sheetRA }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;inset:0;z-index:42;display:flex;flex-direction:column;justify-content:flex-end;">
+            <div onClick="{{ openSettings }}" style="position:absolute;inset:0;background:rgba(0,0,0,0.55);"></div>
+            <div data-screen-label="RetroAchievements" style="position:relative;background:{{ th.sheet }};border-radius:34px 34px 0 0;padding:10px 20px 44px;box-shadow:0 -10px 40px rgba(0,0,0,0.5);max-height:76%;display:flex;flex-direction:column;">
+              <div style="width:36px;height:5px;border-radius:3px;background:rgba(235,235,245,0.25);margin:0 auto 14px;flex-shrink:0;"></div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-shrink:0;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                  <div onClick="{{ openSettings }}" style="width:34px;height:34px;border-radius:17px;background:{{ th.card }};display:flex;align-items:center;justify-content:center;cursor:pointer;" style-active="opacity:0.7">
+                    <svg width="8" height="14" viewBox="0 0 8 14"><path d="M7 1L1 7l6 6" stroke="rgba(235,235,245,0.8)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                  </div>
+                  <div style="font-size:20px;font-weight:700;color:#fff;">RetroAchievements</div>
+                </div>
+                <div style="font-size:12px;font-weight:700;color:{{ th.acText }};background:{{ th.tint }};border-radius:10px;padding:4px 10px;">redfern · 1,240 pts</div>
+              </div>
+              <div style="background:{{ th.card }};border-radius:18px;overflow:hidden;margin-bottom:12px;flex-shrink:0;">
+                <div style="display:flex;align-items:center;min-height:54px;padding:0 16px;gap:12px;">
+                  <div style="flex:1;display:flex;flex-direction:column;gap:1px;">
+                    <div style="font-size:16px;color:#fff;">Hardcore mode</div>
+                    <div style="font-size:12px;color:rgba(235,235,245,0.45);">Disables save states &amp; cheats for leaderboards</div>
+                  </div>
+                  <div onClick="{{ toggleHardcore }}" style="width:51px;height:31px;border-radius:16px;background:{{ hardcoreSw.track }};position:relative;cursor:pointer;flex-shrink:0;">
+                    <div style="position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,0.3);transition:transform 0.18s;transform:{{ hardcoreSw.knob }};"></div>
+                  </div>
+                </div>
+              </div>
+              <div style="font-size:12px;font-weight:600;color:rgba(235,235,245,0.45);letter-spacing:0.8px;text-transform:uppercase;padding:0 16px 6px;flex-shrink:0;">{{ gameTitle }} · 2 of 4</div>
+              <div style="overflow:auto;scrollbar-width:none;background:{{ th.card }};border-radius:18px;">
+                <sc-for list="{{ achievements }}" as="a" hint-placeholder-count="4">
+                  <div style="display:flex;align-items:center;gap:12px;min-height:58px;padding:10px 16px;border-bottom:0.5px solid rgba(84,84,88,0.5);opacity:{{ a.op }};">
+                    <div style="width:34px;height:34px;border-radius:10px;background:{{ a.markBg }};color:#fff;font-size:15px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">{{ a.mark }}</div>
+                    <div style="flex:1;display:flex;flex-direction:column;gap:1px;">
+                      <div style="font-size:15px;font-weight:600;color:#fff;">{{ a.name }}</div>
+                      <div style="font-size:12px;color:rgba(235,235,245,0.5);">{{ a.desc }}</div>
+                    </div>
+                    <div style="font-size:13px;font-weight:700;color:{{ th.acText }};">{{ a.pts }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ sheetImport }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;inset:0;z-index:45;display:flex;flex-direction:column;justify-content:flex-end;">
+            <div onClick="{{ closeImport }}" style="position:absolute;inset:0;background:rgba(0,0,0,0.55);"></div>
+            <div data-screen-label="Import (Files)" style="position:relative;background:{{ th.sheet }};border-radius:34px 34px 0 0;padding:10px 20px 44px;box-shadow:0 -10px 40px rgba(0,0,0,0.5);max-height:76%;display:flex;flex-direction:column;">
+              <div style="width:36px;height:5px;border-radius:3px;background:rgba(235,235,245,0.25);margin:0 auto 14px;flex-shrink:0;"></div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;flex-shrink:0;">
+                <div style="font-size:20px;font-weight:700;color:#fff;">{{ importTitle }}</div>
+                <div onClick="{{ closeImport }}" style="padding:8px 18px;border-radius:18px;background:{{ th.btn2 }};color:rgba(235,235,245,0.85);font-size:14px;font-weight:600;cursor:pointer;" style-active="opacity:0.7">Cancel</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-shrink:0;">
+                <div style="font-size:12px;color:rgba(235,235,245,0.45);">Copies into</div>
+                <div style="font-size:12px;font-weight:600;color:{{ th.acText }};background:{{ th.tint3 }};border-radius:10px;padding:3px 10px;">{{ importDest }}</div>
+              </div>
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:0 16px 6px;flex-shrink:0;">
+                <div style="font-size:12px;font-weight:600;color:rgba(235,235,245,0.45);letter-spacing:0.8px;text-transform:uppercase;">Recents · Files</div>
+                <div style="font-size:12px;color:rgba(235,235,245,0.4);">{{ importFilter }}</div>
+              </div>
+              <div style="overflow:auto;background:{{ th.card }};border-radius:18px;">
+                <sc-for list="{{ importFiles }}" as="f" hint-placeholder-count="4">
+                  <div onClick="{{ f.pick }}" style="display:flex;align-items:center;gap:14px;min-height:56px;padding:8px 16px;cursor:pointer;border-bottom:0.5px solid rgba(84,84,88,0.5);opacity:{{ f.rowOpacity }};" style-active="background:rgba(255,255,255,0.05)">
+                    <div style="width:38px;height:46px;border-radius:6px;background:{{ th.well }};border:0.5px solid rgba(255,255,255,0.1);display:flex;align-items:flex-end;justify-content:center;padding-bottom:5px;flex-shrink:0;">
+                      <span style="font-family:ui-monospace,monospace;font-size:8px;font-weight:700;color:{{ f.extColor }};letter-spacing:0.5px;">{{ f.ext }}</span>
+                    </div>
+                    <div style="flex:1;display:flex;flex-direction:column;gap:2px;min-width:0;">
+                      <div style="font-size:15px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ f.name }}</div>
+                      <div style="font-size:13px;color:rgba(235,235,245,0.45);">{{ f.size }}</div>
+                    </div>
+                    <div style="font-size:14px;font-weight:600;color:{{ f.actionColor }};">{{ f.action }}</div>
+                  </div>
+                </sc-for>
+              </div>
+              <div onClick="{{ browseFiles }}" style="margin-top:12px;flex-shrink:0;min-height:50px;border-radius:18px;background:{{ th.tint }};border:1px solid {{ th.tintBorder }};display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;" style-active="filter:brightness(0.85)">
+                <svg width="18" height="15" viewBox="0 0 18 15"><path d="M1 3a2 2 0 012-2h4l2 2h6a2 2 0 012 2v6a2 2 0 01-2 2H3a2 2 0 01-2-2V3z" fill="none" stroke="{{ th.acText }}" stroke-width="1.6" stroke-linejoin="round"></path></svg>
+                <span style="font-size:15px;font-weight:700;color:{{ th.acText }};">Browse in Files…</span>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;left:50%;bottom:110px;transform:translateX(-50%);z-index:60;background:rgba(44,44,48,0.95);border:0.5px solid rgba(255,255,255,0.14);color:#fff;font-size:14px;font-weight:600;padding:10px 18px;border-radius:20px;animation:toastIn 0.25s ease;white-space:nowrap;box-shadow:0 8px 24px rgba(0,0,0,0.4);">{{ toast }}</div>
+        </sc-if>
+      </div>
+    </x-import>
+  </sc-if>
+  <sc-if value="{{ landscape }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="In-game (landscape)" style="width:874px;height:402px;border-radius:48px;background:#000;position:relative;overflow:hidden;box-shadow:0 40px 80px rgba(0,0,0,0.4),0 0 0 1px rgba(255,255,255,0.08);">
+      <div style="position:absolute;inset:0;background:{{ th.well }};background-image:repeating-linear-gradient(135deg,{{ th.stripe }} 0 12px,transparent 12px 30px);display:flex;align-items:center;justify-content:center;">
+        <span style="font-family:ui-monospace,monospace;font-size:12px;color:rgba(255,255,255,0.3);letter-spacing:1px;">ROM VIDEO OUT · FULLSCREEN</span>
+      </div>
+      <div style="position:absolute;left:14px;top:50%;transform:translateY(-50%);width:37px;height:126px;border-radius:24px;background:#000;z-index:50;"></div>
+      <div style="position:absolute;inset:0;opacity:{{ controlOpacity }};">
+        <div style="position:absolute;left:70px;top:22px;width:92px;height:32px;border-radius:16px;background:linear-gradient(#3A3A40,#2A2A2F);border:0.5px solid rgba(255,255,255,0.14);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:rgba(235,235,245,0.8);cursor:pointer;" style-active="filter:brightness(0.8)">L</div>
+        <div style="position:absolute;right:70px;top:22px;width:92px;height:32px;border-radius:16px;background:linear-gradient(#3A3A40,#2A2A2F);border:0.5px solid rgba(255,255,255,0.14);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:rgba(235,235,245,0.8);cursor:pointer;" style-active="filter:brightness(0.8)">R</div>
+        <div style="position:absolute;left:66px;bottom:64px;width:140px;height:140px;">
+          <div style="position:absolute;left:46px;top:0;width:48px;height:140px;border-radius:13px;background:{{ skin.pad }};border:0.5px solid rgba(255,255,255,0.14);"></div>
+          <div style="position:absolute;left:0;top:46px;width:140px;height:48px;border-radius:13px;background:{{ skin.pad }};border:0.5px solid rgba(255,255,255,0.14);"></div>
+          <div style="position:absolute;left:59px;top:59px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,0.3);"></div>
+        </div>
+        <div style="position:absolute;right:56px;bottom:70px;width:150px;height:130px;">
+          <div style="position:absolute;right:0;top:0;width:62px;height:62px;border-radius:50%;background:{{ skin.btn }};border:0.5px solid rgba(255,255,255,0.18);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:rgba(235,235,245,0.9);cursor:pointer;" style-active="transform:scale(0.94)">A</div>
+          <div style="position:absolute;left:0;bottom:0;width:62px;height:62px;border-radius:50%;background:{{ skin.btn }};border:0.5px solid rgba(255,255,255,0.18);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:rgba(235,235,245,0.9);cursor:pointer;" style-active="transform:scale(0.94)">B</div>
+        </div>
+        <sc-if value="{{ showFF }}" hint-placeholder-val="{{ true }}">
+          <div onClick="{{ toggleFF }}" style="position:absolute;right:26px;top:74px;width:44px;height:44px;border-radius:50%;background:{{ ffBtnBg }};border:0.5px solid rgba(255,255,255,0.16);display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;color:{{ ffBtnColor }};cursor:pointer;" style-active="transform:scale(0.92)">&#187;</div>
+        </sc-if>
+        <div style="position:absolute;left:50%;bottom:16px;transform:translateX(-50%);display:flex;gap:12px;">
+          <div style="width:80px;height:30px;border-radius:15px;background:{{ skin.pad }};border:0.5px solid rgba(255,255,255,0.12);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;letter-spacing:1px;color:rgba(235,235,245,0.65);cursor:pointer;" style-active="filter:brightness(0.8)">SELECT</div>
+          <div onClick="{{ openMenu }}" style="width:80px;height:30px;border-radius:15px;background:{{ th.tint2 }};border:1px solid {{ th.tintBorder2 }};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;letter-spacing:1px;color:{{ th.acText2 }};cursor:pointer;" style-active="filter:brightness(0.8)">MENU</div>
+          <div style="width:80px;height:30px;border-radius:15px;background:{{ skin.pad }};border:0.5px solid rgba(255,255,255,0.12);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;letter-spacing:1px;color:rgba(235,235,245,0.65);cursor:pointer;" style-active="filter:brightness(0.8)">START</div>
+        </div>
+      </div>
+      <sc-if value="{{ ff }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;top:24px;left:50%;transform:translateX(-50%);background:{{ th.badge }};color:#fff;font-size:12px;font-weight:700;padding:4px 10px;border-radius:12px;letter-spacing:0.5px;">&#187; {{ ffLabel }}</div>
+      </sc-if>
+      <div onClick="{{ rotate }}" style="position:absolute;right:20px;top:20px;width:40px;height:40px;border-radius:20px;background:rgba(28,28,30,0.85);border:0.5px solid rgba(255,255,255,0.12);display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:55;" style-active="transform:scale(0.94)">
+        <svg width="18" height="14" viewBox="0 0 18 14"><rect x="1" y="1" width="10" height="12" rx="2" stroke="{{ th.ac }}" stroke-width="1.5" fill="none"></rect><rect x="8" y="6" width="9" height="7" rx="2" fill="{{ th.bg }}" stroke="rgba(235,235,245,0.7)" stroke-width="1.5"></rect></svg>
+      </div>
+      <sc-if value="{{ sheetMenu }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;">
+          <div onClick="{{ closeSheet }}" style="position:absolute;inset:0;background:rgba(0,0,0,0.55);"></div>
+          <div style="position:relative;background:{{ th.sheet }};border:0.5px solid rgba(255,255,255,0.1);border-radius:26px;padding:18px 20px;display:flex;flex-direction:column;gap:12px;box-shadow:0 20px 60px rgba(0,0,0,0.6);width:420px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <div style="font-size:17px;font-weight:700;color:#fff;">Quick Menu</div>
+              <div onClick="{{ closeSheet }}" style="padding:7px 16px;border-radius:16px;background:{{ th.ac }};color:#fff;font-size:13px;font-weight:700;cursor:pointer;" style-active="filter:brightness(0.85)">Resume</div>
+            </div>
+            <div style="display:flex;gap:10px;">
+              <div onClick="{{ toggleFF }}" style="flex:1;height:64px;border-radius:16px;background:{{ ffTileBg }};border:0.5px solid rgba(255,255,255,0.1);display:flex;flex-direction:column;gap:3px;align-items:center;justify-content:center;cursor:pointer;" style-active="opacity:0.8">
+                <div style="font-size:18px;font-weight:800;color:{{ ffTileColor }};line-height:1;">&#187;</div>
+                <div style="font-size:12px;font-weight:600;color:{{ ffTileColor }};">FF {{ ffLabel }}</div>
+              </div>
+              <div onClick="{{ doSave }}" style="flex:1;height:64px;border-radius:16px;background:{{ th.card }};border:0.5px solid rgba(255,255,255,0.1);display:flex;flex-direction:column;gap:3px;align-items:center;justify-content:center;cursor:pointer;" style-active="opacity:0.8">
+                <div style="font-size:16px;color:rgba(235,235,245,0.85);line-height:1;">&#9660;</div>
+                <div style="font-size:12px;font-weight:600;color:rgba(235,235,245,0.85);">Save</div>
+              </div>
+              <div onClick="{{ moreMenu }}" style="flex:1;height:64px;border-radius:16px;background:{{ th.card }};border:0.5px solid rgba(255,255,255,0.1);display:flex;flex-direction:column;gap:3px;align-items:center;justify-content:center;cursor:pointer;" style-active="opacity:0.8">
+                <div style="font-size:16px;color:rgba(235,235,245,0.85);line-height:1;">&#8943;</div>
+                <div style="font-size:12px;font-weight:600;color:rgba(235,235,245,0.85);">More</div>
+              </div>
+              <div onClick="{{ exitGame }}" style="flex:1;height:64px;border-radius:16px;background:rgba(255,105,97,0.12);border:0.5px solid rgba(255,105,97,0.4);display:flex;flex-direction:column;gap:3px;align-items:center;justify-content:center;cursor:pointer;" style-active="opacity:0.8">
+                <div style="font-size:16px;color:#FF6961;line-height:1;">&#215;</div>
+                <div style="font-size:12px;font-weight:600;color:#FF6961;">Exit</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;left:50%;bottom:60px;transform:translateX(-50%);z-index:70;background:rgba(44,44,48,0.95);border:0.5px solid rgba(255,255,255,0.14);color:#fff;font-size:14px;font-weight:600;padding:10px 18px;border-radius:20px;animation:toastIn 0.25s ease;white-space:nowrap;">{{ toast }}</div>
+      </sc-if>
+      <div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:139px;height:5px;border-radius:100px;background:rgba(255,255,255,0.5);z-index:65;pointer-events:none;"></div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Modern&quot;,&quot;Outpost&quot;],&quot;default&quot;:&quot;Modern&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Theme&quot;},&quot;showFfButton&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Controls&quot;},&quot;ffSpeed&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;0.5×&quot;,&quot;2×&quot;,&quot;3×&quot;,&quot;4×&quot;,&quot;10×&quot;,&quot;100×&quot;],&quot;default&quot;:&quot;3×&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Controls&quot;},&quot;controlOpacity&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;min&quot;:30,&quot;max&quot;:100,&quot;step&quot;:5,&quot;unit&quot;:&quot;%&quot;,&quot;default&quot;:65,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Landscape overlay&quot;}}">
+class Component extends DCLogic {
+  state = { games:[
+      {name:'Astro Knights',meta:'8.2 MB · 2h ago',hue:262},
+      {name:'Cave Runner',meta:'4.1 MB · Yesterday',hue:152},
+      {name:'Mega Drift GP',meta:'16 MB · Tuesday',hue:22},
+      {name:'Star Sage II',meta:'12.4 MB · Aug 18',hue:205},
+      {name:'Puzzle Loop',meta:'2.8 MB · Aug 12',hue:322},
+      {name:'Tiny Tactics',meta:'6.5 MB · Aug 3',hue:82}],
+    screen:'library', sheet:null, game:null, landscape:false,
+    ff:false, showFF:null, speed:null, haptics:true, autosave:true,
+    scaling:'Pixel-perfect', filter:'None', bios:'HLE', ctype:'GameShark',
+    turboA:false, turboB:false, rewindOn:true, autoSuspend:true, bgAudio:false,
+    skin:'Modern', cloud:'iCloud', raHardcore:false,
+    adding:false, toast:null,
+    cheats:[
+      {name:'Infinite Lives',code:'3E2A19C4 77F0210B',type:'GameShark',on:true},
+      {name:'Max Coins',code:'82003228 0000270F',type:'CodeBreaker',on:true},
+      {name:'Walk Through Walls',code:'509197D3 542975F4',type:'Action Replay',on:false}],
+    slots:[
+      {name:'Auto',time:'Today, 14:02',full:true},
+      {name:'Slot 1',time:'Today, 09:41',full:true},
+      {name:'Slot 2',time:'Aug 18, 22:37',full:true},
+      {name:'Slot 3',time:'',full:false},
+      {name:'Slot 4',time:'',full:false}] };
+  pop(msg){ clearTimeout(this._tt); this.setState({toast:msg}); this._tt=setTimeout(()=>this.setState({toast:null}),1800); }
+  renderVals(){
+    const s=this.state, p=this.props;
+    const THEMES={
+      Modern:{ac:'#8C7BF4',acText:'#A99BFF',acText2:'#B5A9FF',tint:'rgba(140,123,244,0.16)',tint2:'rgba(140,123,244,0.22)',tint3:'rgba(140,123,244,0.12)',tintBorder:'rgba(140,123,244,0.5)',tintBorder2:'rgba(140,123,244,0.55)',badge:'rgba(140,123,244,0.9)',stripe:'rgba(140,123,244,0.07)',stripe2:'rgba(140,123,244,0.1)',bg:'#0E0E11',sheet:'#1B1B1F',card:'#26262B',well:'#131317',chip:'#1C1C1E',btn2:'#39393D',trackOff:'#39393D'},
+      Outpost:{ac:'#C97B4A',acText:'#E0A277',acText2:'#E8B08A',tint:'rgba(201,123,74,0.16)',tint2:'rgba(201,123,74,0.22)',tint3:'rgba(201,123,74,0.14)',tintBorder:'rgba(201,123,74,0.5)',tintBorder2:'rgba(201,123,74,0.55)',badge:'rgba(178,104,58,0.92)',stripe:'rgba(201,123,74,0.09)',stripe2:'rgba(201,123,74,0.12)',bg:'#14100B',sheet:'#1E1812',card:'#282017',well:'#17120D',chip:'#211A13',btn2:'#3E342A',trackOff:'#3E342A'}};
+    const themeName=s.theme??(p.theme??'Modern');
+    const th=THEMES[themeName], AC=th.ac;
+    const showFF = s.showFF ?? (p.showFfButton ?? true);
+    const speed = s.speed ?? (p.ffSpeed ?? '3×');
+    const sw=(on)=>({track:on?AC:th.trackOff,knob:on?'translateX(20px)':'translateX(0)'});
+    const games=s.games.map(g=>({...g,stripe:'hsla('+g.hue+',40%,65%,0.13)',open:()=>this.setState({screen:'game',game:g.name})}));
+    const isRomImport=s.sheet==='import-rom';
+    const importFiles=(isRomImport?[
+      {name:'Dragon Vale Saga.gba',size:'14.2 MB',ext:'GBA'},
+      {name:'Robo Rally Turbo.gba',size:'7.9 MB',ext:'GBA'},
+      {name:'skyline-drifters-v1.2.zip',size:'11.4 MB',ext:'ZIP'},
+      {name:'Moon Miner 2.gba',size:'5.6 MB',ext:'GBA'},
+      {name:'holiday-photos.heic',size:'2.1 MB',ext:'HEIC',blocked:true},
+      {name:'notes.pdf',size:'340 KB',ext:'PDF',blocked:true}]:[
+      {name:'astro-knights-w4.sav',size:'128 KB',ext:'SAV'},
+      {name:'cave-runner-boss.sst',size:'412 KB',ext:'SST'},
+      {name:'star-sage-endgame.sst',size:'398 KB',ext:'SST'}]
+    ).map(f=>({...f,
+      rowOpacity:f.blocked?0.35:1, action:f.blocked?'Unsupported':'Import',
+      actionColor:f.blocked?'rgba(235,235,245,0.35)':AC,
+      extColor:f.blocked?'rgba(235,235,245,0.35)':AC,
+      pick:()=>{ if(f.blocked){ this.pop('Only .gba and .zip files'); return; }
+      if(isRomImport){
+        const nm=f.name.replace(/\.(gba|zip)$/i,'').replace(/[-_]/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+        this.setState({games:[{name:nm,meta:f.size+' · Just now',hue:Math.floor(Math.random()*360)},...s.games],sheet:null});
+        this.pop('Copied to Tinbox › ROMs');
+      } else {
+        const i=s.slots.findIndex(x=>!x.full);
+        const slots=[...s.slots]; const slot={name:i<0?'Slot '+s.slots.length:s.slots[i].name,time:'Imported just now',full:true};
+        if(i<0)slots.push(slot); else slots[i]=slot;
+        this.setState({slots,sheet:'saves'});
+        this.pop('Imported to '+slot.name);
+      }}}));
+    const cheats=s.cheats.map((c,i)=>({...c,...sw(c.on),toggle:()=>{
+      this.setState({cheats:s.cheats.map((x,j)=>j===i?{...x,on:!x.on}:x)});}}));
+    const slots=s.slots.map((sl,i)=>({...sl,empty:!sl.full,
+      actionLabel:sl.full?'Load':'Save here',
+      act:()=>{ if(sl.full){ this.pop('Loaded '+sl.name); this.setState({sheet:null}); }
+        else { const slots=[...s.slots]; slots[i]={...sl,full:true,time:'Just now'}; this.setState({slots}); this.pop('Saved to '+sl.name); } }}));
+    const seg=(opts,cur,key)=>opts.map(v=>({label:v,
+      bg:v===cur?AC:'transparent',color:v===cur?'#fff':'rgba(235,235,245,0.6)',
+      set:()=>this.setState({[key]:v})}));
+    const SPEED_STEPS=['0.25×','0.5×','1×','2×','3×','4×','8×','10×','16×','25×','50×','100×'];
+    const speeds=seg(['0.25×','0.5×','2×','4×','10×','100×'],speed,'speed');
+    const scalings=seg(['Pixel-perfect','Fit','Stretch'],s.scaling,'scaling');
+    const filters=seg(['None','CRT','Grid','HQ2x'],s.filter,'filter');
+    const SKINS={'Modern':{btn:'linear-gradient(#45454C,#2C2C31)',pad:'linear-gradient(#3A3A40,#26262B)',desc:'Neutral graphite'},
+      'Outpost Wood':{btn:'linear-gradient(#6B4F35,#463222)',pad:'linear-gradient(#5C432E,#3E2D1F)',desc:'Warm walnut'},
+      'Grape Classic':{btn:'linear-gradient(#5C4E8C,#3A3160)',pad:'linear-gradient(#4E4278,#332B54)',desc:'Purple handheld'}};
+    const skins=Object.keys(SKINS).map(k=>({name:k,desc:SKINS[k].desc,btn:SKINS[k].btn,pad:SKINS[k].pad,
+      border:k===s.skin?'2px solid '+AC:'0.5px solid rgba(255,255,255,0.1)',check:k===s.skin?'✓':'',
+      pick:()=>{this.setState({skin:k});this.pop(k+' skin applied');}}));
+    const clouds=seg(['Off','iCloud','Google Drive'],s.cloud,'cloud');
+    const achievements=[
+      {name:'First Steps',desc:'Clear stage 1-1',pts:'5 pts',got:true},
+      {name:'Untouchable',desc:'Finish any level without taking damage',pts:'25 pts',got:true},
+      {name:'Speed Demon',desc:'Beat any level in under 60 seconds',pts:'10 pts',got:false},
+      {name:'Completionist',desc:'Collect every relic in the game',pts:'50 pts',got:false}
+    ].map(a=>({...a,op:a.got?1:0.4,mark:a.got?'✓':'',markBg:a.got?AC:'rgba(255,255,255,0.08)'}));
+    const bioses=seg(['HLE','BIOS file'],s.bios,'bios');
+    const ctypes=seg(['GameShark','Action Replay','CodeBreaker'],s.ctype,'ctype');
+    const themes=seg(['Modern','Outpost'],themeName,'theme');
+    return {
+      portrait:!s.landscape, landscape:s.landscape,
+      isLibrary:s.screen==='library', isGame:s.screen==='game',
+      sheetMenu:s.sheet==='menu', sheetSaves:s.sheet==='saves',
+      sheetCheats:s.sheet==='cheats', sheetSettings:s.sheet==='settings',
+      sheetImport:s.sheet==='import-rom'||s.sheet==='import-state',
+      importFiles, importTitle:isRomImport?'Import ROM':'Import Save States',
+      importDest:isRomImport?'On My iPhone › Tinbox › ROMs':'On My iPhone › Tinbox › States',
+      importFilter:isRomImport?'Showing .gba and .zip':'Showing .sav and .sst',
+      browseFiles:()=>this.pop('Opens the Files app picker'),
+      openImportRom:()=>this.setState({sheet:'import-rom'}),
+      openImportState:()=>this.setState({sheet:'import-state'}),
+      closeImport:()=>this.setState({sheet:isRomImport?null:'saves'}),
+      games, cheats, slots, speeds, scalings, filters, bioses, ctypes, th, themes,
+      skins, skin:SKINS[s.skin], skinName:s.skin, clouds, cloudName:s.cloud, achievements,
+      speedIdx:Math.max(0,SPEED_STEPS.indexOf(speed)), speedMax:SPEED_STEPS.length-1,
+      onSpeed:(e)=>this.setState({speed:SPEED_STEPS[+e.target.value]}),
+      turboA:s.turboA, turboB:s.turboB,
+      turboASw:sw(s.turboA), turboBSw:sw(s.turboB), rewindSw:sw(s.rewindOn),
+      suspendSw:sw(s.autoSuspend), bgAudioSw:sw(s.bgAudio), hardcoreSw:sw(s.raHardcore),
+      toggleTurboA:()=>this.setState({turboA:!s.turboA}),
+      toggleTurboB:()=>this.setState({turboB:!s.turboB}),
+      toggleRewind:()=>this.setState({rewindOn:!s.rewindOn}),
+      toggleSuspend:()=>this.setState({autoSuspend:!s.autoSuspend}),
+      toggleBgAudio:()=>this.setState({bgAudio:!s.bgAudio}),
+      toggleHardcore:()=>this.setState({raHardcore:!s.raHardcore}),
+      doRewind:()=>{this.setState({sheet:null});this.pop('Rewound 10 seconds');},
+      syncNow:()=>this.pop('Synced with '+s.cloud),
+      openSkins:()=>this.setState({sheet:'skins'}),
+      openRA:()=>this.setState({sheet:'ra'}),
+      sheetSkins:s.sheet==='skins', sheetRA:s.sheet==='ra',
+      applyPatch:()=>this.pop('Pick an .ips / .ups patch in Files'),
+      profiles:()=>this.pop('Layout profiles — Default active'),
+      editLayout:()=>this.pop('Opens drag-and-resize layout editor'),
+      pairController:()=>this.pop('Scans for Bluetooth controllers'),
+      gameTitle:s.game||'Game', ff:s.ff, ffLabel:speed, showFF,
+      adding:s.adding, notAdding:!s.adding, cheatCount:s.cheats.filter(c=>c.on).length+' active',
+      toast:s.toast, hasToast:!!s.toast,
+      controlOpacity:(p.controlOpacity??65)/100,
+      ffBtnBg:s.ff?AC:'linear-gradient(#3A3A40,#2A2A2F)', ffBtnColor:s.ff?'#fff':'rgba(235,235,245,0.6)',
+      ffTileBg:s.ff?th.tint2:th.card, ffTileColor:s.ff?th.acText2:'rgba(235,235,245,0.85)',
+      ffSw:sw(s.ff), showFFSw:sw(showFF), hapticsSw:sw(s.haptics), autosaveSw:sw(s.autosave),
+      openSettings:()=>this.setState({sheet:'settings'}),
+      openMenu:()=>this.setState({sheet:'menu'}),
+      closeSheet:()=>this.setState({sheet:null,adding:false}),
+      openSaves:()=>this.setState({sheet:'saves'}),
+      openCheats:()=>this.setState({sheet:'cheats'}),
+      backToMenu:()=>this.setState({sheet:'menu',adding:false}),
+      rotate:()=>this.setState({landscape:!s.landscape}),
+      exitGame:()=>{ this.setState({screen:'library',sheet:null,landscape:false,ff:false}); if(s.autosave&&s.game)this.pop('Auto-saved '+s.game); },
+      doSave:()=>{ const slots=[...s.slots]; slots[0]={...slots[0],time:'Just now',full:true}; this.setState({slots,sheet:null}); this.pop('State saved · Auto'); },
+      toggleFF:()=>this.setState({ff:!s.ff}),
+      toggleShowFF:()=>this.setState({showFF:!showFF}),
+      toggleHaptics:()=>this.setState({haptics:!s.haptics}),
+      toggleAutosave:()=>this.setState({autosave:!s.autosave}),
+      startAdd:()=>this.setState({adding:true}),
+      cancelAdd:()=>this.setState({adding:false}),
+      onCheatName:(e)=>{this._cn=e.target.value;},
+      onCheatCode:(e)=>{this._cc=e.target.value;},
+      addCheat:()=>{ const n=(this._cn||'').trim(), c=(this._cc||'').trim();
+        if(!n||!c){ this.pop('Enter a name and code'); return; }
+        this.setState({cheats:[...s.cheats,{name:n,code:c.toUpperCase(),type:s.ctype,on:true}],adding:false});
+        this._cn=this._cc=''; this.pop('Cheat added'); },
+      moreMenu:()=>this.setState({landscape:false,sheet:'menu'}),
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,51 @@
+# XcodeGen spec — an alternative to Scripts/gen_xcodeproj.py that produces the
+# same target (brew install xcodegen && xcodegen). The committed
+# Tinbox.xcodeproj is already generated; you only need this if you prefer
+# XcodeGen's tooling.
+name: Tinbox
+options:
+  bundleIdPrefix: com.redfernsoutpost
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: false
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    CLANG_CXX_LANGUAGE_STANDARD: gnu++17
+    CLANG_CXX_LIBRARY: libc++
+    SWIFT_STRICT_CONCURRENCY: minimal
+targets:
+  Tinbox:
+    type: application
+    platform: iOS
+    sources:
+      - path: Tinbox
+        excludes:
+          - "Resources/Info.plist"
+          - "Resources/Tinbox.entitlements"
+    info:
+      path: Tinbox/Resources/Info.plist
+    entitlements:
+      path: Tinbox/Resources/Tinbox.entitlements
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.redfernsoutpost.tinbox
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: 1
+        GENERATE_INFOPLIST_FILE: NO
+        SWIFT_OBJC_BRIDGING_HEADER: Tinbox/Emulator/Tinbox-Bridging-Header.h
+        HEADER_SEARCH_PATHS:
+          - "$(inherited)"
+          - "$(SRCROOT)/Vendor/mgba-dist/include"
+        OTHER_LDFLAGS:
+          - "$(inherited)"
+          - "-lz"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SUPPORTS_MACCATALYST: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+    dependencies:
+      - framework: Vendor/mgba-dist/mgba.xcframework
+        embed: false
+      - sdk: libz.tbd

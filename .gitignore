@@ -1,0 +1,13 @@
+# Xcode
+xcuserdata/
+*.xcuserstate
+DerivedData/
+build/
+
+# mGBA checkout + build outputs (Scripts/build-mgba.sh recreates all of these)
+Vendor/mgba/
+Vendor/build/
+Vendor/mgba-dist/
+
+# macOS
+.DS_Store

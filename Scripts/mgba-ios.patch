@@ -1,0 +1,22 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index c301850..5b0807c 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -256,7 +256,7 @@ if(APPLE)
+ 		add_link_options(LINKER:-no_warn_duplicate_libraries)
+ 	endif()
+ 
+-	if(NOT CMAKE_SYSTEM_VERSION VERSION_LESS "10.0") # Darwin 10.x is Mac OS X 10.6
++	if(NOT IOS AND NOT CMAKE_SYSTEM_VERSION VERSION_LESS "10.0") # Darwin 10.x is Mac OS X 10.6
+ 		set(CMAKE_OSX_DEPLOYMENT_TARGET "10.6")
+ 	endif()
+ 	# Not supported until Xcode 9
+@@ -273,7 +273,7 @@ if(NOT HAIKU AND NOT MSVC AND NOT PSP2)
+ endif()
+ list(APPEND OS_LIB ${M_LIBRARY})
+ 
+-if(APPLE OR CMAKE_C_COMPILER_ID STREQUAL "GNU" AND BUILD_LTO)
++if((APPLE AND NOT IOS) OR CMAKE_C_COMPILER_ID STREQUAL "GNU" AND BUILD_LTO)
+ 	set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -flto")
+ 	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -flto")
+ endif()
