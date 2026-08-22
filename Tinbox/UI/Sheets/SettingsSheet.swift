@@ -54,8 +54,11 @@ struct SettingsSheet: View {
 
     private var appearance: some View {
         Card(bottomSpacing: 8) {
-            SettingsRow(title: "Theme", subtitle: "Modern violet or Outpost copper", showsSeparator: false) {
-                SegmentedPill(options: ThemeName.allCases, label: { $0.rawValue }, selection: settings.theme)
+            NavRow(title: "Theme", subtitle: model.settings.theme.tagline, detail: model.settings.theme.rawValue) {
+                model.openSheet(.themes)
+            }
+            NavRow(title: "Controller skin", subtitle: "Colours of the on-screen buttons", detail: model.settings.skin.rawValue, showsSeparator: false) {
+                model.openSheet(.skins)
             }
         }
     }
@@ -115,12 +118,9 @@ struct SettingsSheet: View {
             SettingsRow(title: "Screen filter") {
                 SegmentedPill(options: ScreenFilter.allCases, label: { $0.rawValue }, selection: settings.filter, fontSize: 12, horizontalPadding: 10)
             }
-            SettingsRow(title: "BIOS", subtitle: bootSubtitle) {
+            SettingsRow(title: "BIOS", subtitle: bootSubtitle, showsSeparator: false) {
                 SegmentedPill(options: BootMode.allCases, label: { $0 == .hle ? "Built-in" : "My file" },
                               selection: Binding(get: { model.settings.bootMode }, set: { pickBoot($0) }))
-            }
-            NavRow(title: "Controller skin", detail: model.settings.skin.rawValue, showsSeparator: false) {
-                model.openSheet(.skins)
             }
         }
     }
@@ -203,9 +203,6 @@ struct SettingsSheet: View {
             NavRow(title: "RetroAchievements", detail: RetroAchievementsService.shared.userChipText) {
                 model.openSheet(.retroAchievements)
             }
-            SettingsRow(title: "ROM patches", subtitle: "Tap a game in the Library › Make a patched copy", showsSeparator: true) {
-                EmptyView()
-            }
             SettingsRow(title: "Motion & rumble cartridges", subtitle: "Tilt, solar and rumble games use the phone's sensors", showsSeparator: false) {
                 TinboxToggle(isOn: settings.sensorsEnabled)
             }
@@ -248,7 +245,7 @@ struct SkinsSheet: View {
     var body: some View {
         BottomSheet(onDismiss: { model.openSheet(.settings) }) {
             SheetHeader(title: "Controller Skins", onBack: { model.openSheet(.settings) }, bottomSpacing: 14) { EmptyView() }
-            HStack(alignment: .top, spacing: 12) {
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 14) {
                 ForEach(ControllerSkin.all, id: \.name) { skin in
                     let selected = skin.name == model.settings.skin
                     Button {
@@ -304,6 +301,85 @@ struct SkinsSheet: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - Themes
+
+struct ThemesSheet: View {
+    @EnvironmentObject private var model: AppModel
+    @Environment(\.theme) private var theme
+
+    private let columns = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
+
+    var body: some View {
+        BottomSheet(maxHeightFraction: 0.84, onDismiss: { model.openSheet(.settings) }) {
+            SheetHeader(title: "Theme", onBack: { model.openSheet(.settings) }, bottomSpacing: 14) { EmptyView() }
+            HuggingScrollView {
+                LazyVGrid(columns: columns, spacing: 14) {
+                    ForEach(ThemeName.allCases) { name in
+                        ThemeSwatch(name: name, tokens: ThemeTokens.tokens(for: name), selected: name == model.settings.theme) {
+                            ButtonHaptics.shared.tap()
+                            model.settings.theme = name
+                            model.showToast("\(name.rawValue) theme")
+                        }
+                    }
+                }
+                .padding(.bottom, 4)
+            }
+        }
+    }
+}
+
+/// Miniature of the in-game screen in the theme's colours.
+private struct ThemeSwatch: View {
+    @Environment(\.theme) private var current
+    let name: ThemeName
+    let tokens: ThemeTokens
+    let selected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 8) {
+                ZStack(alignment: .topTrailing) {
+                    VStack(spacing: 6) {
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .fill(tokens.well)
+                            .overlay(RoundedRectangle(cornerRadius: 4).stroke(Palette.hairline08, lineWidth: 0.5))
+                            .frame(height: 34)
+                        HStack(spacing: 6) {
+                            Capsule().fill(tokens.secondaryButton).frame(width: 26, height: 10)
+                            Capsule().fill(tokens.tint).overlay(Capsule().stroke(tokens.tintBorder, lineWidth: 1)).frame(width: 26, height: 10)
+                            Capsule().fill(tokens.secondaryButton).frame(width: 26, height: 10)
+                        }
+                        HStack(spacing: 8) {
+                            RoundedRectangle(cornerRadius: 3).fill(tokens.card).frame(width: 22, height: 22)
+                            Spacer()
+                            Circle().fill(tokens.accent).frame(width: 14, height: 14)
+                            Circle().fill(tokens.card).frame(width: 14, height: 14)
+                        }
+                        .padding(.horizontal, 4)
+                    }
+                    .padding(10)
+                    .frame(maxWidth: .infinity)
+                    .background(tokens.bg)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(selected ? current.accent : Palette.hairline10, lineWidth: selected ? 2 : 0.5))
+                    if selected {
+                        Circle().fill(current.accent).frame(width: 18, height: 18)
+                            .overlay(Text("✓").font(.system(size: 11, weight: .heavy)).foregroundColor(.white))
+                            .padding(6)
+                    }
+                }
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(name.rawValue).font(.system(size: 13, weight: .bold)).foregroundColor(.white)
+                    Text(name.tagline).font(.system(size: 11)).foregroundColor(Palette.textTertiary)
+                }
+            }
+        }
+        .buttonStyle(FadePressStyle(opacity: 0.75))
     }
 }
 

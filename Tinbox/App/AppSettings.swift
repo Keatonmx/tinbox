@@ -119,6 +119,8 @@ struct AppSettings: Codable, Equatable {
     /// Security-scoped bookmark of a user-chosen ROM folder (nil == Tinbox › ROMs).
     var customROMFolderBookmark: Data?
     var customROMFolderName: String?
+    /// External-folder games removed from the Library (the folder is rescanned).
+    var hiddenGameIDs: [String] = []
 
     // Not user-facing: remembered state
     var lastPlayedGameID: String?
@@ -158,6 +160,7 @@ struct AppSettings: Codable, Equatable {
         importMode = try c.decodeIfPresent(ImportMode.self, forKey: .importMode) ?? d.importMode
         customROMFolderBookmark = try c.decodeIfPresent(Data.self, forKey: .customROMFolderBookmark)
         customROMFolderName = try c.decodeIfPresent(String.self, forKey: .customROMFolderName)
+        hiddenGameIDs = try c.decodeIfPresent([String].self, forKey: .hiddenGameIDs) ?? []
         volume = try c.decodeIfPresent(Int.self, forKey: .volume) ?? d.volume
         lastPlayedGameID = try c.decodeIfPresent(String.self, forKey: .lastPlayedGameID)
         collapsedSections = try c.decodeIfPresent([String].self, forKey: .collapsedSections) ?? d.collapsedSections

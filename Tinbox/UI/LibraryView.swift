@@ -26,9 +26,8 @@ struct LibraryView: View {
                                 model.select(game)
                             }
                             .contextMenu {
-                                Button(role: .destructive) { model.deleteGame(game) } label: {
-                                    Label("Remove from Library", systemImage: "trash")
-                                }
+                                Button { model.open(game) } label: { Label("Play", systemImage: "play.fill") }
+                                Button { model.select(game) } label: { Label("Options…", systemImage: "ellipsis.circle") }
                             }
                     }
                     importTile

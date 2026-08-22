@@ -11,7 +11,26 @@ import SwiftUI
 enum ThemeName: String, CaseIterable, Codable, Identifiable {
     case modern = "Modern"
     case outpost = "Outpost"
+    case midnight = "Midnight"
+    case grape = "Grape"
+    case forest = "Forest"
+    case ember = "Ember"
+    case sakura = "Sakura"
+    case mint = "Mint"
     var id: String { rawValue }
+
+    var tagline: String {
+        switch self {
+        case .modern: return "Violet on graphite"
+        case .outpost: return "Copper and warm wood"
+        case .midnight: return "Blue on deep navy"
+        case .grape: return "Lavender on plum"
+        case .forest: return "Leaf green on moss"
+        case .ember: return "Coal and glowing orange"
+        case .sakura: return "Pink on charcoal"
+        case .mint: return "Teal on slate"
+        }
+    }
 }
 
 struct ThemeTokens: Equatable {
@@ -89,10 +108,58 @@ struct ThemeTokens: Equatable {
         trackOff: Color(hex: 0x3E342A)
     )
 
+    /// Builds a full token set from an accent and a background family. Accent
+    /// text is a lighter tint of the accent so it stays legible on dark cards.
+    static func make(name: ThemeName, accent: UInt32, accentText: UInt32, accentText2: UInt32,
+                     badge: (Int, Int, Int), bg: UInt32, sheet: UInt32, card: UInt32, well: UInt32,
+                     chip: UInt32, button: UInt32) -> ThemeTokens {
+        let r = Int((accent >> 16) & 0xFF), g = Int((accent >> 8) & 0xFF), b = Int(accent & 0xFF)
+        return ThemeTokens(
+            name: name,
+            accent: Color(hex: accent),
+            accentText: Color(hex: accentText),
+            accentText2: Color(hex: accentText2),
+            tint: Color(rgba: r, g, b, 0.16),
+            tint2: Color(rgba: r, g, b, 0.22),
+            tint3: Color(rgba: r, g, b, 0.12),
+            tintBorder: Color(rgba: r, g, b, 0.5),
+            tintBorder2: Color(rgba: r, g, b, 0.55),
+            badge: Color(rgba: badge.0, badge.1, badge.2, 0.92),
+            stripe: Color(rgba: r, g, b, 0.08),
+            stripe2: Color(rgba: r, g, b, 0.11),
+            bg: Color(hex: bg), sheet: Color(hex: sheet), card: Color(hex: card), well: Color(hex: well),
+            chip: Color(hex: chip), secondaryButton: Color(hex: button), trackOff: Color(hex: button))
+    }
+
+    static let midnight = make(name: .midnight, accent: 0x4FA3FF, accentText: 0x8CC4FF, accentText2: 0xA3D0FF,
+                               badge: (56, 132, 224), bg: 0x0A0F1A, sheet: 0x121A2A, card: 0x1A2436, well: 0x0D1320,
+                               chip: 0x141D2C, button: 0x2C3A52)
+    static let grape = make(name: .grape, accent: 0xB48CFF, accentText: 0xCDB3FF, accentText2: 0xD8C4FF,
+                            badge: (150, 110, 230), bg: 0x100B18, sheet: 0x181222, card: 0x221A2F, well: 0x130D1B,
+                            chip: 0x1B1426, button: 0x3B3050)
+    static let forest = make(name: .forest, accent: 0x7BC67E, accentText: 0xA5E0A7, accentText2: 0xB7E8B9,
+                             badge: (92, 170, 96), bg: 0x0C120E, sheet: 0x141C16, card: 0x1C271F, well: 0x0F1611,
+                             chip: 0x161F18, button: 0x33423A)
+    static let ember = make(name: .ember, accent: 0xFF7A45, accentText: 0xFFA27E, accentText2: 0xFFB494,
+                            badge: (220, 96, 48), bg: 0x120D0C, sheet: 0x1C1412, card: 0x281C19, well: 0x160F0D,
+                            chip: 0x1F1614, button: 0x45332E)
+    static let sakura = make(name: .sakura, accent: 0xF07AA0, accentText: 0xFFA3C1, accentText2: 0xFFB5CD,
+                             badge: (210, 96, 140), bg: 0x140C10, sheet: 0x1E1218, card: 0x2A1A22, well: 0x170D12,
+                             chip: 0x211419, button: 0x44303A)
+    static let mint = make(name: .mint, accent: 0x3FD6B0, accentText: 0x7FE6CC, accentText2: 0x97EDD6,
+                           badge: (44, 170, 140), bg: 0x0B1211, sheet: 0x121C1A, card: 0x1A2624, well: 0x0E1515,
+                           chip: 0x152020, button: 0x304542)
+
     static func tokens(for name: ThemeName) -> ThemeTokens {
         switch name {
         case .modern: return .modern
         case .outpost: return .outpost
+        case .midnight: return .midnight
+        case .grape: return .grape
+        case .forest: return .forest
+        case .ember: return .ember
+        case .sakura: return .sakura
+        case .mint: return .mint
         }
     }
 }
@@ -137,6 +204,9 @@ enum ControllerSkinName: String, CaseIterable, Codable, Identifiable {
     case modern = "Modern"
     case outpostWood = "Outpost Wood"
     case grapeClassic = "Grape Classic"
+    case cherry = "Cherry"
+    case glacier = "Glacier"
+    case moss = "Moss"
     var id: String { rawValue }
 }
 
@@ -168,7 +238,20 @@ struct ControllerSkin: Equatable {
         buttonTop: Color(hex: 0x5C4E8C), buttonBottom: Color(hex: 0x3A3160),
         padTop: Color(hex: 0x4E4278), padBottom: Color(hex: 0x332B54))
 
-    static let all: [ControllerSkin] = [.modern, .outpostWood, .grapeClassic]
+    static let cherry = ControllerSkin(
+        name: .cherry, description: "Deep red buttons",
+        buttonTop: Color(hex: 0x8C2F3A), buttonBottom: Color(hex: 0x5E1C25),
+        padTop: Color(hex: 0x6E2530), padBottom: Color(hex: 0x48171F))
+    static let glacier = ControllerSkin(
+        name: .glacier, description: "Cool steel blue",
+        buttonTop: Color(hex: 0x4A6FA5), buttonBottom: Color(hex: 0x2F4A73),
+        padTop: Color(hex: 0x3E5C88), padBottom: Color(hex: 0x283D5C))
+    static let moss = ControllerSkin(
+        name: .moss, description: "Muted green",
+        buttonTop: Color(hex: 0x4F6B4A), buttonBottom: Color(hex: 0x334730),
+        padTop: Color(hex: 0x435C3F), padBottom: Color(hex: 0x2B3E29))
+
+    static let all: [ControllerSkin] = [.modern, .outpostWood, .grapeClassic, .cherry, .glacier, .moss]
 
     static func skin(named name: ControllerSkinName) -> ControllerSkin {
         all.first { $0.name == name } ?? .modern

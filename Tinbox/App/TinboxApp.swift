@@ -114,6 +114,7 @@ struct RootView: View {
                 case .cheats: CheatsSheet()
                 case .settings: SettingsSheet()
                 case .skins: SkinsSheet()
+                case .themes: ThemesSheet()
                 case .retroAchievements: RetroAchievementsSheet()
                 case .raLogin: RALoginSheet()
                 case .layoutProfiles: LayoutProfilesSheet()

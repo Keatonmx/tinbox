@@ -23,6 +23,7 @@ enum ActiveSheet: Equatable, Identifiable {
     case cheats
     case settings
     case skins
+    case themes
     case retroAchievements
     case raLogin
     case layoutProfiles
@@ -112,7 +113,8 @@ final class AppModel: ObservableObject {
     // MARK: Library
 
     func refreshLibrary() {
-        games = GameLibraryStore.shared.loadGames()
+        let hidden = Set(settings.hiddenGameIDs)
+        games = GameLibraryStore.shared.loadGames().filter { !hidden.contains($0.id) }
     }
 
     /// Tapping a library tile opens the game's action sheet.
@@ -185,6 +187,8 @@ final class AppModel: ObservableObject {
             }
         }
         session.stop()
+        // A normal exit supersedes any emergency snapshot from an app switch.
+        try? FileManager.default.removeItem(at: FileLocations.suspendState(gameID: game.id))
         activeSheet = nil
         isLayoutEditing = false
         forceLandscape = false
@@ -207,6 +211,9 @@ final class AppModel: ObservableObject {
 
     func deleteGame(_ game: Game) {
         GameLibraryStore.shared.deleteGame(game, deleteFile: !game.isExternal)
+        if game.isExternal, !settings.hiddenGameIDs.contains(game.id) {
+            settings.hiddenGameIDs.append(game.id)   // the folder is rescanned; keep it out of the list
+        }
         games.removeAll { $0.id == game.id }
         GameLibraryStore.shared.saveGames(games)
         if selectedGame?.id == game.id { selectedGame = nil; activeSheet = nil }
@@ -409,6 +416,7 @@ final class AppModel: ObservableObject {
         for url in urls {
             do {
                 let result = try GameLibraryStore.shared.importROM(from: url, move: settings.importMode == .move)
+                settings.hiddenGameIDs.removeAll { $0 == result.game.id }
                 if !games.contains(where: { $0.id == result.game.id }) {
                     games.insert(result.game, at: 0)
                 }
@@ -647,6 +655,10 @@ final class AppModel: ObservableObject {
     }
 
     func sceneDidBecomeActive() {
+        // Still alive, so the emergency snapshot is no longer needed.
+        if let game = currentGame {
+            try? FileManager.default.removeItem(at: FileLocations.suspendState(gameID: game.id))
+        }
         guard screen == .game, session.isRunning, activeSheet == nil, !isLayoutEditing else { return }
         session.resume()
     }

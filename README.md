@@ -85,9 +85,22 @@ Written against the real headers, not from memory:
 | Sensors | `mPERIPH_ROTATION` (CoreMotion tilt/gyro), `mPERIPH_GBA_LUMINANCE` (brightness slider, `GBA_LUX_LEVELS`), `mPERIPH_RUMBLE` via `mRumbleIntegrator` → Core Haptics |
 | Audio | `core->getAudioBuffer` drained after every frame into a ring buffer; `AVAudioSourceNode` at 32768 Hz stereo int16 |
 
+## Using the app
+
+* **Library** — tap a game for Play / Continue (newest save) / Load a save file / Make a patched copy / Delete. Long-press for a quick Play.
+* **Import ROM** — opens the Files picker; by default the file is *moved* into the ROM folder (Settings › General lets you switch to Copy, or choose any folder in Files/iCloud Drive as the library).
+* **» button** — hold and slide right to fast-forward (up to the speed in Quick Menu), slide left to rewind live; release to return to normal. The Quick Menu toggle is the permanent fast-forward.
+* **Quick Menu** — Save (Auto slot), Load (newest state), Rewind 10 s, fast-forward speed, all save states, cheats, settings, exit. Leaving a game always writes the Auto slot.
+* **Themes** — Modern, Outpost, Midnight, Grape, Forest, Ember, Sakura, Mint (Settings › Appearance), plus six controller skins.
+* **Landscape** — Settings › Video › Landscape screen: Fit (true 3:2), Wide (10 % stretch), Fill.
+
 ## Files on device
 
 `Documents/ROMs`, `Saves`, `States/<game>/slotN.ss` (+ `.png`), `Cheats`, `BIOS`, `Patches`, `Covers` (drop `<game id>.png` for box art), all visible in Files via `UIFileSharingEnabled` + `LSSupportsOpeningDocumentsInPlace`. Settings live in `UserDefaults`; per-game slots/cheats in `States/<game>/game.json`.
+
+## Audio pipeline
+
+The GBA's sample rate is not fixed: games set it through SOUNDBIAS (32768 / 65536 / 131072 / 262144 Hz — Pokémon's m4a driver uses 65536 Hz). The emulation thread reports the core's current rate after every frame; the audio thread pulls samples through a linear-interpolation resampler whose ratio is (core rate ÷ 48 kHz) corrected by ≤ ±1 % from the buffer fill level (dynamic rate control), with an 80 ms cushion. See `Tinbox/Emulator/AudioEngine.swift`.
 
 ## Scope notes
 
