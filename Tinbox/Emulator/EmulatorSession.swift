@@ -178,7 +178,7 @@ final class EmulatorSession: ObservableObject {
     @Published var ffSpeed: Double = 3 { didSet { syncSpeed() } }
     @Published var turboA = false { didSet { runner.turboA = turboA } }
     @Published var turboB = false { didSet { runner.turboB = turboB } }
-    @Published private(set) var cartridgeHardware: GBACartridgeHardware = []
+    @Published private(set) var cartridgeHardware: TinboxCartHardware = []
     @Published private(set) var controllerConnected = false
     @Published var luminanceLevel: Int = 0 { didSet { runner.withCore { $0.applyLuminanceLevel(luminanceLevel) } } }
 

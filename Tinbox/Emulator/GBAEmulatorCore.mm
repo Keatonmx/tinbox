@@ -239,16 +239,16 @@ static void _rumbleSet(struct mRumbleIntegrator* integrator, float value) {
     return code ?: @"";
 }
 
-- (GBACartridgeHardware)cartridgeHardware {
-    if (!_romPath) return GBACartridgeHardwareNone;
+- (TinboxCartHardware)cartridgeHardware {
+    if (!_romPath) return TinboxCartHardwareNone;
     struct GBA* gba = (struct GBA*) _core->board;
     uint32_t devices = gba->memory.hw.devices;
-    GBACartridgeHardware hw = GBACartridgeHardwareNone;
-    if (devices & HW_RTC)          hw |= GBACartridgeHardwareRTC;
-    if (devices & HW_RUMBLE)       hw |= GBACartridgeHardwareRumble;
-    if (devices & HW_LIGHT_SENSOR) hw |= GBACartridgeHardwareSolar;
-    if (devices & HW_GYRO)         hw |= GBACartridgeHardwareGyro;
-    if (devices & HW_TILT)         hw |= GBACartridgeHardwareTilt;
+    TinboxCartHardware hw = TinboxCartHardwareNone;
+    if (devices & HW_RTC)          hw |= TinboxCartHardwareRTC;
+    if (devices & HW_RUMBLE)       hw |= TinboxCartHardwareRumble;
+    if (devices & HW_LIGHT_SENSOR) hw |= TinboxCartHardwareSolar;
+    if (devices & HW_GYRO)         hw |= TinboxCartHardwareGyro;
+    if (devices & HW_TILT)         hw |= TinboxCartHardwareTilt;
     return hw;
 }
 

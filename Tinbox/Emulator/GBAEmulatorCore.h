@@ -37,13 +37,13 @@ typedef NS_ENUM(NSInteger, GBACheatCodeType) {
     GBACheatCodeTypeActionReplay = 3,
 };
 
-typedef NS_OPTIONS(NSUInteger, GBACartridgeHardware) {
-    GBACartridgeHardwareNone   = 0,
-    GBACartridgeHardwareRTC    NS_SWIFT_NAME(rtc)    = 1 << 0,
-    GBACartridgeHardwareRumble NS_SWIFT_NAME(rumble) = 1 << 1,
-    GBACartridgeHardwareSolar  NS_SWIFT_NAME(solar)  = 1 << 2,
-    GBACartridgeHardwareGyro   NS_SWIFT_NAME(gyro)   = 1 << 3,
-    GBACartridgeHardwareTilt   NS_SWIFT_NAME(tilt)   = 1 << 4,
+typedef NS_OPTIONS(NSUInteger, TinboxCartHardware) {
+    TinboxCartHardwareNone   = 0,
+    TinboxCartHardwareRTC    NS_SWIFT_NAME(rtc)    = 1 << 0,
+    TinboxCartHardwareRumble NS_SWIFT_NAME(rumble) = 1 << 1,
+    TinboxCartHardwareSolar  NS_SWIFT_NAME(solar)  = 1 << 2,
+    TinboxCartHardwareGyro   NS_SWIFT_NAME(gyro)   = 1 << 3,
+    TinboxCartHardwareTilt   NS_SWIFT_NAME(tilt)   = 1 << 4,
 };
 
 @class GBAEmulatorCore;
@@ -86,7 +86,7 @@ typedef NS_OPTIONS(NSUInteger, GBACartridgeHardware) {
 @property (nonatomic, readonly) BOOL isROMLoaded;
 @property (nonatomic, readonly, copy) NSString *gameTitle;   // internal header title, e.g. "POKEMON EMER"
 @property (nonatomic, readonly, copy) NSString *gameCode;    // e.g. "BPEE"
-@property (nonatomic, readonly) GBACartridgeHardware cartridgeHardware;
+@property (nonatomic, readonly) TinboxCartHardware cartridgeHardware;
 
 /// Loads a .gba (or .zip containing a .gba), attaches the battery save from
 /// the save directory, applies BIOS settings and resets the core.
