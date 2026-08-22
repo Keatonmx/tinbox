@@ -91,7 +91,15 @@ final class AppModel: ObservableObject {
         // CI smoke test: `-tinbox-autoplay` boots the first ROM in Documents/ROMs
         // so a simulator screenshot shows real emulator output.
         if CommandLine.arguments.contains("-tinbox-autoplay"), let first = games.first {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in self?.open(first) }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                self?.open(first)
+                if CommandLine.arguments.contains("-tinbox-landscape") {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                        self?.forceLandscape = true
+                        OrientationLock.set(mask: .landscape, rotateTo: .landscapeRight)
+                    }
+                }
+            }
         }
     }
 

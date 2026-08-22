@@ -102,6 +102,12 @@ jobs:
           xcrun simctl io "$UDID" screenshot screenshots/02-ingame.png
           sleep 4
           xcrun simctl io "$UDID" screenshot screenshots/03-ingame-later.png
+          xcrun simctl terminate "$UDID" "$BUNDLE_ID" || true
+
+          # Landscape layout check.
+          xcrun simctl launch "$UDID" "$BUNDLE_ID" -tinbox-autoplay -tinbox-landscape > screenshots/launch-landscape.log 2>&1
+          sleep 9
+          xcrun simctl io "$UDID" screenshot screenshots/04-landscape.png
           xcrun simctl spawn "$UDID" log show --last 60s --predicate 'process == "Tinbox"' > screenshots/device.log 2>/dev/null || true
           xcrun simctl terminate "$UDID" "$BUNDLE_ID" || true
 

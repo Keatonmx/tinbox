@@ -2,7 +2,9 @@
 //  AudioEngine.swift
 //  Tinbox
 //
-//  AVAudioEngine graph:  source node (32768 Hz stereo int16) → varispeed → mixer
+//  AVAudioEngine graph:  source node (32768 Hz stereo float32) → varispeed → mixer
+//  The ring buffer holds the core's native int16 samples; the render callback
+//  converts to float (varispeed only accepts standard float formats).
 //
 //  The emulation thread pushes every frame's samples into a ring buffer; the
 //  audio thread pulls from it. Two things keep that glitch-free:
@@ -128,25 +130,46 @@ final class AudioEngine: @unchecked Sendable {
     private var mixWithOthers = false
     private var isRunning = false
     private var rateUpdateCounter = 0
+    /// Scratch for int16 → float conversion on the audio thread (frames × 2 channels).
+    private let scratch: UnsafeMutablePointer<Int16>
+    private let scratchFrames = 8192
 
     init(sampleRate: Double) {
         self.sampleRate = sampleRate
         targetFrames = Int(sampleRate * 0.06)                                   // 60 ms
         ring = AudioRingBuffer(capacityFrames: Int(sampleRate * 0.5),          // 500 ms headroom
                                primeFrames: targetFrames)
-        let format = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: sampleRate, channels: 2, interleaved: true)!
+        scratch = .allocate(capacity: scratchFrames * 2)
+        scratch.initialize(repeating: 0, count: scratchFrames * 2)
+        // Standard (float32, non-interleaved) format — required by AVAudioUnitVarispeed.
+        let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 2)!
         let ring = self.ring
+        let scratch = self.scratch
+        let scratchFrames = self.scratchFrames
         let node = AVAudioSourceNode(format: format) { _, _, frameCount, audioBufferList -> OSStatus in
             let abl = UnsafeMutableAudioBufferListPointer(audioBufferList)
-            guard let buffer = abl.first, let data = buffer.mData else { return noErr }
-            ring.read(into: data.assumingMemoryBound(to: Int16.self), frames: Int(frameCount))
+            guard abl.count >= 2, let left = abl[0].mData, let right = abl[1].mData else { return noErr }
+            let l = left.assumingMemoryBound(to: Float.self)
+            let r = right.assumingMemoryBound(to: Float.self)
+            var done = 0
+            let total = Int(frameCount)
+            while done < total {
+                let n = min(total - done, scratchFrames)
+                ring.read(into: scratch, frames: n)
+                let scale: Float = 1.0 / 32768.0
+                for i in 0..<n {
+                    l[done + i] = Float(scratch[i * 2]) * scale
+                    r[done + i] = Float(scratch[i * 2 + 1]) * scale
+                }
+                done += n
+            }
             return noErr
         }
         sourceNode = node
         engine.attach(node)
         engine.attach(varispeed)
         engine.connect(node, to: varispeed, format: format)
-        engine.connect(varispeed, to: engine.mainMixerNode, format: nil)
+        engine.connect(varispeed, to: engine.mainMixerNode, format: format)
         engine.mainMixerNode.outputVolume = 1
         varispeed.rate = 1
         configureSession(mixWithOthers: false)
