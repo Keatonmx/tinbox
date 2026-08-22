@@ -147,7 +147,7 @@ def main():
 
     # Vendor scripts as plain references (handy in the navigator)
     script_refs = []
-    for name in ['build-mgba.sh', 'mgba-ios.patch', 'gen_xcodeproj.py', 'gen_icon.py']:
+    for name in ['build-mgba.sh', 'mgba-ios.patch', 'gen_xcodeproj.py', 'gen_test_rom.py']:
         rel = f'Scripts/{name}'
         if os.path.exists(os.path.join(ROOT, rel)):
             r = uid('fileref:' + rel)
