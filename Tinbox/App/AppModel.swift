@@ -64,6 +64,8 @@ final class AppModel: ObservableObject {
     @Published var forceLandscape = false
     @Published var showBrightnessOverlay = false
     @Published var toast: String?
+    /// Backup archive waiting to be shared.
+    @Published var shareURL: URL?
     @Published private(set) var lastSyncText: String = "Never"
 
     var theme: ThemeTokens { ThemeTokens.tokens(for: settings.theme) }
@@ -89,6 +91,7 @@ final class AppModel: ObservableObject {
             }
         }
         session.$controllerConnected
+            .removeDuplicates()
             .dropFirst()
             .sink { [weak self] connected in
                 self?.showToast(connected ? "Controller connected" : "Controller disconnected")
@@ -318,9 +321,12 @@ final class AppModel: ObservableObject {
         session.isFastForward.toggle()
     }
 
-    /// A quick tap on » (no slide) — the button is a scrubber now.
+    /// A quick tap on » (no slide). Shows the hint the first few times only.
+    private var hintCount = 0
     func showFastForwardHint() {
-        showToast("Hold » and slide: ◀ rewind · fast-forward ▶")
+        hintCount += 1
+        guard hintCount <= 2 || !settings.hasSeenFastForwardHint else { return }
+        showToast("Hold » and slide: ◀ rewind · ▶ fast-forward · double-tap to lock")
         if !settings.hasSeenFastForwardHint { settings.hasSeenFastForwardHint = true }
     }
 
@@ -424,6 +430,26 @@ final class AppModel: ObservableObject {
         case .romFolder:
             guard let url = urls.first else { return }
             chooseROMFolder(url)
+        case .backup:
+            guard let url = urls.first else { return }
+            let count = Backup.restore(from: url)
+            if count > 0 {
+                if screen == .game, let game = currentGame {
+                    gameData = GameLibraryStore.shared.loadGameData(for: game.id)
+                }
+                showToast("Restored \(count) files")
+            } else {
+                showToast("No Tinbox saves found in that zip")
+            }
+        }
+    }
+
+    func exportBackup() {
+        session.flushSaveData()
+        do {
+            shareURL = try Backup.makeArchive()
+        } catch {
+            showToast("Couldn't create backup: \(error.localizedDescription)")
         }
     }
 
@@ -664,9 +690,7 @@ final class AppModel: ObservableObject {
 
     func sceneDidBecomeInactive() {
         guard screen == .game, session.isRunning else { return }
-        if settings.autoSuspendSave {
-            session.writeSuspendState()
-        }
+        session.writeSuspendState()   // always on
         session.flushSaveData()
         if activeSheet == nil { session.pause() }
     }

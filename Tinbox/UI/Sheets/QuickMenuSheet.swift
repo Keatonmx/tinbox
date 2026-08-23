@@ -15,10 +15,11 @@ struct QuickMenuSheet: View {
     @Environment(\.theme) private var theme
 
     var body: some View {
-        BottomSheet(onDismiss: { model.closeSheet() }) {
+        BottomSheet(maxHeightFraction: 0.92, onDismiss: { model.closeSheet() }) {
             SheetHeader(title: "Quick Menu") {
                 AccentPill(title: "Resume") { model.closeSheet() }
             }
+            HuggingScrollView { VStack(spacing: 0) {
 
             // Action tiles
             HStack(spacing: 10) {
@@ -88,6 +89,8 @@ struct QuickMenuSheet: View {
                     .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             }
             .buttonStyle(ExitPressStyle())
+
+            } }
         }
     }
 

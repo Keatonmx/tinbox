@@ -119,6 +119,14 @@ jobs:
           xcrun simctl io "$UDID" screenshot screenshots/07-quickmenu.png
           xcrun simctl terminate "$UDID" "$BUNDLE_ID" || true
 
+          # Rapid-tap layout check (portrait).
+          xcrun simctl launch "$UDID" "$BUNDLE_ID" -tinbox-autoplay -tinbox-tapstorm > /dev/null 2>&1
+          sleep 7
+          xcrun simctl io "$UDID" screenshot screenshots/08-tapstorm-a.png
+          sleep 1
+          xcrun simctl io "$UDID" screenshot screenshots/08-tapstorm-b.png
+          xcrun simctl terminate "$UDID" "$BUNDLE_ID" || true
+
           # Landscape layout check.
           xcrun simctl launch "$UDID" "$BUNDLE_ID" -tinbox-autoplay -tinbox-landscape > screenshots/launch-landscape.log 2>&1
           sleep 9

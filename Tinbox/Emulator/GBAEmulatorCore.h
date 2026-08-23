@@ -174,6 +174,12 @@ typedef NS_OPTIONS(NSUInteger, TinboxCartHardware) {
 - (void)applyLuminanceLevel:(NSInteger)level NS_SWIFT_NAME(applyLuminanceLevel(_:));
 @property (nonatomic, readonly) NSInteger luminanceLevel;
 
+#pragma mark - Archives
+
+/// Extracts every file of a .zip into `directory` (creating subfolders) using
+/// libmgba's bundled minizip. Returns the number of files written.
++ (NSUInteger)extractZipAtURL:(NSURL *)zipURL toDirectory:(NSURL *)directory NS_SWIFT_NAME(extractZip(at:toDirectory:));
+
 #pragma mark - Misc
 
 /// Copies the current framebuffer into a freshly allocated RGBA8 buffer (caller owns it via NSData).

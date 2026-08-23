@@ -141,7 +141,7 @@ struct AppSettings: Codable, Equatable {
         showFFButton = try c.decodeIfPresent(Bool.self, forKey: .showFFButton) ?? d.showFFButton
         rewindEnabled = try c.decodeIfPresent(Bool.self, forKey: .rewindEnabled) ?? d.rewindEnabled
         rewindSeconds = try c.decodeIfPresent(Int.self, forKey: .rewindSeconds) ?? d.rewindSeconds
-        autoSuspendSave = try c.decodeIfPresent(Bool.self, forKey: .autoSuspendSave) ?? d.autoSuspendSave
+        autoSuspendSave = true
         backgroundAudioMixing = try c.decodeIfPresent(Bool.self, forKey: .backgroundAudioMixing) ?? d.backgroundAudioMixing
         scaling = try c.decodeIfPresent(DisplayScaling.self, forKey: .scaling) ?? d.scaling
         landscapeScaling = try c.decodeIfPresent(DisplayScaling.self, forKey: .landscapeScaling) ?? d.landscapeScaling

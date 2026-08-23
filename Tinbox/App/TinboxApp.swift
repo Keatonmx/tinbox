@@ -88,6 +88,9 @@ struct RootView: View {
                            onCancel: { model.importKind = nil })
                 .ignoresSafeArea()
         }
+        .sheet(item: Binding(get: { model.shareURL.map(ShareItem.init) }, set: { if $0 == nil { model.shareURL = nil } })) { item in
+            ShareSheet(items: [item.url]).ignoresSafeArea()
+        }
         .onChange(of: model.screen) { screen in
             if screen == .game {
                 OrientationLock.set(mask: .allButUpsideDown)
@@ -131,4 +134,9 @@ struct RootView: View {
 private struct ImportRequest: Identifiable {
     let kind: ImportKind
     var id: String { kind.title }
+}
+
+private struct ShareItem: Identifiable {
+    let url: URL
+    var id: String { url.path }
 }

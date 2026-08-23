@@ -2,17 +2,21 @@
 //  AudioEngine.swift
 //  Tinbox
 //
-//  AVAudioEngine graph:  source node (48 kHz stereo float32) → mixer → output
+//  AVAudioEngine graph:  source node (core rate, stereo float32) → mixer → output
 //
 //  The emulation thread pushes the core's int16 samples into a ring buffer.
-//  The audio thread pulls them through a small linear-interpolation resampler.
-//  Its ratio is (core rate ÷ 48 kHz) × a small correction from the buffer fill
-//  level (dynamic rate control):
+//  The audio thread pulls them through a tiny linear-interpolation stage whose
+//  ratio stays within ±1 % of 1.0 (dynamic rate control). The source node runs
+//  at the core's own sample rate, so the heavy conversion to the hardware rate
+//  is done by the mixer's proper (filtered) resampler — doing that conversion
+//  ourselves with linear interpolation aliased the 8-bit step noise into the
+//  audible band and sounded washed out.
 //
 //  • The GBA's sample rate is NOT fixed: SOUNDBIAS resolution bits switch it
 //    between 32768 / 65536 / 131072 / 262144 Hz, and games change it at
 //    runtime (Pokémon's m4a driver runs at 65536 Hz). The emulation thread
-//    reports the current rate after every frame and the ratio follows it.
+//    reports the current rate after every frame; when it changes, the source
+//    node is reconnected with the new format on the main thread.
 //  • The GBA produces audio at 59.73 fps while the display link runs at 60, so
 //    production outruns consumption by ~0.45 %. Instead of dropping samples in
 //    chunks (audible clicks) the read ratio drifts by ≤ ±1 % — inaudible.
@@ -108,10 +112,18 @@ final class AudioRingBuffer: @unchecked Sendable {
 }
 
 final class AudioEngine: @unchecked Sendable {
-    /// Rate we render at (the mixer then needs no resampling on most devices).
-    let outputRate: Double = 48_000
+    /// Rate the source node currently renders at (== the core's rate).
+    private(set) var outputRate: Double
     /// Current core sample rate; the emulation thread updates this every frame.
-    var sourceRate: Double
+    /// When it differs from `outputRate` the graph is rebuilt on the main thread.
+    var sourceRate: Double {
+        didSet {
+            guard sourceRate != oldValue, sourceRate > 0, !reconfiguring else { return }
+            reconfiguring = true
+            DispatchQueue.main.async { [weak self] in self?.reconfigure() }
+        }
+    }
+    private var reconfiguring = false
     let ring: AudioRingBuffer
     /// Buffered audio the rate controller steers towards, in seconds.
     private let targetSeconds = 0.08
@@ -135,23 +147,13 @@ final class AudioEngine: @unchecked Sendable {
 
     init(sampleRate: Double) {
         sourceRate = sampleRate
+        outputRate = sampleRate
         // Enough for 250 ms at the fastest GBA rate (262144 Hz).
         ring = AudioRingBuffer(capacityFrames: 65_536)
         scratch = .allocate(capacity: (scratchFrames + 2) * 2)
         scratch.initialize(repeating: 0, count: (scratchFrames + 2) * 2)
 
-        let format = AVAudioFormat(standardFormatWithSampleRate: outputRate, channels: 2)!
-        let node = AVAudioSourceNode(format: format) { [unowned self] _, _, frameCount, audioBufferList -> OSStatus in
-            let abl = UnsafeMutableAudioBufferListPointer(audioBufferList)
-            guard abl.count >= 2, let left = abl[0].mData, let right = abl[1].mData else { return noErr }
-            self.render(frames: Int(frameCount),
-                        left: left.assumingMemoryBound(to: Float.self),
-                        right: right.assumingMemoryBound(to: Float.self))
-            return noErr
-        }
-        sourceNode = node
-        engine.attach(node)
-        engine.connect(node, to: engine.mainMixerNode, format: format)
+        attachSourceNode(rate: sampleRate)
         engine.mainMixerNode.outputVolume = 1
         configureSession(mixWithOthers: false)
 
@@ -168,6 +170,41 @@ final class AudioEngine: @unchecked Sendable {
             guard let self, self.isRunning else { return }
             self.reset()
             try? self.engine.start()
+        }
+    }
+
+    /// (Re)creates the source node at `rate` and wires it to the mixer.
+    private func attachSourceNode(rate: Double) {
+        if let old = sourceNode {
+            engine.disconnectNodeOutput(old)
+            engine.detach(old)
+        }
+        let format = AVAudioFormat(standardFormatWithSampleRate: rate, channels: 2)!
+        let node = AVAudioSourceNode(format: format) { [unowned self] _, _, frameCount, audioBufferList -> OSStatus in
+            let abl = UnsafeMutableAudioBufferListPointer(audioBufferList)
+            guard abl.count >= 2, let left = abl[0].mData, let right = abl[1].mData else { return noErr }
+            self.render(frames: Int(frameCount),
+                        left: left.assumingMemoryBound(to: Float.self),
+                        right: right.assumingMemoryBound(to: Float.self))
+            return noErr
+        }
+        sourceNode = node
+        engine.attach(node)
+        engine.connect(node, to: engine.mainMixerNode, format: format)
+        outputRate = rate
+    }
+
+    /// Main thread: the core switched sample rate — rebuild the source node.
+    private func reconfigure() {
+        defer { reconfiguring = false }
+        let rate = sourceRate
+        guard rate != outputRate else { return }
+        let wasRunning = engine.isRunning
+        engine.stop()
+        attachSourceNode(rate: rate)
+        reset()
+        if wasRunning || isRunning {
+            try? engine.start()
         }
     }
 

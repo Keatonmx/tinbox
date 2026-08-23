@@ -88,9 +88,6 @@ struct SettingsSheet: View {
             SettingsRow(title: "Rewind", subtitle: "Keeps the last \(model.settings.rewindSeconds) seconds so you can undo mistakes") {
                 TinboxToggle(isOn: settings.rewindEnabled)
             }
-            SettingsRow(title: "Save my spot if interrupted", subtitle: "A phone call or app switch won't lose progress") {
-                TinboxToggle(isOn: settings.autoSuspendSave)
-            }
             SettingsRow(title: "Keep my music playing", subtitle: "Game sound mixes over Music, Spotify, etc.", showsSeparator: false) {
                 TinboxToggle(isOn: settings.backgroundAudioMixing)
             }
@@ -223,10 +220,13 @@ struct SettingsSheet: View {
             SettingsRow(title: "Haptic feedback", subtitle: "A light tap when you press a button") {
                 TinboxToggle(isOn: settings.hapticsEnabled)
             }
-            SettingsRow(title: "In-game saves", subtitle: "Saved automatically to Files › Tinbox › Saves") {
-                Text("On").font(Typography.detail).foregroundColor(Palette.text40)
+            NavRow(title: "Back up saves & states…", subtitle: "Zips them for Files, iCloud Drive or AirDrop · deleting the app deletes its saves") {
+                model.exportBackup()
             }
-            SettingsRow(title: "Save when leaving a game", subtitle: "Always on · the Auto slot is written every time you exit") {
+            NavRow(title: "Restore a backup…", subtitle: "Merges a Tinbox backup zip back in") {
+                model.importKind = .backup
+            }
+            SettingsRow(title: "Saving", subtitle: "In-game saves, the Auto slot on exit and an emergency snapshot on interruptions are always on") {
                 Text("On").font(Typography.detail).foregroundColor(Palette.text40)
             }
             SettingsRow(title: "About", showsSeparator: false) {
@@ -407,8 +407,11 @@ struct RetroAchievementsSheet: View {
                 .buttonStyle(FadePressStyle())
             }
             Card {
-                SettingsRow(title: "Hardcore mode", subtitle: "Disables save states & cheats for leaderboards", showsSeparator: false) {
+                SettingsRow(title: "Hardcore mode", subtitle: "Disables save states & cheats for leaderboards") {
                     TinboxToggle(isOn: Binding(get: { model.settings.raHardcore }, set: { model.setHardcore($0) }))
+                }
+                SettingsRow(title: "Progress tracking", subtitle: "Viewing only for now: unlocking needs the rcheevos runtime, and hardcore requires RetroAchievements to approve the emulator", showsSeparator: false) {
+                    EmptyView()
                 }
             }
             if ra.user == nil {

@@ -633,6 +633,37 @@ static struct mCheatDevice* _cheatDevice(struct mCore* core) {
     }
 }
 
+#pragma mark - Archives
+
++ (NSUInteger)extractZipAtURL:(NSURL*)zipURL toDirectory:(NSURL*)directory {
+    struct VDir* dir = VDirOpenArchive(zipURL.fileSystemRepresentation);
+    if (!dir) return 0;
+    NSFileManager* fm = NSFileManager.defaultManager;
+    NSUInteger written = 0;
+    struct VDirEntry* entry;
+    while ((entry = dir->listNext(dir))) {
+        const char* cname = entry->name(entry);
+        if (!cname) continue;
+        NSString* name = [NSString stringWithUTF8String:cname];
+        if (name.length == 0 || [name hasPrefix:@"__MACOSX"] || [name containsString:@".."]) continue;
+        if (entry->type(entry) == VFS_DIRECTORY || [name hasSuffix:@"/"]) continue;
+        struct VFile* vf = dir->openFile(dir, cname, O_RDONLY);
+        if (!vf) continue;
+        ssize_t size = vf->size(vf);
+        NSMutableData* data = [NSMutableData dataWithLength:(NSUInteger) MAX(size, 0)];
+        if (size > 0) {
+            vf->seek(vf, 0, SEEK_SET);
+            vf->read(vf, data.mutableBytes, (size_t) size);
+        }
+        vf->close(vf);
+        NSURL* dest = [directory URLByAppendingPathComponent:name];
+        [fm createDirectoryAtURL:dest.URLByDeletingLastPathComponent withIntermediateDirectories:YES attributes:nil error:NULL];
+        if ([data writeToURL:dest atomically:YES]) written++;
+    }
+    dir->close(dir);
+    return written;
+}
+
 #pragma mark - Sensors
 
 static float _clamp1(float v) { return v < -1.f ? -1.f : (v > 1.f ? 1.f : v); }

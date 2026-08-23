@@ -22,7 +22,7 @@ struct LayoutEditorView: View {
     @State private var pinchStart: Double?
 
     var body: some View {
-        let frames = ControlGeometry.frames(layout: layout, metrics: metrics, in: size, showFastForward: true)
+        let frames = ControlGeometry.frames(layout: layout, metrics: metrics, in: size, showFastForward: metrics.isLandscape)
         ZStack(alignment: .topLeading) {
             // Dotted guide so the editable region is obvious.
             RoundedRectangle(cornerRadius: 12, style: .continuous)

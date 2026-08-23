@@ -20,8 +20,9 @@ struct TouchControlsView: View {
     let showFastForward: Bool
     let onKeys: (GBAKeyMask) -> Void
     let onMenu: () -> Void
-    /// Quick tap on » (no slide) — shows the hint.
+    /// Quick tap on » (no slide) — shows the hint; a double tap toggles permanent fast-forward.
     let onFastForwardTap: () -> Void
+    let onFastForwardDoubleTap: () -> Void
     /// Hold-and-slide on »: horizontal offset in points, nil on release.
     let onScrub: (CGFloat?) -> Void
 
@@ -53,10 +54,21 @@ struct TouchControlsView: View {
                                     default: break
                                     }
                                 },
+                                onDoubleTap: { control in
+                                    if control == .fastForward { onFastForwardDoubleTap() }
+                                },
                                 onScrub: onScrub)
                 .frame(width: size.width, height: size.height)
         }
         .frame(width: size.width, height: size.height)
+        .onAppear {
+            // CI: `-tinbox-tapstorm` churns the pressed state like rapid tapping.
+            guard CommandLine.arguments.contains("-tinbox-tapstorm") else { return }
+            Timer.scheduledTimer(withTimeInterval: 0.04, repeats: true) { _ in
+                pressed = pressed.isEmpty ? [.a, .dpad] : []
+                dpadHighlight = pressed.isEmpty ? [] : [.right]
+            }
+        }
     }
 
     @ViewBuilder
@@ -100,6 +112,7 @@ struct MultiTouchInputView: UIViewRepresentable {
     let onKeys: (GBAKeyMask, GBAKeyMask) -> Void
     let onPressed: (Set<ControlID>) -> Void
     let onTap: (ControlID) -> Void
+    let onDoubleTap: (ControlID) -> Void
     let onScrub: (CGFloat?) -> Void
 
     func makeUIView(context: Context) -> TouchLayerView {
@@ -120,6 +133,7 @@ struct MultiTouchInputView: UIViewRepresentable {
         view.onKeys = onKeys
         view.onPressed = onPressed
         view.onTap = onTap
+        view.onDoubleTap = onDoubleTap
         view.onScrub = onScrub
     }
 }
@@ -130,7 +144,9 @@ final class TouchLayerView: UIView {
     var onKeys: ((GBAKeyMask, GBAKeyMask) -> Void)?
     var onPressed: ((Set<ControlID>) -> Void)?
     var onTap: ((ControlID) -> Void)?
+    var onDoubleTap: ((ControlID) -> Void)?
     var onScrub: ((CGFloat?) -> Void)?
+    private var lastQuickTapTime: TimeInterval = 0
 
     private var touchControls: [ObjectIdentifier: ControlID] = [:]
     /// The touch currently holding the » scrubber, where it started and when.
@@ -196,7 +212,15 @@ final class TouchLayerView: UIView {
             if id == scrubTouch {
                 let quickTap = !scrubMoved && (touch.timestamp - scrubStartTime) < 0.3
                 endScrub()
-                if quickTap { onTap?(.fastForward) }
+                if quickTap {
+                    if touch.timestamp - lastQuickTapTime < 0.35 {
+                        lastQuickTapTime = 0
+                        onDoubleTap?(.fastForward)
+                    } else {
+                        lastQuickTapTime = touch.timestamp
+                        onTap?(.fastForward)
+                    }
+                }
             }
             touchControls[id] = nil
         }

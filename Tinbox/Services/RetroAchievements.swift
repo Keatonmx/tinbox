@@ -53,7 +53,9 @@ final class RetroAchievementsService: ObservableObject {
         var newUser: RAUser?
         var error: String?
         do {
-            let (data, _) = try await URLSession.shared.data(from: components.url!)
+            var req = URLRequest(url: components.url!)
+            req.setValue(Self.userAgent, forHTTPHeaderField: "User-Agent")
+            let (data, _) = try await URLSession.shared.data(for: req)
             let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] ?? [:]
             if json["Success"] as? Bool == true, let token = json["Token"] as? String {
                 newUser = RAUser(username: username, token: token, score: json["Score"] as? Int ?? 0)
@@ -129,10 +131,14 @@ final class RetroAchievementsService: ObservableObject {
         }
     }
 
+    private static let userAgent = "Tinbox/1.0 (iOS; mGBA)"
+
     private func request(_ params: [String: String]) async throws -> [String: Any] {
         var components = URLComponents(url: base, resolvingAgainstBaseURL: false)!
         components.queryItems = params.map { URLQueryItem(name: $0.key, value: $0.value) }
-        let (data, _) = try await URLSession.shared.data(from: components.url!)
+        var req = URLRequest(url: components.url!)
+        req.setValue(Self.userAgent, forHTTPHeaderField: "User-Agent")
+        let (data, _) = try await URLSession.shared.data(for: req)
         return try JSONSerialization.jsonObject(with: data) as? [String: Any] ?? [:]
     }
 

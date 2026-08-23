@@ -21,6 +21,8 @@ enum ImportKind: Equatable {
     case patchForGame
     /// Choose the ROM library folder.
     case romFolder
+    /// A Tinbox backup .zip to merge back in.
+    case backup
 
     var title: String {
         switch self {
@@ -29,6 +31,7 @@ enum ImportKind: Equatable {
         case .bios: return "Import BIOS"
         case .patchForGame: return "Choose a patch"
         case .romFolder: return "Choose ROM folder"
+        case .backup: return "Restore backup"
         }
     }
 
@@ -44,13 +47,15 @@ enum ImportKind: Equatable {
             return [UTType.ipsPatch, UTType.upsPatch, UTType.bpsPatch, .data]
         case .romFolder:
             return [.folder]
+        case .backup:
+            return [.zip, .archive]
         }
     }
 
     var allowsMultiple: Bool {
         switch self {
         case .rom, .saveState, .saveForGame: return true
-        case .bios, .patchForGame, .romFolder: return false
+        case .bios, .patchForGame, .romFolder, .backup: return false
         }
     }
 

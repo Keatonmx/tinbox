@@ -75,6 +75,9 @@ struct PortraitGameView: View {
                             .foregroundColor(model.showBrightnessOverlay ? theme.accent : Palette.text70)
                     }
                 }
+                if model.settings.showFFButton {
+                    TopBarFastForwardBubble()
+                }
                 CircleIconButton(size: 40, action: { rotate() }) {
                     RotateGlyph(primary: Palette.text70, secondary: theme.accent)
                 }
@@ -118,13 +121,15 @@ struct PortraitGameView: View {
                         model.showToast("Layout saved")
                     }
                 } else {
+                    // Portrait keeps » in the top bar, next to the rotate bubble.
                     TouchControlsView(layout: model.currentProfile.portrait,
                                       metrics: metrics,
                                       size: geo.size,
-                                      showFastForward: model.settings.showFFButton,
+                                      showFastForward: false,
                                       onKeys: { session.setTouchKeys($0) },
                                       onMenu: { model.openSheet(.quickMenu) },
                                       onFastForwardTap: { model.showFastForwardHint() },
+                                      onFastForwardDoubleTap: { model.toggleFastForward() },
                                       onScrub: { session.setScrub(offset: $0) })
                 }
                 if model.showBrightnessOverlay {
@@ -138,8 +143,71 @@ struct PortraitGameView: View {
     }
 
     private func rotate() {
-        model.forceLandscape = true
-        OrientationLock.set(mask: .landscape, rotateTo: .landscapeRight)
+        // Request only — physical rotation keeps working afterwards.
+        OrientationLock.set(mask: .allButUpsideDown, rotateTo: .landscapeRight)
+    }
+}
+
+/// The » bubble in the portrait top bar: hold and slide to scrub, double-tap to
+/// toggle permanent fast-forward, single tap shows the hint.
+struct TopBarFastForwardBubble: View {
+    @EnvironmentObject private var model: AppModel
+    @EnvironmentObject private var session: EmulatorSession
+    @Environment(\.theme) private var theme
+    @State private var holding = false
+    @State private var startTime: Date?
+    @State private var moved = false
+    @State private var lastTap: Date = .distantPast
+
+    var body: some View {
+        ZStack {
+            Circle().fill(session.isFastForward ? AnyShapeStyle(theme.accent) : AnyShapeStyle(theme.chip))
+            Circle().stroke(Palette.hairline08, lineWidth: 0.5)
+            Text("»").font(.system(size: 17, weight: .heavy))
+                .foregroundColor(session.isFastForward ? .white : Palette.text70)
+        }
+        .frame(width: 40, height: 40)
+        .scaleEffect(holding ? 0.92 : 1)
+        .overlay(alignment: .bottom) {
+            if holding, let label = session.scrub.label ?? (holding ? "◀ rewind · fast-forward ▶" : nil) {
+                Text(label)
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(.white)
+                    .fixedSize()
+                    .padding(.horizontal, 10).padding(.vertical, 5)
+                    .background(theme.badge)
+                    .clipShape(Capsule())
+                    .shadow(color: .black.opacity(0.4), radius: 6, y: 3)
+                    .offset(y: 40)
+                    .allowsHitTesting(false)
+            }
+        }
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { value in
+                    if !holding {
+                        holding = true
+                        startTime = Date()
+                        moved = false
+                        ButtonHaptics.shared.tap()
+                    }
+                    if abs(value.translation.width) > 8 { moved = true }
+                    session.setScrub(offset: value.translation.width)
+                }
+                .onEnded { _ in
+                    let quick = !moved && (startTime.map { Date().timeIntervalSince($0) } ?? 1) < 0.3
+                    holding = false
+                    session.setScrub(offset: nil)
+                    guard quick else { return }
+                    if Date().timeIntervalSince(lastTap) < 0.35 {
+                        lastTap = .distantPast
+                        model.toggleFastForward()
+                    } else {
+                        lastTap = Date()
+                        model.showFastForwardHint()
+                    }
+                }
+        )
     }
 }
 
@@ -232,6 +300,7 @@ struct LandscapeGameView: View {
                                       onKeys: { session.setTouchKeys($0) },
                                       onMenu: { model.openSheet(.quickMenu) },
                                       onFastForwardTap: { model.showFastForwardHint() },
+                                      onFastForwardDoubleTap: { model.toggleFastForward() },
                                       onScrub: { session.setScrub(offset: $0) })
                         .opacity(model.settings.controlOpacity)
                 }
@@ -288,7 +357,6 @@ struct LandscapeGameView: View {
     }
 
     private func rotateBack() {
-        model.forceLandscape = false
         OrientationLock.set(mask: .allButUpsideDown, rotateTo: .portrait)
     }
 }
