@@ -117,6 +117,10 @@ final class AppModel: ObservableObject {
         if let i = args.firstIndex(of: "-tinbox-theme"), i + 1 < args.count, let t = ThemeName(rawValue: args[i + 1]) {
             self.settings.theme = t
         }
+        if let i = args.firstIndex(of: "-tinbox-glow"), i + 1 < args.count,
+           let g = PressGlow(rawValue: args[i + 1].capitalized) {
+            self.settings.pressGlow = g
+        }
         // `-tinbox-sections A,B` flips those Settings sections from their default
         // open/closed state (so a screenshot can show Library/Advanced expanded).
         if let i = args.firstIndex(of: "-tinbox-sections"), i + 1 < args.count {

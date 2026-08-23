@@ -118,10 +118,9 @@ jobs:
           shot 06-settings -tinbox-theme Midnight -tinbox-sheet settings
           shot 07-quickmenu -tinbox-autoplay -tinbox-sheet quickMenu
 
-          # Rapid-tap layout check (portrait).
+          # Rapid-tap layout check (portrait); -b in the accent press-glow style.
           SHOT_DELAY=7 shot 08-tapstorm-a -tinbox-autoplay -tinbox-tapstorm
-          sleep 1
-          xcrun simctl io "$UDID" screenshot screenshots/08-tapstorm-b.png
+          SHOT_DELAY=7 shot 08-tapstorm-b -tinbox-autoplay -tinbox-tapstorm -tinbox-glow accent
 
           # Every other screen (the game above has now been played, so the
           # Library shows its Continue card).

@@ -19,6 +19,7 @@ struct TinboxApp: App {
                 .environmentObject(model.session)
                 .environment(\.theme, model.theme)
                 .environment(\.skin, model.skin)
+                .environment(\.pressGlow, model.settings.pressGlow)
                 .preferredColorScheme(.dark)
                 .statusBarHidden(model.screen == .game)
                 .persistentSystemOverlays(model.screen == .game ? .hidden : .automatic)

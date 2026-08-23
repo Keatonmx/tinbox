@@ -182,6 +182,9 @@ struct SettingsSheet: View {
                     }
                 }
             }
+            SettingsRow(title: "Press glow", subtitle: "How buttons light up when touched") {
+                SegmentedPill(options: PressGlow.allCases, label: { $0.rawValue }, selection: settings.pressGlow)
+            }
             SettingsRow(title: "Button opacity", subtitle: "Landscape · \(Int((model.settings.controlOpacity * 100).rounded()))%") {
                 Slider(value: settings.controlOpacity, in: 0.3...1.0, step: 0.05).tint(theme.accent).frame(width: 150)
             }

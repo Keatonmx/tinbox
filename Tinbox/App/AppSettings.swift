@@ -62,6 +62,13 @@ enum ScreenFilter: String, CaseIterable, Codable, Identifiable {
     }
 }
 
+/// How a touched control lights up: a white wash, or the theme's accent colour.
+enum PressGlow: String, CaseIterable, Codable, Identifiable {
+    case white = "White"
+    case accent = "Accent"
+    var id: String { rawValue }
+}
+
 enum BootMode: String, CaseIterable, Codable, Identifiable {
     case hle = "HLE"
     case biosFile = "BIOS file"
@@ -122,6 +129,7 @@ struct AppSettings: Codable, Equatable {
     var turboA: Bool = false
     var turboB: Bool = false
     var hapticsEnabled: Bool = true
+    var pressGlow: PressGlow = .white
     /// 0.30…1.00 — landscape overlay opacity.
     var controlOpacity: Double = 0.65
     var sensorsEnabled: Bool = true
@@ -177,6 +185,7 @@ struct AppSettings: Codable, Equatable {
         turboA = try c.decodeIfPresent(Bool.self, forKey: .turboA) ?? d.turboA
         turboB = try c.decodeIfPresent(Bool.self, forKey: .turboB) ?? d.turboB
         hapticsEnabled = try c.decodeIfPresent(Bool.self, forKey: .hapticsEnabled) ?? d.hapticsEnabled
+        pressGlow = try c.decodeIfPresent(PressGlow.self, forKey: .pressGlow) ?? d.pressGlow
         controlOpacity = try c.decodeIfPresent(Double.self, forKey: .controlOpacity) ?? d.controlOpacity
         sensorsEnabled = try c.decodeIfPresent(Bool.self, forKey: .sensorsEnabled) ?? d.sensorsEnabled
         cloudProvider = try c.decodeIfPresent(CloudProvider.self, forKey: .cloudProvider) ?? d.cloudProvider

@@ -8,6 +8,17 @@
 
 import SwiftUI
 
+/// Chosen press-glow style (Settings › Controls), injected at the app root.
+private struct PressGlowKey: EnvironmentKey {
+    static let defaultValue: PressGlow = .white
+}
+extension EnvironmentValues {
+    var pressGlow: PressGlow {
+        get { self[PressGlowKey.self] }
+        set { self[PressGlowKey.self] = newValue }
+    }
+}
+
 /// Visual press state: translateY(1px), slight dip, and a *lightening* — on a
 /// dark theme a pressed control should read as lit, not sunk to black.
 private struct PressedLook: ViewModifier {
@@ -24,22 +35,24 @@ private struct PressedLook: ViewModifier {
 
 struct DPadView: View {
     @Environment(\.skin) private var skin
+    @Environment(\.theme) private var theme
+    @Environment(\.pressGlow) private var glowStyle
     let metrics: ControlMetrics
     let pressed: Bool
     var highlight: GBAKeyMask = []
+
+    private var glowColor: Color { glowStyle == .accent ? theme.accent : .white }
 
     var body: some View {
         let size = metrics.dpad
         let arm = metrics.dpadArm
         let radius = metrics.dpadRadius
-        let verticalActive = highlight.contains(.up) || highlight.contains(.down)
-        let horizontalActive = highlight.contains(.left) || highlight.contains(.right)
         ZStack {
             // Vertical arm
             RoundedRectangle(cornerRadius: radius, style: .continuous)
                 .fill(skin.padGradient)
                 .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .fill(Color.white.opacity(verticalActive ? 0.18 : 0)))
+                    .fill(LinearGradient(stops: verticalStops, startPoint: .top, endPoint: .bottom)))
                 .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).stroke(Palette.hairline10, lineWidth: 0.5))
                 .overlay(alignment: .top) { Rectangle().fill(Color.white.opacity(0.12)).frame(height: 1).padding(.horizontal, radius) }
                 .shadow(color: .black.opacity(0.4), radius: 4, y: 3)
@@ -48,23 +61,16 @@ struct DPadView: View {
             RoundedRectangle(cornerRadius: radius, style: .continuous)
                 .fill(skin.padGradient)
                 .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .fill(Color.white.opacity(horizontalActive ? 0.18 : 0)))
+                    .fill(LinearGradient(stops: horizontalStops, startPoint: .leading, endPoint: .trailing)))
                 .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).stroke(Palette.hairline10, lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.4), radius: 4, y: 3)
                 .frame(width: size, height: arm)
-            // Arrows at 30% white
+            // Arrows: 30% white idle; the pressed one lights up in the glow colour.
             Group {
-                Triangle().fill(Color.white.opacity(highlight.contains(.up) ? 0.9 : 0.3)).frame(width: 12, height: 9)
-                    .position(x: size / 2, y: 11 + 4.5)
-                Triangle().fill(Color.white.opacity(highlight.contains(.down) ? 0.9 : 0.3)).frame(width: 12, height: 9)
-                    .rotationEffect(.degrees(180))
-                    .position(x: size / 2, y: size - 11 - 4.5)
-                Triangle().fill(Color.white.opacity(highlight.contains(.left) ? 0.9 : 0.3)).frame(width: 12, height: 9)
-                    .rotationEffect(.degrees(-90))
-                    .position(x: 11 + 4.5, y: size / 2)
-                Triangle().fill(Color.white.opacity(highlight.contains(.right) ? 0.9 : 0.3)).frame(width: 12, height: 9)
-                    .rotationEffect(.degrees(90))
-                    .position(x: size - 11 - 4.5, y: size / 2)
+                arrow(.up).position(x: size / 2, y: 11 + 4.5)
+                arrow(.down).rotationEffect(.degrees(180)).position(x: size / 2, y: size - 11 - 4.5)
+                arrow(.left).rotationEffect(.degrees(-90)).position(x: 11 + 4.5, y: size / 2)
+                arrow(.right).rotationEffect(.degrees(90)).position(x: size - 11 - 4.5, y: size / 2)
             }
             // Recessed centre dot
             Circle()
@@ -73,9 +79,34 @@ struct DPadView: View {
                 .frame(width: 24, height: 24)
         }
         .frame(width: size, height: size)
-        // No PressedLook here: the pad body stays constant and only the pressed
-        // direction's arm + arrow light up (whole-pad darkening made the idle
+        .animation(.easeOut(duration: 0.06), value: highlight)
+        // No PressedLook: the pad body stays constant and only the pressed
+        // direction's end + arrow light up (whole-pad darkening made the idle
         // arms vanish into the background).
+    }
+
+    /// Vertical arm: glow at the top when Up is held, at the bottom for Down.
+    private var verticalStops: [Gradient.Stop] {
+        directionalStops(first: highlight.contains(.up), second: highlight.contains(.down))
+    }
+    /// Horizontal arm: glow at the leading end for Left, trailing for Right.
+    private var horizontalStops: [Gradient.Stop] {
+        directionalStops(first: highlight.contains(.left), second: highlight.contains(.right))
+    }
+
+    private func directionalStops(first: Bool, second: Bool) -> [Gradient.Stop] {
+        let peak = glowStyle == .accent ? 0.5 : 0.4
+        return [.init(color: glowColor.opacity(first ? peak : 0), location: 0),
+                .init(color: glowColor.opacity(0), location: 0.5),
+                .init(color: glowColor.opacity(second ? peak : 0), location: 1)]
+    }
+
+    private func arrow(_ key: GBAKeyMask) -> some View {
+        let active = highlight.contains(key)
+        return Triangle()
+            .fill(active ? glowColor.opacity(0.95) : Color.white.opacity(0.3))
+            .frame(width: 12, height: 9)
+            .shadow(color: active ? glowColor.opacity(0.7) : .clear, radius: 4)
     }
 }
 
@@ -93,16 +124,22 @@ struct Triangle: Shape {
 struct FaceButtonView: View {
     @Environment(\.skin) private var skin
     @Environment(\.theme) private var theme
+    @Environment(\.pressGlow) private var glowStyle
     let label: String
     let metrics: ControlMetrics
     let pressed: Bool
     var turbo = false
+
+    private var accentRing: Bool { pressed && glowStyle == .accent }
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
             Circle()
                 .fill(skin.buttonGradient)
                 .overlay(Circle().stroke(Palette.hairline14, lineWidth: 0.5))
+                .overlay(
+                    Circle().stroke(theme.accent.opacity(accentRing ? 0.9 : 0), lineWidth: 2)
+                        .shadow(color: theme.accent.opacity(accentRing ? 0.6 : 0), radius: 6))
                 .overlay(alignment: .top) {
                     Circle().stroke(Color.white.opacity(0.16), lineWidth: 1.5).padding(1).mask(
                         LinearGradient(colors: [.white, .clear], startPoint: .top, endPoint: .center))
