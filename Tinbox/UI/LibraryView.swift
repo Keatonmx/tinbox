@@ -12,7 +12,8 @@ struct LibraryView: View {
     @EnvironmentObject private var model: AppModel
     @Environment(\.theme) private var theme
 
-    private let columns = [GridItem(.flexible(), spacing: 16), GridItem(.flexible(), spacing: 16)]
+    // Top-aligned so the Import tile lines up with covers, not with cover + title.
+    private let columns = [GridItem(.flexible(), spacing: 16, alignment: .top), GridItem(.flexible(), spacing: 16, alignment: .top)]
 
     @FocusState private var searchFocused: Bool
 
