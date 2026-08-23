@@ -33,11 +33,19 @@ struct SaveStatesSheet: View {
                             if slot.isFilled { model.load(fromSlot: slot.index) } else { model.save(toSlot: slot.index) }
                         } onOverwrite: {
                             model.save(toSlot: slot.index)
+                        } onDelete: {
+                            model.deleteState(inSlot: slot.index)
                         }
                     }
                 }
                 .background(theme.card)
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                Text("Tap to load · hold a slot to overwrite or delete it")
+                    .font(Typography.meta)
+                    .foregroundColor(Palette.text40)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 4)
+                    .padding(.top, 10)
             }
         }
     }
@@ -50,6 +58,7 @@ private struct SlotRow: View {
     let isLast: Bool
     let action: () -> Void
     let onOverwrite: () -> Void
+    let onDelete: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
@@ -78,6 +87,7 @@ private struct SlotRow: View {
             .contextMenu {
                 if slot.isFilled {
                     Button { onOverwrite() } label: { Label("Overwrite with current state", systemImage: "square.and.arrow.down") }
+                    Button(role: .destructive) { onDelete() } label: { Label("Delete", systemImage: "trash") }
                 }
             }
             if !isLast { RowSeparator() }

@@ -43,6 +43,14 @@ struct LibraryView: View {
                             importTile
                         }
                     }
+                    if model.games.isEmpty {
+                        Text("Add .gba, .gb, .gbc or .zip files from the Files app. They go into your ROM folder, which you can also open in Files.")
+                            .font(Typography.meta13)
+                            .foregroundColor(Palette.textTertiary)
+                            .multilineTextAlignment(.leading)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 2)
+                    }
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 8)

@@ -62,17 +62,7 @@ struct SkinsSheet: View {
                     .buttonStyle(FadePressStyle(opacity: 0.75))
                 }
             }
-            .padding(.bottom, 12)
-            Card(bottomSpacing: 0) {
-                SettingsRow(title: "Skin marketplace", subtitle: "Community handheld-style skins", showsSeparator: false, gap: 8) {
-                    Text("Coming soon")
-                        .font(Typography.chip)
-                        .foregroundColor(theme.accentText)
-                        .padding(.horizontal, 10).padding(.vertical, 4)
-                        .background(theme.tint)
-                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                }
-            }
+            .padding(.bottom, 4)
         }
     }
 }

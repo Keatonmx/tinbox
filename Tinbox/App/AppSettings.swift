@@ -75,20 +75,17 @@ enum CloudProvider: String, CaseIterable, Codable, Identifiable {
     var id: String { rawValue }
 }
 
-/// Speed steps shown on the slider, in order. Below 1× is slow motion.
+/// Fast-forward presets (chips in Settings and the Quick Menu). 0.5× is slow
+/// motion; 100× is "as fast as the phone can go".
 enum SpeedSteps {
-    static let all: [Double] = [0.25, 0.5, 1, 2, 3, 4, 8, 10, 16, 25, 50, 100]
-    static let presets: [Double] = [0.25, 0.5, 2, 4, 10, 100]
+    static let presets: [Double] = [0.5, 2, 3, 4, 10, 100]
 
     static func label(_ speed: Double) -> String {
+        if speed >= 100 { return "Max" }
         if speed == speed.rounded() {
             return "\(Int(speed))×"
         }
         return "\(speed)×"
-    }
-
-    static func index(of speed: Double) -> Int {
-        all.firstIndex(of: speed) ?? all.enumerated().min { abs($0.element - speed) < abs($1.element - speed) }?.offset ?? 4
     }
 }
 

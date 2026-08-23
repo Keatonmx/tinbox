@@ -3,7 +3,7 @@
 //  Tinbox
 //
 //  Quick Menu (v3 IA): action tiles (Save / Load / Rewind), Speed card
-//  (FF toggle + 0.25×–100× slider + preset chips), navigation card, Exit.
+//  (FF toggle + preset chips), navigation card, Exit.
 //  Plus the compact landscape dialog (420pt, radius 26, four 64pt tiles).
 //
 
@@ -49,15 +49,13 @@ struct QuickMenuSheet: View {
                     HStack(spacing: 12) {
                         VStack(alignment: .leading, spacing: 1) {
                             Text("Fast-forward").font(Typography.row).foregroundColor(.white)
-                            Text(session.isFastForward ? "Running at \(SpeedSteps.label(session.ffSpeed)) until you turn this off"
-                                                       : "Turn on for \(SpeedSteps.label(session.ffSpeed)) · or hold » in game")
+                            Text(fastForwardSubtitle)
                                 .font(Typography.rowSubtitle).foregroundColor(Palette.textTertiary)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         TinboxToggle(isOn: Binding(get: { session.isFastForward },
                                                    set: { session.isFastForward = $0 }))
                     }
-                    SpeedSlider(speed: session.ffSpeed) { model.setSpeed($0) }
                     HStack {
                         SpeedChips(current: session.ffSpeed) { model.setSpeed($0) }
                         Spacer(minLength: 0)
@@ -94,6 +92,12 @@ struct QuickMenuSheet: View {
         }
     }
 
+    private var fastForwardSubtitle: String {
+        let speed = SpeedSteps.label(session.ffSpeed)
+        if session.isFastForward { return "Running at \(speed) until you turn this off" }
+        return model.settings.showFastForwardButton ? "Turn on for \(speed) · or hold » in game" : "Turn on for \(speed)"
+    }
+
     private func actionTile(title: String, subtitle: String, action: @escaping () -> Void) -> some View {
         Button {
             ButtonHaptics.shared.tap()
@@ -122,21 +126,6 @@ struct ExitPressStyle: ButtonStyle {
         configuration.label
             .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(configuration.isPressed ? Palette.destructive.opacity(0.12) : Color.clear))
-    }
-}
-
-/// Discrete slider over SpeedSteps.all, accent-tinted.
-struct SpeedSlider: View {
-    @Environment(\.theme) private var theme
-    let speed: Double
-    let onChange: (Double) -> Void
-
-    var body: some View {
-        Slider(value: Binding(get: { Double(SpeedSteps.index(of: speed)) },
-                              set: { onChange(SpeedSteps.all[Int($0.rounded())]) }),
-               in: 0...Double(SpeedSteps.all.count - 1), step: 1)
-            .tint(theme.accent)
-            .frame(height: 24)
     }
 }
 

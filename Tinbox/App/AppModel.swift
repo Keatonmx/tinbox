@@ -399,6 +399,15 @@ final class AppModel: ObservableObject {
         }
     }
 
+    func deleteState(inSlot index: Int) {
+        guard let game = currentGame else { return }
+        try? FileManager.default.removeItem(at: FileLocations.stateFile(gameID: game.id, slot: index))
+        try? FileManager.default.removeItem(at: FileLocations.stateThumbnail(gameID: game.id, slot: index))
+        gameData.slots[index].savedAt = nil
+        persistGameData()
+        showToast("Deleted \(gameData.slots[index].name)")
+    }
+
     func load(fromSlot index: Int) {
         guard !settings.raHardcore else { showToast("Save states are off in Hardcore mode"); return }
         if session.loadState(slot: index) {

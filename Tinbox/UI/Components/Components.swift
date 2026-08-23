@@ -470,15 +470,28 @@ struct BottomSheet<Content: View>: View {
     }
 }
 
-/// Shows `content` unscrolled when it fits the proposed height, otherwise in a
-/// ScrollView — so sheets hug short content (CSS `max-height` behaviour).
+/// A ScrollView that is never taller than its content — so sheets hug short
+/// content and only scroll when the sheet's max height clamps them (CSS
+/// `max-height` behaviour). Measures the content instead of relying on
+/// ViewThatFits, which picked the greedy branch for the Quick Menu.
 struct HuggingScrollView<Content: View>: View {
     @ViewBuilder let content: () -> Content
+    @State private var contentHeight: CGFloat = 0
+
     var body: some View {
-        ViewThatFits(in: .vertical) {
+        ScrollView(showsIndicators: false) {
             content()
-            ScrollView(showsIndicators: false) { content() }
+                .background(GeometryReader { geo in
+                    Color.clear.preference(key: ContentHeightKey.self, value: geo.size.height)
+                })
         }
+        .onPreferenceChange(ContentHeightKey.self) { contentHeight = $0 }
+        .frame(maxHeight: contentHeight > 0 ? contentHeight : nil)
+    }
+
+    private struct ContentHeightKey: PreferenceKey {
+        static var defaultValue: CGFloat = 0
+        static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
     }
 }
 
