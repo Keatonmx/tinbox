@@ -488,11 +488,11 @@ struct HuggingScrollView<Content: View>: View {
         .onPreferenceChange(ContentHeightKey.self) { contentHeight = $0 }
         .frame(maxHeight: contentHeight > 0 ? contentHeight : nil)
     }
+}
 
-    private struct ContentHeightKey: PreferenceKey {
-        static var defaultValue: CGFloat = 0
-        static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
-    }
+private struct ContentHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
 }
 
 /// Sheet title row: optional back button + title on the left, trailing content on the right.
