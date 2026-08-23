@@ -129,7 +129,7 @@ struct SettingsSheet: View {
 
     private var video: some View {
         Card(bottomSpacing: 8) {
-            SettingsRow(title: "Portrait screen", subtitle: "Pixel-perfect is sharpest") {
+            SettingsRow(title: "Portrait screen") {
                 SegmentedPill(options: DisplayScaling.portraitOptions, label: { $0.rawValue }, selection: settings.scaling,
                               fontSize: 12, horizontalPadding: 9)
             }
