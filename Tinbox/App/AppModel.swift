@@ -111,20 +111,44 @@ final class AppModel: ObservableObject {
 
         #if DEBUG
         // Debug builds only (CI simulator screenshots); compiled out of Release.
-        // `-tinbox-theme <Name>`, `-tinbox-sheet <settings|themes|skins|quickMenu>`,
-        // `-tinbox-autoplay`, `-tinbox-landscape`, `-tinbox-tapstorm`.
+        // `-tinbox-theme <Name>`, `-tinbox-sheet <name>` (see the switch below),
+        // `-tinbox-sections A,B`, `-tinbox-autoplay`, `-tinbox-landscape`, `-tinbox-tapstorm`.
         let args = CommandLine.arguments
         if let i = args.firstIndex(of: "-tinbox-theme"), i + 1 < args.count, let t = ThemeName(rawValue: args[i + 1]) {
             self.settings.theme = t
         }
+        // `-tinbox-sections A,B` flips those Settings sections from their default
+        // open/closed state (so a screenshot can show Library/Advanced expanded).
+        if let i = args.firstIndex(of: "-tinbox-sections"), i + 1 < args.count {
+            self.settings.toggledSections = args[i + 1].split(separator: ",").map(String.init)
+        }
         if let i = args.firstIndex(of: "-tinbox-sheet"), i + 1 < args.count {
             let name = args[i + 1]
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+            // In-game sheets need the ROM booted first (autoplay opens it at 0.5 s).
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
+                guard let self else { return }
                 switch name {
-                case "settings": self?.openSheet(.settings)
-                case "themes": self?.openSheet(.themes)
-                case "skins": self?.openSheet(.skins)
-                case "quickMenu": self?.openSheet(.quickMenu)
+                case "settings": self.openSheet(.settings)
+                case "themes": self.openSheet(.themes)
+                case "skins": self.openSheet(.skins)
+                case "about": self.openSheet(.about)
+                case "romFolder": self.openSheet(.romFolder)
+                case "controllers": self.openSheet(.controllers)
+                case "layoutProfiles": self.openSheet(.layoutProfiles)
+                case "retroAchievements": self.openSheet(.retroAchievements)
+                case "gameActions": if let g = self.games.first { self.select(g) }
+                case "quickMenu": self.openSheet(.quickMenu)
+                case "cheats": self.openSheet(.cheats)
+                case "saveStates":
+                    // Fill two slots so the list shows thumbnails and timestamps.
+                    self.saveToAutoSlot()
+                    self.save(toSlot: 1)
+                    self.openSheet(.saveStates)
+                case "gameOverrides":
+                    self.updateOverrides { $0.enabled = true; $0.filter = .xbr }
+                    self.openSheet(.gameOverrides)
+                case "editLayout":
+                    self.isLayoutEditing = true
                 default: break
                 }
             }

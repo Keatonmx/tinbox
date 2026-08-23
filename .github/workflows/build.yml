@@ -86,13 +86,20 @@ jobs:
           xcrun simctl install "$UDID" "$APP"
           mkdir -p screenshots
 
-          # Library screenshot first (fresh install, no ROMs).
-          xcrun simctl launch "$UDID" "$BUNDLE_ID" > screenshots/launch-library.log 2>&1
-          sleep 6
-          xcrun simctl io "$UDID" screenshot screenshots/01-library.png
-          xcrun simctl terminate "$UDID" "$BUNDLE_ID" || true
+          # shot <name> [launch args…]: relaunch with the Debug-only arguments,
+          # wait for the screen to settle, capture.
+          shot() {
+            local name="$1"; shift
+            xcrun simctl terminate "$UDID" "$BUNDLE_ID" 2>/dev/null || true
+            xcrun simctl launch "$UDID" "$BUNDLE_ID" "$@" > "screenshots/launch-$name.log" 2>&1
+            sleep "${SHOT_DELAY:-8}"
+            xcrun simctl io "$UDID" screenshot "screenshots/$name.png"
+          }
 
-          # Then drop a ROM into Documents/ROMs and relaunch with autoplay.
+          # Fresh install, no ROMs.
+          SHOT_DELAY=6 shot 01-library-empty
+
+          # Drop a ROM into Documents/ROMs; everything after this has a game.
           CONTAINER=$(xcrun simctl get_app_container "$UDID" "$BUNDLE_ID" data)
           mkdir -p "$CONTAINER/Documents/ROMs"
           if [ -n "$TEST_ROM_URL" ]; then
@@ -100,41 +107,42 @@ jobs:
           else
             cp Tests/tinbox-test.gba "$CONTAINER/Documents/ROMs/Tinbox Test.gba"
           fi
-          xcrun simctl launch "$UDID" "$BUNDLE_ID" -tinbox-autoplay > screenshots/launch-game.log 2>&1
-          sleep 8
-          xcrun simctl io "$UDID" screenshot screenshots/02-ingame.png
+
+          # In game (portrait), then a second frame a few seconds later.
+          shot 02-ingame -tinbox-autoplay
           sleep 4
           xcrun simctl io "$UDID" screenshot screenshots/03-ingame-later.png
-          xcrun simctl terminate "$UDID" "$BUNDLE_ID" || true
 
-          # Settings + theme picker (Ember theme), Quick Menu over a running game.
-          xcrun simctl terminate "$UDID" "$BUNDLE_ID" || true
-          xcrun simctl launch "$UDID" "$BUNDLE_ID" -tinbox-theme Ember -tinbox-sheet themes > /dev/null 2>&1
-          sleep 6
-          xcrun simctl io "$UDID" screenshot screenshots/05-themes.png
-          xcrun simctl terminate "$UDID" "$BUNDLE_ID" || true
-          xcrun simctl launch "$UDID" "$BUNDLE_ID" -tinbox-theme Midnight -tinbox-sheet settings > /dev/null 2>&1
-          sleep 6
-          xcrun simctl io "$UDID" screenshot screenshots/06-settings.png
-          xcrun simctl terminate "$UDID" "$BUNDLE_ID" || true
-          xcrun simctl launch "$UDID" "$BUNDLE_ID" -tinbox-autoplay -tinbox-sheet quickMenu > /dev/null 2>&1
-          sleep 8
-          xcrun simctl io "$UDID" screenshot screenshots/07-quickmenu.png
-          xcrun simctl terminate "$UDID" "$BUNDLE_ID" || true
+          SHOT_DELAY=9 shot 04-landscape -tinbox-autoplay -tinbox-landscape
+          shot 05-themes -tinbox-theme Ember -tinbox-sheet themes
+          shot 06-settings -tinbox-theme Midnight -tinbox-sheet settings
+          shot 07-quickmenu -tinbox-autoplay -tinbox-sheet quickMenu
 
           # Rapid-tap layout check (portrait).
-          xcrun simctl launch "$UDID" "$BUNDLE_ID" -tinbox-autoplay -tinbox-tapstorm > /dev/null 2>&1
-          sleep 7
-          xcrun simctl io "$UDID" screenshot screenshots/08-tapstorm-a.png
+          SHOT_DELAY=7 shot 08-tapstorm-a -tinbox-autoplay -tinbox-tapstorm
           sleep 1
           xcrun simctl io "$UDID" screenshot screenshots/08-tapstorm-b.png
-          xcrun simctl terminate "$UDID" "$BUNDLE_ID" || true
 
-          # Landscape layout check.
-          xcrun simctl launch "$UDID" "$BUNDLE_ID" -tinbox-autoplay -tinbox-landscape > screenshots/launch-landscape.log 2>&1
-          sleep 9
-          xcrun simctl io "$UDID" screenshot screenshots/04-landscape.png
-          xcrun simctl spawn "$UDID" log show --last 60s --predicate 'process == "Tinbox"' > screenshots/device.log 2>/dev/null || true
+          # Every other screen (the game above has now been played, so the
+          # Library shows its Continue card).
+          SHOT_DELAY=6 shot 09-library
+          SHOT_DELAY=6 shot 10-game-actions -tinbox-sheet gameActions
+          shot 11-save-states -tinbox-autoplay -tinbox-sheet saveStates
+          shot 12-cheats -tinbox-autoplay -tinbox-sheet cheats
+          SHOT_DELAY=6 shot 13-skins -tinbox-sheet skins
+          SHOT_DELAY=6 shot 14-settings-lower -tinbox-sheet settings -tinbox-sections Playback,Video,Controls,Appearance,Library,Connections,Advanced
+          shot 15-settings-ingame -tinbox-autoplay -tinbox-sheet settings
+          shot 16-game-overrides -tinbox-autoplay -tinbox-sheet gameOverrides
+          SHOT_DELAY=6 shot 17-about -tinbox-sheet about
+          shot 18-layout-editor -tinbox-autoplay -tinbox-sheet editLayout
+          SHOT_DELAY=9 shot 19-landscape-quickmenu -tinbox-autoplay -tinbox-landscape -tinbox-sheet quickMenu
+          SHOT_DELAY=6 shot 20-rom-folder -tinbox-sheet romFolder
+          shot 21-layout-profiles -tinbox-autoplay -tinbox-sheet layoutProfiles
+          SHOT_DELAY=6 shot 22-controllers -tinbox-sheet controllers
+          SHOT_DELAY=6 shot 23-retroachievements -tinbox-sheet retroAchievements
+          SHOT_DELAY=6 shot 24-library-outpost -tinbox-theme Outpost
+
+          xcrun simctl spawn "$UDID" log show --last 120s --predicate 'process == "Tinbox"' > screenshots/device.log 2>/dev/null || true
           xcrun simctl terminate "$UDID" "$BUNDLE_ID" || true
 
       - name: Build for device (unsigned)
