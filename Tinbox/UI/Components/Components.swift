@@ -448,6 +448,10 @@ struct BottomSheet<Content: View>: View {
                 .padding(.bottom, max(44, geo.safeAreaInsets.bottom + 10))
                 .frame(maxWidth: .infinity)
                 .frame(maxHeight: maxHeightFraction.map { $0 * (geo.size.height + geo.safeAreaInsets.bottom) }, alignment: .top)
+                // `.frame(maxHeight:)` alone is greedy (takes the proposal up to
+                // the cap); sizing from the content makes the sheet hug short
+                // content and only reach the cap — and scroll — when it must.
+                .fixedSize(horizontal: false, vertical: true)
                 .background(theme.sheet)
                 .clipShape(TopRoundedRectangle(radius: 34))
                 .shadow(color: .black.opacity(0.5), radius: 20, y: -10)
