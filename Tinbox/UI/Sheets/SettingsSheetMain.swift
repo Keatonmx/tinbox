@@ -3,9 +3,9 @@
 //  Tinbox
 //
 //  The Settings sheet. Three tiers: everyday sections open by default
-//  (Appearance · Playback · Video · Controls), Library (files) and Advanced
-//  (one-time choices) collapsed by default. Per-game overrides live in a
-//  sub-sheet so the page never doubles in height.
+//  (Playback · Video · Controls · Appearance); Library (files), Connections
+//  (accounts & services) and Advanced (one-time choices) collapsed by default.
+//  Per-game overrides live in a sub-sheet so the page never doubles in height.
 //
 
 import SwiftUI
@@ -20,11 +20,12 @@ struct SettingsSheet: View {
 
     enum Section: String, CaseIterable {
         case thisGame = "This game"
-        case appearance = "Appearance"
         case playback = "Playback"
         case video = "Video"
         case controls = "Controls"
+        case appearance = "Appearance"
         case library = "Library"
+        case connections = "Connections"
         case advanced = "Advanced"
     }
 
@@ -36,11 +37,12 @@ struct SettingsSheet: View {
             HuggingScrollView {
                 VStack(spacing: 0) {
                     if inGame { thisGame }
-                    section(.appearance) { appearance }
                     section(.playback) { playback }
                     section(.video) { video }
                     section(.controls) { controls }
+                    section(.appearance) { appearance }
                     section(.library) { library }
+                    section(.connections) { connections }
                     section(.advanced) { advanced }
                 }
             }
@@ -208,6 +210,21 @@ struct SettingsSheet: View {
         }
     }
 
+    // MARK: Connections (accounts & services)
+
+    // Cloud saves (iCloud / Google Drive) are implemented in CloudSync.swift
+    // and belong in this section once the app has the entitlements they need.
+    private var connections: some View {
+        Card(bottomSpacing: 8) {
+            NavRow(title: "RetroAchievements",
+                   subtitle: RetroAchievementsService.shared.user == nil ? "Sign in to see your progress" : "Viewing progress · unlocking comes later",
+                   detail: RetroAchievementsService.shared.userChipText,
+                   showsSeparator: false) {
+                model.openSheet(.retroAchievements)
+            }
+        }
+    }
+
     // MARK: Advanced (one-time choices)
 
     private var advanced: some View {
@@ -233,9 +250,6 @@ struct SettingsSheet: View {
             }
             SettingsRow(title: "Motion & rumble cartridges", subtitle: "Tilt, solar and rumble games use the phone's sensors") {
                 TinboxToggle(isOn: settings.sensorsEnabled)
-            }
-            NavRow(title: "RetroAchievements", detail: RetroAchievementsService.shared.userChipText) {
-                model.openSheet(.retroAchievements)
             }
             NavRow(title: "About", subtitle: "Version, licences, privacy", detail: "Tinbox \(AppInfo.versionString)", showsSeparator: false) {
                 model.openSheet(.about)

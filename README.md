@@ -91,7 +91,7 @@ Written against the real headers, not from memory:
 * **Import ROM** — opens the Files picker; by default the file is *moved* into the ROM folder (Settings › Library lets you switch to Copy, or choose any folder in Files/iCloud Drive as the library).
 * **» button** — hold and slide right to fast-forward (up to the speed in Quick Menu), slide left to rewind live; release to return to normal. The Quick Menu toggle is the permanent fast-forward.
 * **Quick Menu** — Save (Auto slot), Load (newest state), Rewind 10 s, fast-forward speed, all save states (Auto + 9 slots, each with a screenshot), cheats, settings, exit. Leaving a game always writes the Auto slot.
-* **Settings** — Appearance · Playback · Video · Controls open by default; Library (ROM folder, import mode, box art, backup/restore) and Advanced (volume, BIOS, sensors, RetroAchievements, About) start collapsed. In game, the first row opens the per-game overrides sheet.
+* **Settings** — Playback · Video · Controls · Appearance open by default; Library (ROM folder, import mode, box art, backup/restore), Connections (RetroAchievements; cloud saves later) and Advanced (volume, BIOS, sensors, About) start collapsed. In game, the first row opens the per-game overrides sheet.
 * **Themes** — Modern, Outpost, Midnight, Grape, Forest, Ember, Sakura, Mint (Settings › Appearance), plus six controller skins.
 * **Landscape** — Settings › Video › Landscape screen: Fit (true 3:2), Wide (10 % stretch), Fill.
 

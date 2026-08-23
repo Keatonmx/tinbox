@@ -451,7 +451,7 @@ final class AppModel: ObservableObject {
     }
 
     /// Sections that start closed; everything else starts open.
-    static let sectionsCollapsedByDefault: Set<String> = ["Library", "Advanced"]
+    static let sectionsCollapsedByDefault: Set<String> = ["Library", "Connections", "Advanced"]
 
     func isSectionCollapsed(_ name: String) -> Bool {
         let byDefault = AppModel.sectionsCollapsedByDefault.contains(name)
