@@ -100,7 +100,11 @@ struct AppSettings: Codable, Equatable {
     // Playback
     /// Speed used while fast-forward is engaged (0.25…100). 3× by default.
     var ffSpeed: Double = 3
-    var showFFButton: Bool = true
+    /// Extra on-screen buttons, both off by default (new keys so the old
+    /// always-on » setting doesn't carry over). Fast-forward is still in the
+    /// Quick Menu; rotation follows the phone unless its orientation lock is on.
+    var showFastForwardButton: Bool = false
+    var showRotateButton: Bool = false
     var rewindEnabled: Bool = true
     var rewindSeconds: Int = 30
     var autoSuspendSave: Bool = true
@@ -162,7 +166,8 @@ struct AppSettings: Codable, Equatable {
         theme = try c.decodeIfPresent(ThemeName.self, forKey: .theme) ?? d.theme
         skin = try c.decodeIfPresent(ControllerSkinName.self, forKey: .skin) ?? d.skin
         ffSpeed = try c.decodeIfPresent(Double.self, forKey: .ffSpeed) ?? d.ffSpeed
-        showFFButton = try c.decodeIfPresent(Bool.self, forKey: .showFFButton) ?? d.showFFButton
+        showFastForwardButton = try c.decodeIfPresent(Bool.self, forKey: .showFastForwardButton) ?? d.showFastForwardButton
+        showRotateButton = try c.decodeIfPresent(Bool.self, forKey: .showRotateButton) ?? d.showRotateButton
         rewindEnabled = try c.decodeIfPresent(Bool.self, forKey: .rewindEnabled) ?? d.rewindEnabled
         rewindSeconds = try c.decodeIfPresent(Int.self, forKey: .rewindSeconds) ?? d.rewindSeconds
         autoSuspendSave = true

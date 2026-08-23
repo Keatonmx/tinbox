@@ -111,10 +111,7 @@ struct SettingsSheet: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
             RowSeparator()
-            SettingsRow(title: "Show » button in game", subtitle: "Hold and slide to rewind or fast-forward · double-tap to lock") {
-                TinboxToggle(isOn: settings.showFFButton)
-            }
-            SettingsRow(title: "Rewind", subtitle: model.settings.rewindEnabled ? "History length" : "Slide » left or use Rewind 10 s",
+            SettingsRow(title: "Rewind", subtitle: model.settings.rewindEnabled ? "History length" : "Rewind 10 s in the Quick Menu",
                         showsSeparator: false, gap: 10) {
                 HStack(spacing: 10) {
                     if model.settings.rewindEnabled {
@@ -163,6 +160,12 @@ struct SettingsSheet: View {
             }
             NavRow(title: "Layout profiles", detail: model.currentGame?.layoutProfile ?? LayoutProfile.defaultName) {
                 model.openSheet(.layoutProfiles)
+            }
+            SettingsRow(title: "» fast-forward button", subtitle: "Hold and slide to rewind or fast-forward · double-tap to lock. Also in the Quick Menu.") {
+                TinboxToggle(isOn: settings.showFastForwardButton)
+            }
+            SettingsRow(title: "Rotate button", subtitle: "The screen already follows your phone · turn this on if orientation lock is on") {
+                TinboxToggle(isOn: settings.showRotateButton)
             }
             NavRow(title: "Bluetooth controller", detail: session.controllerConnected ? ControllerManager.shared.controllerName : "None") {
                 model.openSheet(.controllers)

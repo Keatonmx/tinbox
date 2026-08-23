@@ -75,13 +75,18 @@ struct PortraitGameView: View {
                             .foregroundColor(model.showBrightnessOverlay ? theme.accent : Palette.text70)
                     }
                 }
-                if model.settings.showFFButton {
+                if model.settings.showFastForwardButton {
                     TopBarFastForwardBubble()
                 }
-                CircleIconButton(size: 40, action: { rotate() }) {
-                    RotateGlyph(primary: Palette.text70, secondary: theme.accent)
+                if model.settings.showRotateButton {
+                    CircleIconButton(size: 40, action: { rotate() }) {
+                        RotateGlyph(primary: Palette.text70, secondary: theme.accent)
+                    }
                 }
             }
+            // Balances the back button so the title stays centred when the
+            // optional bubbles are hidden.
+            .frame(minWidth: 40, alignment: .trailing)
         }
         .padding(.horizontal, 14)
         .padding(.top, 8)
@@ -297,7 +302,7 @@ struct LandscapeGameView: View {
                     TouchControlsView(layout: model.currentProfile.landscape,
                                       metrics: metrics,
                                       size: controlsRect.size,
-                                      showFastForward: model.settings.showFFButton,
+                                      showFastForward: model.settings.showFastForwardButton,
                                       showShoulders: session.platform != .gb,
                                       onKeys: { session.setTouchKeys($0) },
                                       onMenu: { model.openSheet(.quickMenu) },
@@ -324,8 +329,10 @@ struct LandscapeGameView: View {
                             .foregroundColor(model.showBrightnessOverlay ? theme.accent : Palette.text70)
                     }
                 }
-                landscapeCircle(action: { rotateBack() }) {
-                    RotateGlyph(primary: theme.accent, secondary: Palette.text70)
+                if model.settings.showRotateButton {
+                    landscapeCircle(action: { rotateBack() }) {
+                        RotateGlyph(primary: theme.accent, secondary: Palette.text70)
+                    }
                 }
             }
             .frame(width: size.width - max(20, safeArea.trailing + 8), alignment: .trailing)
