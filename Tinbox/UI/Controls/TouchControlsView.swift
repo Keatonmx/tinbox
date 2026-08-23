@@ -11,9 +11,14 @@
 import SwiftUI
 import UIKit
 
+/// Press state lives in an object so taps re-render only the individual
+/// control views, never the container that positions them.
+final class ControlPressState: ObservableObject {
+    @Published var pressed: Set<ControlID> = []
+    @Published var dpadHighlight: GBAKeyMask = []
+}
+
 struct TouchControlsView: View {
-    @EnvironmentObject private var model: AppModel
-    @EnvironmentObject private var session: EmulatorSession
     let layout: ControlLayout
     let metrics: ControlMetrics
     let size: CGSize
@@ -26,15 +31,14 @@ struct TouchControlsView: View {
     /// Hold-and-slide on »: horizontal offset in points, nil on release.
     let onScrub: (CGFloat?) -> Void
 
-    @State private var pressed: Set<ControlID> = []
-    @State private var dpadHighlight: GBAKeyMask = []
+    @StateObject private var press = ControlPressState()
 
     var body: some View {
         let frames = ControlGeometry.frames(layout: layout, metrics: metrics, in: size, showFastForward: showFastForward)
         ZStack(alignment: .topLeading) {
             ForEach(ControlID.allCases) { control in
                 if let frame = frames[control] {
-                    controlView(control)
+                    ControlSlot(control: control, metrics: metrics, press: press)
                         .frame(width: frame.width, height: frame.height)
                         .scaleEffect(CGFloat(layout[control].scale), anchor: .center)
                         .position(x: frame.midX, y: frame.midY)
@@ -42,11 +46,11 @@ struct TouchControlsView: View {
             }
             MultiTouchInputView(frames: frames,
                                 dpadSize: metrics.dpad * CGFloat(layout[.dpad].scale),
-                                onKeys: { keys, highlight in
+                                onKeys: { [press] keys, highlight in
                                     onKeys(keys)
-                                    dpadHighlight = highlight
+                                    if press.dpadHighlight != highlight { press.dpadHighlight = highlight }
                                 },
-                                onPressed: { pressed = $0 },
+                                onPressed: { [press] in press.pressed = $0 },
                                 onTap: { control in
                                     switch control {
                                     case .menu: onMenu()
@@ -64,22 +68,29 @@ struct TouchControlsView: View {
         .onAppear {
             // CI: `-tinbox-tapstorm` churns the pressed state like rapid tapping.
             guard CommandLine.arguments.contains("-tinbox-tapstorm") else { return }
-            Timer.scheduledTimer(withTimeInterval: 0.04, repeats: true) { _ in
-                pressed = pressed.isEmpty ? [.a, .dpad] : []
-                dpadHighlight = pressed.isEmpty ? [] : [.right]
+            Timer.scheduledTimer(withTimeInterval: 0.04, repeats: true) { [press] _ in
+                press.pressed = press.pressed.isEmpty ? [.a, .dpad] : []
+                press.dpadHighlight = press.pressed.isEmpty ? [] : [.right]
             }
         }
     }
+}
 
-    @ViewBuilder
-    private func controlView(_ control: ControlID) -> some View {
-        // The visual is drawn at base size and scaled by the placement scale so
-        // strokes/labels scale with it.
+/// One control, drawn at its base size; observes press state and the session
+/// on its own so the positioning container above never re-renders on input.
+private struct ControlSlot: View {
+    @EnvironmentObject private var session: EmulatorSession
+    let control: ControlID
+    let metrics: ControlMetrics
+    @ObservedObject var press: ControlPressState
+
+    var body: some View {
         let base = metrics.baseSize(of: control)
+        let pressed = press.pressed
         Group {
             switch control {
             case .dpad:
-                DPadView(metrics: metrics, pressed: pressed.contains(.dpad), highlight: dpadHighlight)
+                DPadView(metrics: metrics, pressed: pressed.contains(.dpad), highlight: press.dpadHighlight)
             case .a:
                 FaceButtonView(label: "A", metrics: metrics, pressed: pressed.contains(.a), turbo: session.turboA)
             case .b:
