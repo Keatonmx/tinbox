@@ -8,7 +8,8 @@
 
 import SwiftUI
 
-/// Visual press state: translateY(1px) + darken.
+/// Visual press state: translateY(1px), slight dip, and a *lightening* — on a
+/// dark theme a pressed control should read as lit, not sunk to black.
 private struct PressedLook: ViewModifier {
     let pressed: Bool
     var scale: CGFloat = 1
@@ -16,7 +17,7 @@ private struct PressedLook: ViewModifier {
         content
             .offset(y: pressed ? 1 : 0)
             .scaleEffect(pressed ? scale : 1)
-            .brightness(pressed ? -0.15 : 0)
+            .brightness(pressed ? 0.07 : 0)
             .animation(.easeOut(duration: 0.06), value: pressed)
     }
 }
@@ -38,7 +39,7 @@ struct DPadView: View {
             RoundedRectangle(cornerRadius: radius, style: .continuous)
                 .fill(skin.padGradient)
                 .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .fill(Color.white.opacity(verticalActive ? 0.16 : 0)))
+                    .fill(Color.white.opacity(verticalActive ? 0.18 : 0)))
                 .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).stroke(Palette.hairline10, lineWidth: 0.5))
                 .overlay(alignment: .top) { Rectangle().fill(Color.white.opacity(0.12)).frame(height: 1).padding(.horizontal, radius) }
                 .shadow(color: .black.opacity(0.4), radius: 4, y: 3)
@@ -47,21 +48,21 @@ struct DPadView: View {
             RoundedRectangle(cornerRadius: radius, style: .continuous)
                 .fill(skin.padGradient)
                 .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .fill(Color.white.opacity(horizontalActive ? 0.16 : 0)))
+                    .fill(Color.white.opacity(horizontalActive ? 0.18 : 0)))
                 .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).stroke(Palette.hairline10, lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.4), radius: 4, y: 3)
                 .frame(width: size, height: arm)
             // Arrows at 30% white
             Group {
-                Triangle().fill(Color.white.opacity(highlight.contains(.up) ? 0.7 : 0.3)).frame(width: 12, height: 9)
+                Triangle().fill(Color.white.opacity(highlight.contains(.up) ? 0.9 : 0.3)).frame(width: 12, height: 9)
                     .position(x: size / 2, y: 11 + 4.5)
-                Triangle().fill(Color.white.opacity(highlight.contains(.down) ? 0.7 : 0.3)).frame(width: 12, height: 9)
+                Triangle().fill(Color.white.opacity(highlight.contains(.down) ? 0.9 : 0.3)).frame(width: 12, height: 9)
                     .rotationEffect(.degrees(180))
                     .position(x: size / 2, y: size - 11 - 4.5)
-                Triangle().fill(Color.white.opacity(highlight.contains(.left) ? 0.7 : 0.3)).frame(width: 12, height: 9)
+                Triangle().fill(Color.white.opacity(highlight.contains(.left) ? 0.9 : 0.3)).frame(width: 12, height: 9)
                     .rotationEffect(.degrees(-90))
                     .position(x: 11 + 4.5, y: size / 2)
-                Triangle().fill(Color.white.opacity(highlight.contains(.right) ? 0.7 : 0.3)).frame(width: 12, height: 9)
+                Triangle().fill(Color.white.opacity(highlight.contains(.right) ? 0.9 : 0.3)).frame(width: 12, height: 9)
                     .rotationEffect(.degrees(90))
                     .position(x: size - 11 - 4.5, y: size / 2)
             }
@@ -72,7 +73,9 @@ struct DPadView: View {
                 .frame(width: 24, height: 24)
         }
         .frame(width: size, height: size)
-        .modifier(PressedLook(pressed: pressed))
+        // No PressedLook here: the pad body stays constant and only the pressed
+        // direction's arm + arrow light up (whole-pad darkening made the idle
+        // arms vanish into the background).
     }
 }
 

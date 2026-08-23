@@ -34,9 +34,19 @@ struct TouchControlsView: View {
     let onScrub: (CGFloat?) -> Void
 
     @StateObject private var press = ControlPressState()
+    /// Last size that looked like a real controls area. Mid-relayout SwiftUI can
+    /// propose a degenerate size for a frame or two; positioning from a fraction
+    /// of such a height squeezed every control into a band at the top of the
+    /// screen. Positions therefore always come from the latched size.
+    @State private var stableSize: CGSize = .zero
+
+    private static func isPlausible(_ s: CGSize) -> Bool {
+        s.width.isFinite && s.height.isFinite && s.width >= 200 && s.height >= 250
+    }
 
     var body: some View {
-        let frames = ControlGeometry.frames(layout: layout, metrics: metrics, in: size,
+        let effective = TouchControlsView.isPlausible(size) ? size : stableSize
+        let frames = ControlGeometry.frames(layout: layout, metrics: metrics, in: effective,
                                             showFastForward: showFastForward, showShoulders: showShoulders)
         ZStack(alignment: .topLeading) {
             ForEach(ControlID.allCases) { control in
@@ -68,6 +78,12 @@ struct TouchControlsView: View {
                 .frame(width: size.width, height: size.height)
         }
         .frame(width: size.width, height: size.height)
+        .onChange(of: size) { s in
+            if TouchControlsView.isPlausible(s) { stableSize = s }
+        }
+        .onAppear {
+            if TouchControlsView.isPlausible(size) { stableSize = size }
+        }
         .onAppear {
             #if DEBUG
             // CI: `-tinbox-tapstorm` churns the pressed state like rapid tapping.
