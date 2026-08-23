@@ -92,10 +92,10 @@ struct PortraitGameView: View {
         ZStack(alignment: .topTrailing) {
             Color.black
             EmulatorScreen(frameStore: session.frameStore,
-                           scaling: model.settings.scaling,
-                           filter: model.settings.filter,
+                           scaling: model.effective.scaling,
+                           filter: model.effective.filter,
                            paused: false)
-                .aspectRatio(3.0 / 2.0, contentMode: .fit)
+                .aspectRatio(session.videoAspect, contentMode: .fit)
                 .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).stroke(Palette.hairline06, lineWidth: 1))
                 .padding(.horizontal, 10)
@@ -126,6 +126,7 @@ struct PortraitGameView: View {
                                       metrics: metrics,
                                       size: geo.size,
                                       showFastForward: false,
+                                      showShoulders: session.platform != .gb,
                                       onKeys: { session.setTouchKeys($0) },
                                       onMenu: { model.openSheet(.quickMenu) },
                                       onFastForwardTap: { model.showFastForwardHint() },
@@ -278,8 +279,8 @@ struct LandscapeGameView: View {
         ZStack(alignment: .topLeading) {
             Color.black
             EmulatorScreen(frameStore: session.frameStore,
-                           scaling: model.settings.landscapeScaling,
-                           filter: model.settings.filter,
+                           scaling: model.effective.landscapeScaling,
+                           filter: model.effective.filter,
                            paused: false)
                 .frame(width: size.width, height: size.height)
 
@@ -297,12 +298,13 @@ struct LandscapeGameView: View {
                                       metrics: metrics,
                                       size: controlsRect.size,
                                       showFastForward: model.settings.showFFButton,
+                                      showShoulders: session.platform != .gb,
                                       onKeys: { session.setTouchKeys($0) },
                                       onMenu: { model.openSheet(.quickMenu) },
                                       onFastForwardTap: { model.showFastForwardHint() },
                                       onFastForwardDoubleTap: { model.toggleFastForward() },
                                       onScrub: { session.setScrub(offset: $0) })
-                        .opacity(model.settings.controlOpacity)
+                        .opacity(model.effective.controlOpacity)
                 }
             }
             .frame(width: controlsRect.width, height: controlsRect.height)

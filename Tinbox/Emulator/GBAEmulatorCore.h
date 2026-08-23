@@ -57,9 +57,17 @@ typedef NS_OPTIONS(NSUInteger, TinboxCartHardware) {
 - (void)emulatorCoreDidUpdateSaveData:(GBAEmulatorCore *)core;
 @end
 
+/// Which libmgba core is loaded.
+typedef NS_ENUM(NSInteger, TinboxPlatform) {
+    TinboxPlatformNone NS_SWIFT_NAME(none) = 0,
+    TinboxPlatformGBA  NS_SWIFT_NAME(gba)  = 1,
+    TinboxPlatformGB   NS_SWIFT_NAME(gb)   = 2,   // Game Boy / Game Boy Color
+};
+
 @interface GBAEmulatorCore : NSObject
 
-/// Creates the core and its configuration. Battery saves (.sav) are written to
+/// Prepares the bridge; the actual libmgba core is created per ROM (GBA or
+/// GB/GBC) by `loadROMAtURL:`. Battery saves (.sav) are written to
 /// `saveDirectory`; mGBA's own slot-based state API uses `stateDirectory`
 /// (Tinbox uses explicit file URLs for states, but the directory is configured
 /// so `mCoreAutoloadSave`/`mCoreGetState` work too).
@@ -69,10 +77,12 @@ typedef NS_OPTIONS(NSUInteger, TinboxCartHardware) {
 - (instancetype)init NS_UNAVAILABLE;
 
 @property (nonatomic, weak, nullable) id<GBAEmulatorCoreDelegate> delegate;
+@property (nonatomic, readonly) TinboxPlatform platform;
 
 #pragma mark - Video
 
-/// 240 × 160 for the GBA. Fixed for the lifetime of the object.
+/// 240 × 160 for the GBA, 160 × 144 for GB/GBC. Valid after a ROM is loaded
+/// (240 × 160 before that).
 @property (nonatomic, readonly) NSUInteger videoWidth;
 @property (nonatomic, readonly) NSUInteger videoHeight;
 /// Packed 32-bit pixels, `videoWidth` pixels per row (stride == width).
@@ -88,8 +98,8 @@ typedef NS_OPTIONS(NSUInteger, TinboxCartHardware) {
 @property (nonatomic, readonly, copy) NSString *gameCode;    // e.g. "BPEE"
 @property (nonatomic, readonly) TinboxCartHardware cartridgeHardware;
 
-/// Loads a .gba (or .zip containing a .gba), attaches the battery save from
-/// the save directory, applies BIOS settings and resets the core.
+/// Loads a .gba / .gb / .gbc (or a .zip containing one), creating the matching
+/// core, attaches the battery save, applies BIOS settings and resets.
 - (BOOL)loadROMAtURL:(NSURL *)romURL error:(NSError **)error NS_SWIFT_NAME(loadROM(at:));
 - (void)unloadROM;
 

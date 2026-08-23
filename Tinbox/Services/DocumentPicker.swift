@@ -23,6 +23,8 @@ enum ImportKind: Equatable {
     case romFolder
     /// A Tinbox backup .zip to merge back in.
     case backup
+    /// Cover image for a specific library game.
+    case coverForGame
 
     var title: String {
         switch self {
@@ -32,13 +34,14 @@ enum ImportKind: Equatable {
         case .patchForGame: return "Choose a patch"
         case .romFolder: return "Choose ROM folder"
         case .backup: return "Restore backup"
+        case .coverForGame: return "Choose cover image"
         }
     }
 
     var contentTypes: [UTType] {
         switch self {
         case .rom:
-            return [UTType.gbaROM, .zip, .archive, .data]
+            return [UTType.gbaROM, UTType.gbROM, .zip, .archive, .data]
         case .saveState, .saveForGame:
             return [UTType.gbaSaveState, UTType.gbaBatterySave, .data]
         case .bios:
@@ -49,13 +52,15 @@ enum ImportKind: Equatable {
             return [.folder]
         case .backup:
             return [.zip, .archive]
+        case .coverForGame:
+            return [.image]
         }
     }
 
     var allowsMultiple: Bool {
         switch self {
         case .rom, .saveState, .saveForGame: return true
-        case .bios, .patchForGame, .romFolder, .backup: return false
+        case .bios, .patchForGame, .romFolder, .backup, .coverForGame: return false
         }
     }
 
@@ -73,6 +78,7 @@ extension UTType {
     // Declared as exported types in Info.plist so Files shows the right icons
     // and the picker can filter on them.
     static let gbaROM = UTType(exportedAs: "com.redfernsoutpost.tinbox.gba-rom", conformingTo: .data)
+    static let gbROM = UTType(exportedAs: "com.redfernsoutpost.tinbox.gb-rom", conformingTo: .data)
     static let gbaSaveState = UTType(exportedAs: "com.redfernsoutpost.tinbox.gba-savestate", conformingTo: .data)
     static let gbaBatterySave = UTType(exportedAs: "com.redfernsoutpost.tinbox.gba-battery-save", conformingTo: .data)
     static let gbaBIOS = UTType(exportedAs: "com.redfernsoutpost.tinbox.gba-bios", conformingTo: .data)

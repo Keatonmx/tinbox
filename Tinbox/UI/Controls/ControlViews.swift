@@ -31,10 +31,14 @@ struct DPadView: View {
         let size = metrics.dpad
         let arm = metrics.dpadArm
         let radius = metrics.dpadRadius
+        let verticalActive = highlight.contains(.up) || highlight.contains(.down)
+        let horizontalActive = highlight.contains(.left) || highlight.contains(.right)
         ZStack {
             // Vertical arm
             RoundedRectangle(cornerRadius: radius, style: .continuous)
                 .fill(skin.padGradient)
+                .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .fill(Color.white.opacity(verticalActive ? 0.16 : 0)))
                 .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).stroke(Palette.hairline10, lineWidth: 0.5))
                 .overlay(alignment: .top) { Rectangle().fill(Color.white.opacity(0.12)).frame(height: 1).padding(.horizontal, radius) }
                 .shadow(color: .black.opacity(0.4), radius: 4, y: 3)
@@ -42,6 +46,8 @@ struct DPadView: View {
             // Horizontal arm
             RoundedRectangle(cornerRadius: radius, style: .continuous)
                 .fill(skin.padGradient)
+                .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .fill(Color.white.opacity(horizontalActive ? 0.16 : 0)))
                 .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).stroke(Palette.hairline10, lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.4), radius: 4, y: 3)
                 .frame(width: size, height: arm)

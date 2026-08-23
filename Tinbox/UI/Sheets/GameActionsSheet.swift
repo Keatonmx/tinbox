@@ -18,13 +18,18 @@ struct GameActionsSheet: View {
         BottomSheet(onDismiss: { model.closeSheet() }) {
             if let game = model.selectedGame {
                 HStack(spacing: 14) {
-                    CoverArt(game: game)
+                    CoverArt(game: game, coverVersion: model.coverVersion)
                         .frame(width: 64, height: 64)
                         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                         .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Palette.hairline07, lineWidth: 0.5))
+                        .contextMenu {
+                            Button { model.importKind = .coverForGame } label: { Label("Choose cover image…", systemImage: "photo") }
+                            Button { model.retryCover(for: game) } label: { Label("Find box art online", systemImage: "arrow.clockwise") }
+                            Button(role: .destructive) { model.removeCover(for: game) } label: { Label("Remove cover", systemImage: "trash") }
+                        }
                     VStack(alignment: .leading, spacing: 3) {
                         Text(game.title).font(Typography.sheetTitle).foregroundColor(.white).lineLimit(2)
-                        Text("\(game.fileSize.fileSizeString) · \(game.isExternal ? ROMFolderAccess.shared.displayName : "Tinbox › ROMs")")
+                        Text("\(game.systemBadge) · \(game.fileSize.fileSizeString) · \(game.isExternal ? ROMFolderAccess.shared.displayName : "Tinbox › ROMs")")
                             .font(Typography.meta13).foregroundColor(Palette.text40)
                     }
                     Spacer(minLength: 0)
@@ -47,16 +52,35 @@ struct GameActionsSheet: View {
                 .padding(.bottom, 12)
 
                 Card {
-                    if let latest = model.selectedGameLatestSave {
-                        NavRow(title: "Continue", subtitle: "From \(latest)") {
+                    if let latest = model.selectedGameLatestSave, let slot = model.latestSlotIndex(for: game) {
+                        Button {
+                            ButtonHaptics.shared.tap()
                             model.openAndContinue(game)
+                        } label: {
+                            HStack(spacing: 12) {
+                                SaveThumbnail(image: GameLibraryStore.shared.thumbnail(gameID: game.id, slot: slot))
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text("Continue").font(Typography.row).foregroundColor(.white)
+                                    Text("From \(latest)").font(Typography.rowSubtitle).foregroundColor(Palette.textTertiary)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                RowChevron()
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 10)
+                            .contentShape(Rectangle())
                         }
+                        .buttonStyle(RowPressStyle())
+                        RowSeparator()
                     }
                     NavRow(title: "Load a save file…", subtitle: "Pick a .sav or .sst from Files, then play") {
                         model.importKind = .saveForGame
                     }
-                    NavRow(title: "Make a patched copy…", subtitle: "IPS / UPS / BPS · saves a new ROM, keeps this one", showsSeparator: false) {
+                    NavRow(title: "Make a patched copy…", subtitle: "IPS / UPS / BPS · saves a new ROM, keeps this one") {
                         model.importKind = .patchForGame
+                    }
+                    NavRow(title: "Choose cover image…", subtitle: "Or long-press the cover for more options", showsSeparator: false) {
+                        model.importKind = .coverForGame
                     }
                 }
 
@@ -81,6 +105,26 @@ struct GameActionsSheet: View {
                 }
             }
         }
+    }
+}
+
+/// 84×56 save-state screenshot (or a dashed placeholder).
+struct SaveThumbnail: View {
+    @Environment(\.theme) private var theme
+    let image: UIImage?
+
+    var body: some View {
+        ZStack {
+            theme.well
+            if let image {
+                Image(uiImage: image).resizable().interpolation(.none).scaledToFit()
+            } else {
+                StripedPlaceholder(stripe: theme.stripe2, period: 16, width: 6)
+            }
+        }
+        .frame(width: 84, height: 56)
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(Palette.hairline08, lineWidth: 0.5))
     }
 }
 

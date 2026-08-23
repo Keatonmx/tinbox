@@ -35,6 +35,18 @@ struct Game: Identifiable, Codable, Equatable, Hashable {
     }
     var isExternal: Bool { externalPath != nil }
 
+    /// "GBA", "GBC", "GB" from the file extension ("ZIP" if it can't be told yet).
+    var systemBadge: String {
+        switch (fileName as NSString).pathExtension.lowercased() {
+        case "gb": return "GB"
+        case "gbc": return "GBC"
+        case "sgb": return "SGB"
+        case "zip": return "ZIP"
+        default: return "GBA"
+        }
+    }
+    var isGameBoy: Bool { FileLocations.gameBoyExtensions.contains((fileName as NSString).pathExtension.lowercased()) }
+
     static func makeID(fileName: String) -> String {
         let base = (fileName as NSString).deletingPathExtension
         let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_ "))
@@ -229,7 +241,41 @@ struct RAUser: Codable, Equatable {
 
 // MARK: - Per-game persisted data
 
+/// Settings a game can override. `nil` means "use the global setting".
+struct GameOverrides: Codable, Equatable {
+    var enabled: Bool = false
+    var scaling: DisplayScaling?
+    var landscapeScaling: DisplayScaling?
+    var filter: ScreenFilter?
+    var turboA: Bool?
+    var turboB: Bool?
+    var controlOpacity: Double?
+
+    init() {}
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        enabled = try c.decodeIfPresent(Bool.self, forKey: .enabled) ?? false
+        scaling = try c.decodeIfPresent(DisplayScaling.self, forKey: .scaling)
+        landscapeScaling = try c.decodeIfPresent(DisplayScaling.self, forKey: .landscapeScaling)
+        filter = try c.decodeIfPresent(ScreenFilter.self, forKey: .filter)
+        turboA = try c.decodeIfPresent(Bool.self, forKey: .turboA)
+        turboB = try c.decodeIfPresent(Bool.self, forKey: .turboB)
+        controlOpacity = try c.decodeIfPresent(Double.self, forKey: .controlOpacity)
+    }
+}
+
 struct GameData: Codable, Equatable {
     var slots: [SaveSlot] = SaveSlot.empty
     var cheats: [Cheat] = []
+    var overrides: GameOverrides = GameOverrides()
+
+    init() {}
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        slots = try c.decodeIfPresent([SaveSlot].self, forKey: .slots) ?? SaveSlot.empty
+        cheats = try c.decodeIfPresent([Cheat].self, forKey: .cheats) ?? []
+        overrides = try c.decodeIfPresent(GameOverrides.self, forKey: .overrides) ?? GameOverrides()
+    }
 }

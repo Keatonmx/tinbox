@@ -37,13 +37,14 @@ struct ControlMetrics {
 enum ControlGeometry {
     /// Frames for every control given the container size.
     static func frames(layout: ControlLayout, metrics: ControlMetrics, in size: CGSize,
-                       showFastForward: Bool) -> [ControlID: CGRect] {
+                       showFastForward: Bool, showShoulders: Bool = true) -> [ControlID: CGRect] {
         var result: [ControlID: CGRect] = [:]
         // Nothing sensible can be placed before the area has a real size
         // (SwiftUI's first layout pass can propose zero).
         guard size.width.isFinite, size.height.isFinite, size.width >= 100, size.height >= 100 else { return result }
         for control in ControlID.allCases {
             if control == .fastForward && !showFastForward { continue }
+            if (control == .l || control == .r) && !showShoulders { continue }   // Game Boy has no shoulders
             let placement = layout[control]
             let base = metrics.baseSize(of: control)
             let scale = CGFloat(placement.scale)

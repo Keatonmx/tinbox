@@ -24,7 +24,7 @@ final class MetalRenderer: NSObject, MTKViewDelegate {
     let device: MTLDevice
     private let commandQueue: MTLCommandQueue
     private let pipeline: MTLRenderPipelineState
-    private let texture: MTLTexture
+    private var texture: MTLTexture
     private let frameStore: FrameStore
     private var lastFrameIndex: UInt64 = .max
 
@@ -53,13 +53,17 @@ final class MetalRenderer: NSObject, MTKViewDelegate {
         }
         self.pipeline = pipeline
 
-        let textureDescriptor = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: .rgba8Unorm, width: frameStore.width, height: frameStore.height, mipmapped: false)
-        textureDescriptor.usage = [.shaderRead]
-        textureDescriptor.storageMode = .shared
-        guard let texture = device.makeTexture(descriptor: textureDescriptor) else { return nil }
+        guard let texture = MetalRenderer.makeTexture(device: device, width: frameStore.width, height: frameStore.height) else { return nil }
         self.texture = texture
         super.init()
+    }
+
+    private static func makeTexture(device: MTLDevice, width: Int, height: Int) -> MTLTexture? {
+        let textureDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .rgba8Unorm, width: width, height: height, mipmapped: false)
+        textureDescriptor.usage = [.shaderRead]
+        textureDescriptor.storageMode = .shared
+        return device.makeTexture(descriptor: textureDescriptor)
     }
 
     func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {}
@@ -68,6 +72,11 @@ final class MetalRenderer: NSObject, MTKViewDelegate {
         // Upload only when the emulation thread published a new frame.
         if frameStore.latestFrameIndex != lastFrameIndex {
             lastFrameIndex = frameStore.read { pixels, width, height in
+                // The frame size changes between GBA and GB ROMs.
+                if texture.width != width || texture.height != height,
+                   let fresh = MetalRenderer.makeTexture(device: device, width: width, height: height) {
+                    texture = fresh
+                }
                 let region = MTLRegionMake2D(0, 0, width, height)
                 texture.replace(region: region, mipmapLevel: 0, withBytes: pixels, bytesPerRow: width * 4)
             }

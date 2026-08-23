@@ -16,11 +16,12 @@ struct SettingsSheet: View {
     private var inGame: Bool { model.screen == .game }
 
     private enum Section: String, CaseIterable {
+        case thisGame = "This game"
         case appearance = "Appearance"
         case playback = "Playback"
         case video = "Video"
         case controls = "Controls"
-        case sync = "Sync & Extras"
+        case sync = "Extras"
         case general = "General"
     }
 
@@ -31,12 +32,61 @@ struct SettingsSheet: View {
             }
             HuggingScrollView {
                 VStack(spacing: 0) {
+                    if inGame { section(.thisGame) { thisGame } }
                     section(.appearance) { appearance }
                     section(.playback) { playback }
                     section(.video) { video }
                     section(.controls) { controls }
                     section(.sync) { syncAndExtras }
                     section(.general) { general }
+                }
+            }
+        }
+    }
+
+    // MARK: This game (per-game overrides)
+
+    private var overrides: Binding<GameOverrides> {
+        Binding(get: { model.gameData.overrides }, set: { new in model.updateOverrides { $0 = new } })
+    }
+
+    private var thisGame: some View {
+        Card(bottomSpacing: 8) {
+            SettingsRow(title: model.currentGame?.title ?? "This game",
+                        subtitle: "Override the global settings below for this game only",
+                        showsSeparator: model.gameData.overrides.enabled) {
+                TinboxToggle(isOn: overrides.enabled)
+            }
+            if model.gameData.overrides.enabled {
+                SettingsRow(title: "Portrait screen") {
+                    SegmentedPill(options: DisplayScaling.portraitOptions, label: { $0.rawValue },
+                                  selection: Binding(get: { model.effective.scaling }, set: { v in model.updateOverrides { $0.scaling = v } }),
+                                  fontSize: 12, horizontalPadding: 9)
+                }
+                SettingsRow(title: "Landscape screen") {
+                    SegmentedPill(options: DisplayScaling.landscapeOptions, label: { $0.rawValue },
+                                  selection: Binding(get: { model.effective.landscapeScaling }, set: { v in model.updateOverrides { $0.landscapeScaling = v } }))
+                }
+                SettingsRow(title: "Screen filter") {
+                    SegmentedPill(options: ScreenFilter.options, label: { $0.rawValue },
+                                  selection: Binding(get: { model.effective.filter }, set: { v in model.updateOverrides { $0.filter = v } }),
+                                  fontSize: 12, horizontalPadding: 9)
+                }
+                SettingsRow(title: "Turbo", gap: 14) {
+                    HStack(spacing: 14) {
+                        HStack(spacing: 6) {
+                            Text("A").font(Typography.segment).foregroundColor(Palette.textSecondary)
+                            TinboxToggle(isOn: Binding(get: { model.effective.turboA }, set: { v in model.updateOverrides { $0.turboA = v } }))
+                        }
+                        HStack(spacing: 6) {
+                            Text("B").font(Typography.segment).foregroundColor(Palette.textSecondary)
+                            TinboxToggle(isOn: Binding(get: { model.effective.turboB }, set: { v in model.updateOverrides { $0.turboB = v } }))
+                        }
+                    }
+                }
+                SettingsRow(title: "Landscape button opacity", subtitle: "\(Int((model.effective.controlOpacity * 100).rounded()))%", showsSeparator: false) {
+                    Slider(value: Binding(get: { model.effective.controlOpacity }, set: { v in model.updateOverrides { $0.controlOpacity = v } }),
+                           in: 0.3...1.0, step: 0.05).tint(theme.accent).frame(width: 150)
                 }
             }
         }
@@ -85,8 +135,13 @@ struct SettingsSheet: View {
             SettingsRow(title: "Show » button in game", subtitle: "Hold and slide it to rewind or fast-forward") {
                 TinboxToggle(isOn: settings.showFFButton)
             }
-            SettingsRow(title: "Rewind", subtitle: "Keeps the last \(model.settings.rewindSeconds) seconds so you can undo mistakes") {
+            SettingsRow(title: "Rewind", subtitle: "Hold » and slide left, or Rewind 10 s in the Quick Menu") {
                 TinboxToggle(isOn: settings.rewindEnabled)
+            }
+            if model.settings.rewindEnabled {
+                SettingsRow(title: "Rewind history", subtitle: "How far back you can go · uses a little more memory") {
+                    SegmentedPill(options: RewindLength.options, label: { "\($0) s" }, selection: settings.rewindSeconds)
+                }
             }
             SettingsRow(title: "Keep my music playing", subtitle: "Game sound mixes over Music, Spotify, etc.", showsSeparator: false) {
                 TinboxToggle(isOn: settings.backgroundAudioMixing)
@@ -113,13 +168,27 @@ struct SettingsSheet: View {
                               selection: settings.landscapeScaling)
             }
             SettingsRow(title: "Screen filter") {
-                SegmentedPill(options: ScreenFilter.allCases, label: { $0.rawValue }, selection: settings.filter, fontSize: 12, horizontalPadding: 10)
+                SegmentedPill(options: ScreenFilter.options, label: { $0.rawValue }, selection: settings.filter, fontSize: 12, horizontalPadding: 10)
             }
-            SettingsRow(title: "BIOS", subtitle: bootSubtitle, showsSeparator: false) {
+            SettingsRow(title: "GBA BIOS", subtitle: bootSubtitle, showsSeparator: hasBIOSFile) {
                 SegmentedPill(options: BootMode.allCases, label: { $0 == .hle ? "Built-in" : "My file" },
                               selection: Binding(get: { model.settings.bootMode }, set: { pickBoot($0) }))
             }
+            if hasBIOSFile {
+                NavRow(title: "Replace BIOS file…", subtitle: model.settings.biosFileName ?? "gba_bios.bin", showsChevron: false) {
+                    model.importKind = .bios
+                }
+                NavRow(title: "Remove BIOS file", subtitle: "Goes back to the built-in BIOS", titleColor: Palette.destructive,
+                       showsSeparator: false, showsChevron: false) {
+                    model.removeBIOSFile()
+                }
+            }
         }
+    }
+
+    private var hasBIOSFile: Bool {
+        let name = model.settings.biosFileName ?? "gba_bios.bin"
+        return FileManager.default.fileExists(atPath: FileLocations.bios.appendingPathComponent(name).path)
     }
 
     private var landscapeSubtitle: String {
@@ -131,10 +200,13 @@ struct SettingsSheet: View {
     }
 
     private var bootSubtitle: String {
-        if model.settings.bootMode == .biosFile, let name = model.settings.biosFileName {
-            return "Using \(name) · applies next time a game starts"
+        if model.settings.bootMode == .biosFile, model.settings.biosFileName != nil {
+            return "Using your file · applies next time a game starts"
         }
-        return "Built-in works for almost every game · no file needed"
+        if hasBIOSFile {
+            return "Built-in (your file is kept for when you switch)"
+        }
+        return "Built-in works for almost every game · 'My file' asks for gba_bios.bin"
     }
 
     private func pickBoot(_ mode: BootMode) {
@@ -188,14 +260,12 @@ struct SettingsSheet: View {
 
     // MARK: Sync & extras
 
+    // Cloud saves (iCloud / Google Drive) are implemented in CloudSync.swift but
+    // hidden until the app has the entitlements / SDK they need.
     private var syncAndExtras: some View {
         Card(bottomSpacing: 8) {
-            SettingsRow(title: "Cloud saves") {
-                SegmentedPill(options: CloudProvider.allCases, label: { $0.rawValue }, selection: settings.cloudProvider,
-                              fontSize: 12, horizontalPadding: 10)
-            }
-            NavRow(title: "Sync now", detail: model.lastSyncText, titleColor: theme.accentText, showsChevron: false) {
-                model.syncNow()
+            SettingsRow(title: "Box art", subtitle: "Downloads covers from libretro-thumbnails for games without one") {
+                TinboxToggle(isOn: settings.fetchBoxArt)
             }
             NavRow(title: "RetroAchievements", detail: RetroAchievementsService.shared.userChipText) {
                 model.openSheet(.retroAchievements)

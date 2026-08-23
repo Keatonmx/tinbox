@@ -90,6 +90,19 @@
 		</dict>
 		<dict>
 			<key>UTTypeIdentifier</key>
+			<string>com.redfernsoutpost.tinbox.gb-rom</string>
+			<key>UTTypeDescription</key>
+			<string>Game Boy / Game Boy Color ROM</string>
+			<key>UTTypeConformsTo</key>
+			<array><string>public.data</string></array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array><string>gb</string><string>gbc</string><string>sgb</string></array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key>
 			<string>com.redfernsoutpost.tinbox.gba-savestate</string>
 			<key>UTTypeDescription</key>
 			<string>Tinbox Save State</string>
@@ -181,6 +194,7 @@
 			<key>LSItemContentTypes</key>
 			<array>
 				<string>com.redfernsoutpost.tinbox.gba-rom</string>
+				<string>com.redfernsoutpost.tinbox.gb-rom</string>
 				<string>public.zip-archive</string>
 			</array>
 		</dict>

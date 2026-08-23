@@ -7,6 +7,10 @@
 //  the first mGBA include: it carries the ENABLE_*/USE_* defines the library was
 //  compiled with, and `struct mCore`'s layout depends on them.
 //
+//  One bridge object serves both platforms: `loadROMAtURL:` asks mGBA which core
+//  handles the file (`mCoreFind`) and rebuilds the core only when the platform
+//  changes (GBA ↔ GB/GBC).
+//
 
 #import "GBAEmulatorCore.h"
 
@@ -20,11 +24,15 @@
 #include <mgba/core/version.h>
 #include <mgba/gba/core.h>
 #include <mgba/gba/interface.h>
+#include <mgba/gb/core.h>
 #include <mgba/internal/gba/gba.h>
 #include <mgba/internal/gba/cheats.h>
 #include <mgba/internal/gba/input.h>
 #include <mgba/internal/gba/memory.h>
 #include <mgba/internal/gba/savedata.h>
+#include <mgba/internal/gb/gb.h>
+#include <mgba/internal/gb/cheats.h>
+#include <mgba/internal/gb/memory.h>
 #include <mgba-util/audio-buffer.h>
 #include <mgba-util/image.h>
 #include <mgba-util/vfs.h>
@@ -70,13 +78,43 @@ static uint8_t _luxRead(struct GBALuminanceSource* s) { return ((struct TinboxLu
 static const int kSaveFlags = SAVESTATE_SCREENSHOT | SAVESTATE_SAVEDATA | SAVESTATE_RTC | SAVESTATE_METADATA;
 static const int kLoadFlags = SAVESTATE_SCREENSHOT | SAVESTATE_SAVEDATA | SAVESTATE_RTC;
 
+/// Platform of a ROM file (or of the first recognised ROM inside a .zip),
+/// without allocating a core — mirrors mCoreFind's archive walk.
+static enum mPlatform _platformForPath(const char* path) {
+    enum mPlatform platform = mPLATFORM_NONE;
+    struct VDir* archive = VDirOpenArchive(path);
+    if (archive) {
+        struct VDirEntry* dirent = archive->listNext(archive);
+        while (dirent && platform == mPLATFORM_NONE) {
+            struct VFile* vf = archive->openFile(archive, dirent->name(dirent), O_RDONLY);
+            if (vf) {
+                platform = mCoreIsCompatible(vf);
+                vf->close(vf);
+            }
+            dirent = archive->listNext(archive);
+        }
+        archive->close(archive);
+        return platform;
+    }
+    struct VFile* vf = VFileOpen(path, O_RDONLY);
+    if (!vf) return mPLATFORM_NONE;
+    platform = mCoreIsCompatible(vf);
+    vf->close(vf);
+    return platform;
+}
+
 #pragma mark - GBAEmulatorCore
 
 @interface GBAEmulatorCore () {
     struct mCore* _core;
+    TinboxPlatform _platform;
     mColor* _videoBuffer;
     unsigned _width;
     unsigned _height;
+
+    NSURL* _saveDirectory;
+    NSURL* _stateDirectory;
+    NSURL* _screenshotDirectory;
 
     struct mCoreCallbacks _callbacks;
     struct TinboxRumble _rumble;
@@ -88,12 +126,19 @@ static const int kLoadFlags = SAVESTATE_SCREENSHOT | SAVESTATE_SAVEDATA | SAVEST
     NSUInteger _rewindInterval;
     NSUInteger _rewindEntries;
     NSUInteger _rewindFrameCounter;
+    // Remembered so a new core gets the same rewind setup.
+    BOOL _rewindWanted;
+    NSUInteger _rewindSeconds;
 
     NSString* _biosPath;
     NSString* _romPath;
     NSInteger _luminanceLevel;
+    NSInteger _volume;
+    BOOL _muted;
 }
 - (void)applyBIOSConfiguration;
+- (BOOL)setUpCore:(struct mCore*)core;
+- (void)tearDownCore;
 @end
 
 static void _savedataUpdated(void* context) {
@@ -126,29 +171,59 @@ static void _rumbleSet(struct mRumbleIntegrator* integrator, float value) {
     if (!self) {
         return nil;
     }
+    _saveDirectory = saveDirectory;
+    _stateDirectory = stateDirectory;
+    _screenshotDirectory = screenshotDirectory;
+    _platform = TinboxPlatformNone;
+    _width = 240;
+    _height = 160;
+    _volume = 100;
+    _rewindInterval = 2;
+    _luminanceLevel = 0;
+    memset(&_rewind, 0, sizeof(_rewind));
 
-    _core = GBACoreCreate();
-    if (!_core) {
+    // A GBA core from the start so callers have a valid video buffer and
+    // sample rate before the first ROM; loadROM swaps it if a GB ROM comes in.
+    if (![self setUpCore:GBACoreCreate()]) {
         return nil;
     }
+    return self;
+}
+
+- (void)dealloc {
+    [self tearDownCore];
+}
+
+#pragma mark - Core lifecycle
+
+/// Takes ownership of an uninitialised core returned by mCoreFind / *CoreCreate.
+- (BOOL)setUpCore:(struct mCore*)core {
+    if (!core) return NO;
+    [self tearDownCore];
+    _core = core;
     _core->init(_core);
+    _platform = _core->platform(_core) == mPLATFORM_GB ? TinboxPlatformGB : TinboxPlatformGBA;
 
     // Configuration. Paths are absolute; mGBA opens/creates the directories in
     // mDirectorySetMapOptions, which is what makes battery saves land in
     // Documents/Saves automatically.
     mCoreInitConfig(_core, "tinbox");
-    mCoreConfigSetValue(&_core->config, "savegamePath", saveDirectory.fileSystemRepresentation);
-    mCoreConfigSetValue(&_core->config, "savestatePath", stateDirectory.fileSystemRepresentation);
-    mCoreConfigSetValue(&_core->config, "screenshotPath", screenshotDirectory.fileSystemRepresentation);
+    mCoreConfigSetValue(&_core->config, "savegamePath", _saveDirectory.fileSystemRepresentation);
+    mCoreConfigSetValue(&_core->config, "savestatePath", _stateDirectory.fileSystemRepresentation);
+    mCoreConfigSetValue(&_core->config, "screenshotPath", _screenshotDirectory.fileSystemRepresentation);
     mCoreConfigSetIntValue(&_core->config, "useBios", 0);
     mCoreConfigSetIntValue(&_core->config, "skipBios", 0);
-    mCoreConfigSetIntValue(&_core->config, "volume", 0x100);   // GBA_AUDIO_VOLUME_MAX; unset == silent
-    mCoreConfigSetIntValue(&_core->config, "mute", 0);
+    mCoreConfigSetIntValue(&_core->config, "volume", (int) (_volume * 0x100 / 100));   // 0x100 == GBA_AUDIO_VOLUME_MAX; unset == silent
+    mCoreConfigSetIntValue(&_core->config, "mute", _muted ? 1 : 0);
     mCoreConfigSetIntValue(&_core->config, "frameskip", 0);
     mCoreConfigSetUIntValue(&_core->config, "audioBuffers", 16384);   // ≥ one frame even at 262144 Hz
     mCoreConfigSetIntValue(&_core->config, "cheatAutosave", 0);
     mCoreConfigSetIntValue(&_core->config, "cheatAutoload", 0);
     mCoreConfigSetValue(&_core->config, "idleOptimization", "remove");
+    if (_platform == TinboxPlatformGB) {
+        // Super Game Boy borders off: the view is sized to 160×144.
+        mCoreConfigSetIntValue(&_core->config, "sgb.borders", 0);
+    }
     mCoreLoadForeignConfig(_core, &_core->config);
 
     // Video: one RGBA8 buffer, stride == width.
@@ -162,7 +237,7 @@ static void _rumbleSet(struct mRumbleIntegrator* integrator, float value) {
     _callbacks.savedataUpdated = _savedataUpdated;
     _core->addCoreCallbacks(_core, &_callbacks);
 
-    // Peripherals.
+    // Peripherals (rumble + rotation exist on both platforms; luminance is GBA-only).
     memset(&_rumble, 0, sizeof(_rumble));
     mRumbleIntegratorInit(&_rumble.integrator);
     _rumble.integrator.setRumble = _rumbleSet;
@@ -176,28 +251,38 @@ static void _rumbleSet(struct mRumbleIntegrator* integrator, float value) {
     _rotation.source.readGyroZ = _rotationGyroZ;
     _core->setPeripheral(_core, mPERIPH_ROTATION, &_rotation.source);
 
-    memset(&_lux, 0, sizeof(_lux));
-    _lux.source.sample = _luxSample;
-    _lux.source.readLuminance = _luxRead;
-    _core->setPeripheral(_core, mPERIPH_GBA_LUMINANCE, &_lux.source);
-    [self applyLuminanceLevel:0];
+    if (_platform == TinboxPlatformGBA) {
+        memset(&_lux, 0, sizeof(_lux));
+        _lux.source.sample = _luxSample;
+        _lux.source.readLuminance = _luxRead;
+        _core->setPeripheral(_core, mPERIPH_GBA_LUMINANCE, &_lux.source);
+        [self applyLuminanceLevel:_luminanceLevel];
+    }
 
+    // Rewind history is tied to a core's state size; rebuild it for this core.
     memset(&_rewind, 0, sizeof(_rewind));
-    _rewindInterval = 1;
-
-    return self;
+    _rewindEnabled = NO;
+    if (_rewindWanted) {
+        [self setRewindEnabled:YES seconds:_rewindSeconds frameInterval:_rewindInterval];
+    }
+    return YES;
 }
 
-- (void)dealloc {
-    if (_core) {
-        [self setRewindEnabled:NO seconds:0 frameInterval:1];
-        [self unloadROM];
-        _core->removeCoreCallbacks(_core, &_callbacks);
-        mCoreConfigDeinit(&_core->config);
-        _core->deinit(_core);
-        _core = NULL;
+- (void)tearDownCore {
+    if (!_core) return;
+    if (_rewindEnabled) {
+        mCoreRewindContextDeinit(&_rewind);
+        memset(&_rewind, 0, sizeof(_rewind));
+        _rewindEnabled = NO;
     }
+    [self unloadROM];
+    _core->removeCoreCallbacks(_core, &_callbacks);
+    mCoreConfigDeinit(&_core->config);
+    _core->deinit(_core);
+    _core = NULL;
     free(_videoBuffer);
+    _videoBuffer = NULL;
+    _platform = TinboxPlatformNone;
 }
 
 #pragma mark - Video
@@ -212,6 +297,10 @@ static void _rumbleSet(struct mRumbleIntegrator* integrator, float value) {
 }
 
 #pragma mark - ROM
+
+- (TinboxPlatform)platform {
+    return _platform;
+}
 
 - (BOOL)isROMLoaded {
     return _romPath != nil;
@@ -241,27 +330,58 @@ static void _rumbleSet(struct mRumbleIntegrator* integrator, float value) {
 
 - (TinboxCartHardware)cartridgeHardware {
     if (!_romPath) return TinboxCartHardwareNone;
-    struct GBA* gba = (struct GBA*) _core->board;
-    uint32_t devices = gba->memory.hw.devices;
     TinboxCartHardware hw = TinboxCartHardwareNone;
-    if (devices & HW_RTC)          hw |= TinboxCartHardwareRTC;
-    if (devices & HW_RUMBLE)       hw |= TinboxCartHardwareRumble;
-    if (devices & HW_LIGHT_SENSOR) hw |= TinboxCartHardwareSolar;
-    if (devices & HW_GYRO)         hw |= TinboxCartHardwareGyro;
-    if (devices & HW_TILT)         hw |= TinboxCartHardwareTilt;
+    if (_platform == TinboxPlatformGBA) {
+        struct GBA* gba = (struct GBA*) _core->board;
+        uint32_t devices = gba->memory.hw.devices;
+        if (devices & HW_RTC)          hw |= TinboxCartHardwareRTC;
+        if (devices & HW_RUMBLE)       hw |= TinboxCartHardwareRumble;
+        if (devices & HW_LIGHT_SENSOR) hw |= TinboxCartHardwareSolar;
+        if (devices & HW_GYRO)         hw |= TinboxCartHardwareGyro;
+        if (devices & HW_TILT)         hw |= TinboxCartHardwareTilt;
+    } else {
+        struct GB* gb = (struct GB*) _core->board;
+        switch (gb->memory.mbcType) {
+            case GB_MBC5_RUMBLE: hw |= TinboxCartHardwareRumble; break;
+            case GB_MBC7:        hw |= TinboxCartHardwareTilt;   break;
+            case GB_MBC3_RTC:    hw |= TinboxCartHardwareRTC;    break;
+            default: break;
+        }
+    }
     return hw;
 }
 
 - (BOOL)loadROMAtURL:(NSURL*)romURL error:(NSError**)error {
     [self unloadROM];
 
-    // mCoreLoadFile resolves archives (.zip) through mDirectorySetOpenPath and
-    // validates the payload with core->isROM (GBAIsROM).
-    if (!mCoreLoadFile(_core, romURL.fileSystemRepresentation)) {
+    // Which platform is this file? (Looks inside .zip archives too.)
+    enum mPlatform detected = _platformForPath(romURL.fileSystemRepresentation);
+    if (detected == mPLATFORM_NONE) {
         if (error) {
             *error = [NSError errorWithDomain:@"Tinbox.GBAEmulatorCore"
                                          code:1
-                                     userInfo:@{NSLocalizedDescriptionKey: @"mGBA could not load this file as a GBA ROM."}];
+                                     userInfo:@{NSLocalizedDescriptionKey: @"Not a Game Boy / Game Boy Advance ROM."}];
+        }
+        return NO;
+    }
+    TinboxPlatform wanted = detected == mPLATFORM_GB ? TinboxPlatformGB : TinboxPlatformGBA;
+    if (wanted != _platform || !_core) {
+        if (![self setUpCore:mCoreCreate(detected)]) {
+            if (error) {
+                *error = [NSError errorWithDomain:@"Tinbox.GBAEmulatorCore" code:2
+                                         userInfo:@{NSLocalizedDescriptionKey: @"Couldn't start the emulator core."}];
+            }
+            return NO;
+        }
+    }
+
+    // mCoreLoadFile resolves archives (.zip) through mDirectorySetOpenPath and
+    // validates the payload with core->isROM.
+    if (!mCoreLoadFile(_core, romURL.fileSystemRepresentation)) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"Tinbox.GBAEmulatorCore"
+                                         code:3
+                                     userInfo:@{NSLocalizedDescriptionKey: @"mGBA could not load this ROM."}];
         }
         return NO;
     }
@@ -276,7 +396,7 @@ static void _rumbleSet(struct mRumbleIntegrator* integrator, float value) {
 }
 
 - (void)unloadROM {
-    if (!_romPath) return;
+    if (!_romPath || !_core) return;
     [self removeAllCheats];
     [self flushSaveData];
     _core->unloadROM(_core);
@@ -294,7 +414,7 @@ static void _rumbleSet(struct mRumbleIntegrator* integrator, float value) {
     if (!_romPath) return NO;
     struct VFile* vf = VFileOpen(patchURL.fileSystemRepresentation, O_RDONLY);
     if (!vf) return NO;
-    // loadPatch applies IPS/UPS/BPS in memory (GBAApplyPatch); the ROM on disk is untouched.
+    // loadPatch applies IPS/UPS/BPS in memory; the ROM on disk is untouched.
     BOOL ok = _core->loadPatch(_core, vf);
     vf->close(vf);
     if (ok) {
@@ -305,9 +425,14 @@ static void _rumbleSet(struct mRumbleIntegrator* integrator, float value) {
 
 - (NSData*)copyROMData {
     if (!_romPath) return nil;
-    struct GBA* gba = (struct GBA*) _core->board;
-    if (!gba->memory.rom || !gba->memory.romSize) return nil;
-    return [NSData dataWithBytes:gba->memory.rom length:gba->memory.romSize];
+    if (_platform == TinboxPlatformGBA) {
+        struct GBA* gba = (struct GBA*) _core->board;
+        if (!gba->memory.rom || !gba->memory.romSize) return nil;
+        return [NSData dataWithBytes:gba->memory.rom length:gba->memory.romSize];
+    }
+    struct GB* gb = (struct GB*) _core->board;
+    if (!gb->memory.rom || !gb->memory.romSize) return nil;
+    return [NSData dataWithBytes:gb->memory.rom length:gb->memory.romSize];
 }
 
 #pragma mark - BIOS
@@ -336,7 +461,7 @@ static void _rumbleSet(struct mRumbleIntegrator* integrator, float value) {
 }
 
 - (BOOL)loadBIOSNow {
-    if (!_romPath || !_biosPath) return NO;
+    if (!_romPath || !_biosPath || _platform != TinboxPlatformGBA) return NO;
     struct VFile* biosVF = VFileOpen(_biosPath.fileSystemRepresentation, O_RDONLY);
     if (!biosVF) return NO;
     // core->loadBIOS validates (GBAIsBIOS) and takes ownership on success.
@@ -349,7 +474,9 @@ static void _rumbleSet(struct mRumbleIntegrator* integrator, float value) {
 }
 
 - (void)applyBIOSConfiguration {
-    if (_biosPath) {
+    if (!_core) return;
+    // The BIOS file is a GBA BIOS; GB boots without one.
+    if (_biosPath && _platform == TinboxPlatformGBA) {
         mCoreConfigSetValue(&_core->config, "bios", _biosPath.fileSystemRepresentation);
         mCoreConfigSetIntValue(&_core->config, "useBios", 1);
     } else {
@@ -383,6 +510,8 @@ static void _rumbleSet(struct mRumbleIntegrator* integrator, float value) {
 }
 
 - (void)setKeys:(GBAKeyMask)keys {
+    // GBA and GB share bit positions for A/B/Select/Start/Right/Left/Up/Down;
+    // L/R are GBA-only and ignored by the GB core.
     _core->setKeys(_core, keys);
 }
 
@@ -417,12 +546,13 @@ static void _rumbleSet(struct mRumbleIntegrator* integrator, float value) {
 }
 
 - (void)setVolume:(NSInteger)volume {
-    volume = MAX((NSInteger) 0, MIN((NSInteger) 100, volume));
-    mCoreConfigSetIntValue(&_core->config, "volume", (int) (volume * 0x100 / 100));
+    _volume = MAX((NSInteger) 0, MIN((NSInteger) 100, volume));
+    mCoreConfigSetIntValue(&_core->config, "volume", (int) (_volume * 0x100 / 100));
     _core->reloadConfigOption(_core, "volume", &_core->config);
 }
 
 - (void)setMuted:(BOOL)muted {
+    _muted = muted;
     mCoreConfigSetIntValue(&_core->config, "mute", muted ? 1 : 0);
     _core->reloadConfigOption(_core, "mute", &_core->config);
 }
@@ -481,14 +611,25 @@ static void _rumbleSet(struct mRumbleIntegrator* integrator, float value) {
 
 - (void)flushSaveData {
     if (!_romPath) return;
-    struct GBA* gba = (struct GBA*) _core->board;
-    struct GBASavedata* savedata = &gba->memory.savedata;
-    if (!savedata->vf || !savedata->data) return;
-    if (savedata->maskWriteback) {
-        GBASavedataUnmask(savedata);
-    }
-    if (savedata->mapMode & MAP_WRITE) {
-        savedata->vf->sync(savedata->vf, savedata->data, GBASavedataSize(savedata));
+    if (_platform == TinboxPlatformGBA) {
+        struct GBA* gba = (struct GBA*) _core->board;
+        struct GBASavedata* savedata = &gba->memory.savedata;
+        if (!savedata->vf || !savedata->data) return;
+        if (savedata->maskWriteback) {
+            GBASavedataUnmask(savedata);
+        }
+        if (savedata->mapMode & MAP_WRITE) {
+            savedata->vf->sync(savedata->vf, savedata->data, GBASavedataSize(savedata));
+        }
+    } else {
+        struct GB* gb = (struct GB*) _core->board;
+        if (!gb->sramVf || !gb->memory.sram) return;
+        if (gb->sramMaskWriteback) {
+            GBSavedataUnmask(gb);
+        }
+        if (gb->sramVf == gb->sramRealVf) {
+            gb->sramVf->sync(gb->sramVf, gb->memory.sram, gb->sramSize);
+        }
     }
 }
 
@@ -499,6 +640,8 @@ static void _rumbleSet(struct mRumbleIntegrator* integrator, float value) {
 }
 
 - (void)setRewindEnabled:(BOOL)enabled seconds:(NSUInteger)seconds frameInterval:(NSUInteger)interval {
+    _rewindWanted = enabled && seconds > 0;
+    _rewindSeconds = seconds;
     NSUInteger wantedInterval = MAX((NSUInteger) 1, interval);
     NSUInteger wantedEntries = MAX((NSUInteger) 2, (seconds * 60) / wantedInterval);
     if (enabled && _rewindEnabled && wantedInterval == _rewindInterval && wantedEntries == _rewindEntries) {
@@ -512,12 +655,12 @@ static void _rumbleSet(struct mRumbleIntegrator* integrator, float value) {
         memset(&_rewind, 0, sizeof(_rewind));
         _rewindEnabled = NO;
     }
-    if (!enabled || seconds == 0) {
+    if (!enabled || seconds == 0 || !_core) {
         return;
     }
-    _rewindInterval = MAX((NSUInteger) 1, interval);
+    _rewindInterval = wantedInterval;
     // GBA runs at ~59.73 fps; one delta-compressed snapshot every `interval` frames.
-    _rewindEntries = MAX((NSUInteger) 2, (seconds * 60) / _rewindInterval);
+    _rewindEntries = wantedEntries;
     mCoreRewindContextInit(&_rewind, _rewindEntries, false);
     _rewindFrameCounter = 0;
     _rewindEnabled = YES;
@@ -564,20 +707,25 @@ static struct mCheatDevice* _cheatDevice(struct mCore* core) {
     if (lines.count == 0) return NO;
     NSRegularExpression* gs = [NSRegularExpression regularExpressionWithPattern:@"^[0-9A-F]{8} [0-9A-F]{8}$" options:0 error:NULL];
     NSRegularExpression* cb = [NSRegularExpression regularExpressionWithPattern:@"^[0-9A-F]{8} [0-9A-F]{4}$" options:0 error:NULL];
+    // Game Boy GameShark (8 hex) and Game Genie (XXX-XXX / XXX-XXX-XXX) codes.
+    NSRegularExpression* gbgs = [NSRegularExpression regularExpressionWithPattern:@"^[0-9A-F]{8}$" options:0 error:NULL];
+    NSRegularExpression* gg = [NSRegularExpression regularExpressionWithPattern:@"^[0-9A-F]{3}-[0-9A-F]{3}(-[0-9A-F]{3})?$" options:0 error:NULL];
     for (NSString* line in lines) {
         NSRange r = NSMakeRange(0, line.length);
         BOOL isGS = [gs numberOfMatchesInString:line options:0 range:r] == 1;
         BOOL isCB = [cb numberOfMatchesInString:line options:0 range:r] == 1;
+        BOOL isGB = [gbgs numberOfMatchesInString:line options:0 range:r] == 1
+                 || [gg numberOfMatchesInString:line options:0 range:r] == 1;
         switch (type) {
             case GBACheatCodeTypeCodeBreaker:
                 if (!isCB) return NO;
                 break;
             case GBACheatCodeTypeGameShark:
             case GBACheatCodeTypeActionReplay:
-                if (!isGS) return NO;
+                if (!isGS && !isGB) return NO;
                 break;
             case GBACheatCodeTypeAutodetect:
-                if (!isGS && !isCB) return NO;
+                if (!isGS && !isCB && !isGB) return NO;
                 break;
         }
     }
@@ -596,11 +744,13 @@ static struct mCheatDevice* _cheatDevice(struct mCore* core) {
         NSString* code = entry[@"code"] ?: @"";
         GBACheatCodeType type = (GBACheatCodeType) [entry[@"type"] integerValue];
         BOOL enabled = [entry[@"enabled"] boolValue];
+        // The numeric types are GBA's; the GB core auto-detects its own formats.
+        int coreType = _platform == TinboxPlatformGBA ? (int) type : (int) GB_CHEAT_AUTODETECT;
 
         struct mCheatSet* set = device->createSet(device, name.UTF8String);
         BOOL parsedAny = NO;
         for (NSString* line in [GBAEmulatorCore normalizedLinesForCode:code]) {
-            if (mCheatAddLine(set, line.UTF8String, (int) type)) {
+            if (mCheatAddLine(set, line.UTF8String, coreType)) {
                 parsedAny = YES;
             }
         }

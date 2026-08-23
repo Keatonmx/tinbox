@@ -61,7 +61,8 @@ enum FileLocations {
         return nil
     }
 
-    static let romExtensions: Set<String> = ["gba", "zip", "agb", "bin"]
+    static let romExtensions: Set<String> = ["gba", "agb", "gb", "gbc", "sgb", "zip"]
+    static let gameBoyExtensions: Set<String> = ["gb", "gbc", "sgb"]
     static let stateExtensions: Set<String> = ["sst", "ss0", "ss1", "ss2", "ss3", "ss4", "ss5", "ss6", "ss7", "ss8", "ss9", "state"]
     static let batteryExtensions: Set<String> = ["sav"]
     static let patchExtensions: Set<String> = ["ips", "ups", "bps"]

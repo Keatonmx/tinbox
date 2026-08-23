@@ -20,6 +20,9 @@ concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: write   # for the rolling "latest" release
+
 jobs:
   build:
     runs-on: macos-14
@@ -155,6 +158,19 @@ jobs:
         with:
           name: Tinbox-unsigned-ipa
           path: Tinbox-unsigned.ipa
+          retention-days: 30
+
+      - name: Publish rolling "latest" release
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp Tinbox-unsigned.ipa "Tinbox-unsigned-build${{ github.run_number }}.ipa"
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest "Tinbox-unsigned-build${{ github.run_number }}.ipa" \
+            --title "Latest build (#${{ github.run_number }})" \
+            --notes "Unsigned IPA from ${{ github.sha }}. Sign and install with Sideloadly." \
+            --latest
 
       - name: Upload simulator screenshots
         if: always()

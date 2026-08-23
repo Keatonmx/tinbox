@@ -14,30 +14,85 @@ struct LibraryView: View {
 
     private let columns = [GridItem(.flexible(), spacing: 16), GridItem(.flexible(), spacing: 16)]
 
+    @FocusState private var searchFocused: Bool
+
     var body: some View {
         VStack(spacing: 0) {
             header
             ScrollView(showsIndicators: false) {
-                LazyVGrid(columns: columns, spacing: 16) {
-                    ForEach(model.games) { game in
-                        GameTile(game: game)
-                            .onTapGesture {
-                                ButtonHaptics.shared.tap()
-                                model.select(game)
-                            }
-                            .contextMenu {
-                                Button { model.open(game) } label: { Label("Play", systemImage: "play.fill") }
-                                Button { model.select(game) } label: { Label("Options…", systemImage: "ellipsis.circle") }
-                            }
+                VStack(spacing: 16) {
+                    if model.games.count > 4 || !model.searchText.isEmpty {
+                        searchBar
                     }
-                    importTile
+                    if model.searchText.isEmpty, let recent = model.recentGame {
+                        ContinueCard(game: recent, coverVersion: model.coverVersion)
+                    }
+                    LazyVGrid(columns: columns, spacing: 16) {
+                        ForEach(model.visibleGames) { game in
+                            GameTile(game: game, coverVersion: model.coverVersion)
+                                .onTapGesture {
+                                    ButtonHaptics.shared.tap()
+                                    model.select(game)
+                                }
+                                .contextMenu {
+                                    Button { model.open(game) } label: { Label("Play", systemImage: "play.fill") }
+                                    Button { model.select(game) } label: { Label("Options…", systemImage: "ellipsis.circle") }
+                                }
+                        }
+                        if model.searchText.isEmpty {
+                            importTile
+                        }
+                    }
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 8)
                 .padding(.bottom, 60)
             }
+            .scrollDismissesKeyboard(.interactively)
         }
         .background(theme.bg.ignoresSafeArea())
+    }
+
+    private var searchBar: some View {
+        HStack(spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass").foregroundColor(Palette.text40)
+                TextField("", text: $model.searchText, prompt: Text("Search games").foregroundColor(Palette.textQuaternary))
+                    .font(.system(size: 15))
+                    .foregroundColor(.white)
+                    .focused($searchFocused)
+                    .autocorrectionDisabled()
+                    .submitLabel(.search)
+                if !model.searchText.isEmpty {
+                    Button { model.searchText = ""; searchFocused = false } label: {
+                        Image(systemName: "xmark.circle.fill").foregroundColor(Palette.text40)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 40)
+            .background(theme.chip)
+            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Palette.hairline08, lineWidth: 0.5))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+            Menu {
+                Picker("Sort", selection: $model.settings.librarySort) {
+                    ForEach(LibrarySort.allCases) { sort in Text(sort.rawValue).tag(sort) }
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "arrow.up.arrow.down").font(.system(size: 12, weight: .semibold))
+                    Text(model.settings.librarySort.rawValue).font(Typography.segment)
+                }
+                .foregroundColor(Palette.text70)
+                .padding(.horizontal, 12)
+                .frame(height: 40)
+                .background(theme.chip)
+                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Palette.hairline08, lineWidth: 0.5))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+        }
     }
 
     private var header: some View {
@@ -108,13 +163,25 @@ struct SettingsGlyph: View {
 struct GameTile: View {
     @Environment(\.theme) private var theme
     let game: Game
+    /// Changes when a cover is (re)written so the image reloads from disk.
+    var coverVersion: Int = 0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            CoverArt(game: game)
+            CoverArt(game: game, coverVersion: coverVersion)
                 .aspectRatio(1, contentMode: .fit)
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Palette.hairline07, lineWidth: 0.5))
+                .overlay(alignment: .topTrailing) {
+                    Text(game.systemBadge)
+                        .font(Typography.mono8Bold)
+                        .tracking(0.5)
+                        .foregroundColor(Palette.text70)
+                        .padding(.horizontal, 6).padding(.vertical, 3)
+                        .background(Color.black.opacity(0.55))
+                        .clipShape(Capsule())
+                        .padding(6)
+                }
             VStack(alignment: .leading, spacing: 1) {
                 Text(game.title)
                     .font(Typography.cardTitle)
@@ -136,16 +203,65 @@ struct GameTile: View {
     }
 }
 
+/// "Jump back in" card for the most recently played game.
+struct ContinueCard: View {
+    @EnvironmentObject private var model: AppModel
+    @Environment(\.theme) private var theme
+    let game: Game
+    let coverVersion: Int
+
+    var body: some View {
+        Button {
+            ButtonHaptics.shared.tap()
+            model.openAndContinue(game)
+        } label: {
+            HStack(spacing: 14) {
+                CoverArt(game: game, coverVersion: coverVersion)
+                    .frame(width: 64, height: 64)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Palette.hairline07, lineWidth: 0.5))
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Continue")
+                        .font(Typography.eyebrow).textCase(.uppercase).tracking(1)
+                        .foregroundColor(theme.accentText)
+                    Text(game.title).font(Typography.rowSemibold).foregroundColor(.white).lineLimit(1)
+                    Text(model.latestSaveDescription(for: game) ?? "Played \((game.lastPlayed ?? Date()).relativeLibraryString)")
+                        .font(Typography.meta).foregroundColor(Palette.textTertiary).lineLimit(1)
+                }
+                Spacer(minLength: 8)
+                ZStack {
+                    Circle().fill(theme.accent)
+                    Image(systemName: "play.fill").font(.system(size: 14, weight: .bold)).foregroundColor(.white).offset(x: 1)
+                }
+                .frame(width: 40, height: 40)
+            }
+            .padding(12)
+            .background(theme.card)
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(theme.tintBorder.opacity(0.6), lineWidth: 1))
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(FadePressStyle(opacity: 0.8))
+        .contextMenu {
+            Button { model.open(game) } label: { Label("Play from the start", systemImage: "play") }
+            Button { model.select(game) } label: { Label("Options…", systemImage: "ellipsis.circle") }
+        }
+    }
+}
+
 /// Box art if the user dropped one into Documents/Covers, otherwise the
 /// striped placeholder tinted by the game's hue with the title initials.
 struct CoverArt: View {
     @Environment(\.theme) private var theme
     let game: Game
+    var coverVersion: Int = 0
 
     var body: some View {
         ZStack {
             if let image = GameLibraryStore.shared.coverImage(for: game) {
-                Image(uiImage: image).resizable().scaledToFill()
+                Color.black
+                Image(uiImage: image).resizable().scaledToFit()
+                    .id(coverVersion)
             } else {
                 theme.chip
                 StripedPlaceholder(stripe: Color(hue: game.coverHue / 360, saturation: 0.4, brightness: 0.65).opacity(0.13),

@@ -21,10 +21,10 @@ import Combine
 /// Latest completed frame, shared between the emulation thread (writer) and
 /// the Metal renderer (reader).
 final class FrameStore: @unchecked Sendable {
-    let width: Int
-    let height: Int
+    private(set) var width: Int
+    private(set) var height: Int
     private let lock = NSLock()
-    private let pixels: UnsafeMutablePointer<UInt32>
+    private var pixels: UnsafeMutablePointer<UInt32>
     private var frameIndex: UInt64 = 0
 
     init(width: Int, height: Int) {
@@ -35,6 +35,21 @@ final class FrameStore: @unchecked Sendable {
     }
 
     deinit { pixels.deallocate() }
+
+    /// Switches to a new frame size (GBA 240×160 ↔ GB 160×144). Reallocates
+    /// under the lock so a concurrent reader never sees a mismatched buffer.
+    func resize(width newWidth: Int, height newHeight: Int) {
+        lock.lock()
+        if newWidth != width || newHeight != height {
+            pixels.deallocate()
+            pixels = .allocate(capacity: newWidth * newHeight)
+            pixels.initialize(repeating: 0xFF000000, count: newWidth * newHeight)
+            width = newWidth
+            height = newHeight
+            frameIndex &+= 1
+        }
+        lock.unlock()
+    }
 
     func publish(from source: UnsafePointer<UInt32>) {
         lock.lock()
@@ -242,6 +257,9 @@ final class EmulatorSession: ObservableObject {
     @Published var turboA = false { didSet { runner.turboA = turboA } }
     @Published var turboB = false { didSet { runner.turboB = turboB } }
     @Published private(set) var cartridgeHardware: TinboxCartHardware = []
+    @Published private(set) var platform: TinboxPlatform = .gba
+    /// Width ÷ height of the emulated screen (3:2 GBA, 10:9 GB).
+    @Published private(set) var videoAspect: CGFloat = 1.5
     @Published private(set) var controllerConnected = false
     @Published var luminanceLevel: Int = 0 { didSet { runner.withCore { $0.applyLuminanceLevel(luminanceLevel) } } }
     /// Momentary state of the » scrubber.
@@ -311,7 +329,13 @@ final class EmulatorSession: ObservableObject {
         }
 
         self.game = game
-        cartridgeHardware = runner.withCore { $0.cartridgeHardware }
+        let (hardware, platform, width, height) = runner.withCore {
+            ($0.cartridgeHardware, $0.platform, Int($0.videoWidth), Int($0.videoHeight))
+        }
+        cartridgeHardware = hardware
+        self.platform = platform
+        frameStore.resize(width: width, height: height)
+        videoAspect = CGFloat(width) / CGFloat(height)
         applyCheats(cheats)
         applySettings()
         runner.resetTiming()

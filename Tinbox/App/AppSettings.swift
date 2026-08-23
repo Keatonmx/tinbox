@@ -25,12 +25,30 @@ enum ImportMode: String, CaseIterable, Codable, Identifiable {
     var id: String { rawValue }
 }
 
+enum LibrarySort: String, CaseIterable, Codable, Identifiable {
+    case recent = "Recent"
+    case title = "A–Z"
+    case size = "Size"
+    var id: String { rawValue }
+}
+
+/// Rewind history lengths offered in Settings (seconds).
+enum RewindLength {
+    static let options = [30, 60, 120]
+}
+
 enum ScreenFilter: String, CaseIterable, Codable, Identifiable {
     case none = "None"
     case crt = "CRT"
     case grid = "Grid"
+    /// Legacy option (Scale2x); kept so old settings still decode.
     case hq2x = "HQ2x"
+    /// Edge-directed upscaler (xBR-lv2).
+    case xbr = "xBR"
     var id: String { rawValue }
+
+    /// What the pickers offer.
+    static let options: [ScreenFilter] = [.none, .crt, .grid, .xbr]
 
     /// Index passed to the Metal fragment shader.
     var shaderIndex: Int32 {
@@ -39,6 +57,7 @@ enum ScreenFilter: String, CaseIterable, Codable, Identifiable {
         case .crt: return 1
         case .grid: return 2
         case .hq2x: return 3
+        case .xbr: return 4
         }
     }
 }
@@ -121,6 +140,10 @@ struct AppSettings: Codable, Equatable {
     var customROMFolderName: String?
     /// External-folder games removed from the Library (the folder is rescanned).
     var hiddenGameIDs: [String] = []
+    /// Download box art from libretro-thumbnails for games without a cover.
+    var fetchBoxArt: Bool = true
+    /// Library sort order.
+    var librarySort: LibrarySort = .recent
 
     // Not user-facing: remembered state
     var lastPlayedGameID: String?
@@ -161,6 +184,8 @@ struct AppSettings: Codable, Equatable {
         customROMFolderBookmark = try c.decodeIfPresent(Data.self, forKey: .customROMFolderBookmark)
         customROMFolderName = try c.decodeIfPresent(String.self, forKey: .customROMFolderName)
         hiddenGameIDs = try c.decodeIfPresent([String].self, forKey: .hiddenGameIDs) ?? []
+        fetchBoxArt = try c.decodeIfPresent(Bool.self, forKey: .fetchBoxArt) ?? d.fetchBoxArt
+        librarySort = try c.decodeIfPresent(LibrarySort.self, forKey: .librarySort) ?? d.librarySort
         volume = try c.decodeIfPresent(Int.self, forKey: .volume) ?? d.volume
         lastPlayedGameID = try c.decodeIfPresent(String.self, forKey: .lastPlayedGameID)
         collapsedSections = try c.decodeIfPresent([String].self, forKey: .collapsedSections) ?? d.collapsedSections

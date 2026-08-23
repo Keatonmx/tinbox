@@ -43,6 +43,10 @@ final class AppModel: ObservableObject {
             SettingsStore.shared.save(settings)
             session.settings = settings
             ButtonHaptics.shared.enabled = settings.hapticsEnabled
+            if screen == .game, gameData.overrides.enabled {
+                session.turboA = effective.turboA
+                session.turboB = effective.turboB
+            }
         }
     }
     @Published private(set) var games: [Game] = []
@@ -66,6 +70,10 @@ final class AppModel: ObservableObject {
     @Published var toast: String?
     /// Backup archive waiting to be shared.
     @Published var shareURL: URL?
+    /// Bumped whenever a cover image changes so tiles reload from disk.
+    @Published var coverVersion = 0
+    /// Library search text.
+    @Published var searchText = ""
     @Published private(set) var lastSyncText: String = "Never"
 
     var theme: ThemeTokens { ThemeTokens.tokens(for: settings.theme) }
@@ -135,6 +143,91 @@ final class AppModel: ObservableObject {
     func refreshLibrary() {
         let hidden = Set(settings.hiddenGameIDs)
         games = GameLibraryStore.shared.loadGames().filter { !hidden.contains($0.id) }
+        fetchMissingCovers()
+    }
+
+    /// Games as the Library shows them: search filter + chosen sort.
+    var visibleGames: [Game] {
+        let query = searchText.trimmingCharacters(in: .whitespaces).lowercased()
+        var list = games
+        if !query.isEmpty {
+            list = list.filter { $0.title.lowercased().contains(query) || $0.fileName.lowercased().contains(query) }
+        }
+        switch settings.librarySort {
+        case .recent: list.sort { ($0.lastPlayed ?? $0.addedAt) > ($1.lastPlayed ?? $1.addedAt) }
+        case .title: list.sort { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+        case .size: list.sort { $0.fileSize > $1.fileSize }
+        }
+        return list
+    }
+
+    /// The most recently played game, for the Library's Continue card.
+    var recentGame: Game? {
+        games.filter { $0.lastPlayed != nil }.max { ($0.lastPlayed ?? .distantPast) < ($1.lastPlayed ?? .distantPast) }
+    }
+
+    func latestSaveDescription(for game: Game) -> String? {
+        let data = GameLibraryStore.shared.loadGameData(for: game.id)
+        guard let newest = data.slots.filter({ $0.isFilled }).max(by: { ($0.savedAt ?? .distantPast) < ($1.savedAt ?? .distantPast) }),
+              let date = newest.savedAt else { return nil }
+        return "\(newest.name) · \(date.slotTimestampString)"
+    }
+
+    func latestSlotIndex(for game: Game) -> Int? {
+        let data = GameLibraryStore.shared.loadGameData(for: game.id)
+        return data.slots.filter { $0.isFilled }.max { ($0.savedAt ?? .distantPast) < ($1.savedAt ?? .distantPast) }?.index
+    }
+
+    // MARK: Covers
+
+    private func fetchMissingCovers() {
+        guard settings.fetchBoxArt else { return }
+        for game in games {
+            CoverArtService.shared.fetchIfNeeded(for: game) { [weak self] in self?.coverVersion += 1 }
+        }
+    }
+
+    func setCover(for game: Game, from url: URL) {
+        if CoverArtService.shared.setCover(for: game, from: url) {
+            coverVersion += 1
+            showToast("Cover updated")
+        } else {
+            showToast("Couldn't read that image")
+        }
+    }
+
+    func removeCover(for game: Game) {
+        CoverArtService.shared.removeCover(for: game)
+        coverVersion += 1
+    }
+
+    func retryCover(for game: Game) {
+        CoverArtService.shared.clearMiss(for: game)
+        CoverArtService.shared.fetchIfNeeded(for: game) { [weak self] in self?.coverVersion += 1 }
+        showToast("Looking for box art…")
+    }
+
+    // MARK: Per-game settings
+
+    /// Global settings with the current game's overrides applied.
+    var effective: AppSettings {
+        var s = settings
+        let o = gameData.overrides
+        guard screen == .game, o.enabled else { return s }
+        if let v = o.scaling { s.scaling = v }
+        if let v = o.landscapeScaling { s.landscapeScaling = v }
+        if let v = o.filter { s.filter = v }
+        if let v = o.turboA { s.turboA = v }
+        if let v = o.turboB { s.turboB = v }
+        if let v = o.controlOpacity { s.controlOpacity = v }
+        return s
+    }
+
+    func updateOverrides(_ change: (inout GameOverrides) -> Void) {
+        change(&gameData.overrides)
+        persistGameData()
+        session.turboA = effective.turboA
+        session.turboB = effective.turboB
     }
 
     /// Tapping a library tile opens the game's action sheet.
@@ -185,6 +278,9 @@ final class AppModel: ObservableObject {
         selectedGame = nil
         screen = .game
         session.start()
+        // Per-game overrides that live in the session.
+        session.turboA = effective.turboA
+        session.turboB = effective.turboB
 
         // Auto-suspend recovery: if the app was killed mid-session, resume it.
         let suspend = FileLocations.suspendState(gameID: game.id)
@@ -427,6 +523,9 @@ final class AppModel: ObservableObject {
         case .patchForGame:
             guard let url = urls.first, let game = selectedGame else { return }
             createPatchedCopy(of: game, patchURL: url)
+        case .coverForGame:
+            guard let url = urls.first, let game = selectedGame else { return }
+            setCover(for: game, from: url)
         case .romFolder:
             guard let url = urls.first else { return }
             chooseROMFolder(url)
@@ -572,6 +671,14 @@ final class AppModel: ObservableObject {
         settings.customROMFolderName = nil
         refreshLibrary()
         showToast("ROM folder: Tinbox › ROMs")
+    }
+
+    func removeBIOSFile() {
+        let name = settings.biosFileName ?? "gba_bios.bin"
+        try? FileManager.default.removeItem(at: FileLocations.bios.appendingPathComponent(name))
+        settings.biosFileName = nil
+        settings.bootMode = .hle
+        showToast("BIOS file removed · using built-in")
     }
 
     private func importBIOS(_ url: URL) {

@@ -23,6 +23,8 @@ struct TouchControlsView: View {
     let metrics: ControlMetrics
     let size: CGSize
     let showFastForward: Bool
+    /// False for Game Boy games (no L/R).
+    var showShoulders: Bool = true
     let onKeys: (GBAKeyMask) -> Void
     let onMenu: () -> Void
     /// Quick tap on » (no slide) — shows the hint; a double tap toggles permanent fast-forward.
@@ -34,7 +36,8 @@ struct TouchControlsView: View {
     @StateObject private var press = ControlPressState()
 
     var body: some View {
-        let frames = ControlGeometry.frames(layout: layout, metrics: metrics, in: size, showFastForward: showFastForward)
+        let frames = ControlGeometry.frames(layout: layout, metrics: metrics, in: size,
+                                            showFastForward: showFastForward, showShoulders: showShoulders)
         ZStack(alignment: .topLeading) {
             ForEach(ControlID.allCases) { control in
                 if let frame = frames[control] {
@@ -296,6 +299,13 @@ final class TouchLayerView: UIView {
             }
         }
         if keys != lastKeys {
+            // Direction changed while sliding on the d-pad → soft tick.
+            let directions: GBAKeyMask = [.up, .down, .left, .right]
+            let oldDir = GBAKeyMask(rawValue: lastKeys.rawValue & directions.rawValue)
+            let newDir = GBAKeyMask(rawValue: keys.rawValue & directions.rawValue)
+            if !newDir.isEmpty, newDir != oldDir, !oldDir.isEmpty {
+                ButtonHaptics.shared.tick()
+            }
             lastKeys = keys
             onKeys?(keys, dpadHighlight)
         }
