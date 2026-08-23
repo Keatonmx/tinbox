@@ -10,7 +10,7 @@ changes the app) does not apply: nothing Tinbox loads alters the app's own featu
 
 - [x] Native Swift/ObjC++ binary; no JIT, no code download.
 - [x] No bundled ROMs in the app (the CI test ROM lives only in `Tests/`).
-- [x] Open-source licences viewable in-app: Settings › General › About (mGBA MPL-2.0, libpng, zlib/minizip, inih).
+- [x] Open-source licences viewable in-app: Settings › Advanced › About (mGBA MPL-2.0, libpng, zlib/minizip, inih).
 - [x] mGBA's MPL obligation: our only modification is `Scripts/mgba-ios.patch`, published in this repo.
 - [x] Privacy policy: `PRIVACY.md` (linked from About; use the raw GitHub URL in App Store Connect).
 - [x] `ITSAppUsesNonExemptEncryption = NO` (HTTPS only).

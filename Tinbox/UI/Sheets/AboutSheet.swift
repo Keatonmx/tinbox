@@ -51,6 +51,9 @@ struct AboutSheet: View {
                             Text(AppInfo.versionString).font(Typography.detail).foregroundColor(Palette.text40)
                         }
                         SettingsRow(title: "Emulation core", subtitle: GBAEmulatorCore.coreVersion, showsSeparator: true) { EmptyView() }
+                        SettingsRow(title: "Saving",
+                                    subtitle: "In-game saves are written automatically, leaving a game fills the Auto slot, and an emergency snapshot is taken if you're interrupted. Always on.",
+                                    showsSeparator: true) { EmptyView() }
                         link("Source code", url: AppInfo.sourceURL, showsSeparator: true)
                         link("Privacy policy", url: AppInfo.privacyURL, showsSeparator: false)
                     }

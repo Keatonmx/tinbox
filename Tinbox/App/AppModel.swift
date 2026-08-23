@@ -32,6 +32,8 @@ enum ActiveSheet: Equatable, Identifiable {
     case gameActions
     case romFolder
     case about
+    /// Per-game overrides (from Settings › This game).
+    case gameOverrides
     var id: Self { self }
 }
 
@@ -448,11 +450,20 @@ final class AppModel: ObservableObject {
         return "\(slot.name) · \(date.slotTimestampString)"
     }
 
+    /// Sections that start closed; everything else starts open.
+    static let sectionsCollapsedByDefault: Set<String> = ["Library", "Advanced"]
+
+    func isSectionCollapsed(_ name: String) -> Bool {
+        let byDefault = AppModel.sectionsCollapsedByDefault.contains(name)
+        let toggled = settings.toggledSections.contains(name)
+        return byDefault != toggled
+    }
+
     func toggleSectionCollapsed(_ name: String) {
-        if let i = settings.collapsedSections.firstIndex(of: name) {
-            settings.collapsedSections.remove(at: i)
+        if let i = settings.toggledSections.firstIndex(of: name) {
+            settings.toggledSections.remove(at: i)
         } else {
-            settings.collapsedSections.append(name)
+            settings.toggledSections.append(name)
         }
     }
 

@@ -13,7 +13,7 @@ struct SaveStatesSheet: View {
     @Environment(\.theme) private var theme
 
     var body: some View {
-        BottomSheet(maxHeightFraction: 0.72, onDismiss: { model.closeSheet() }) {
+        BottomSheet(maxHeightFraction: 0.84, onDismiss: { model.closeSheet() }) {
             SheetHeader(title: "Save States", onBack: { model.openSheet(.quickMenu) }) {
                 TintPill(title: "Import") { model.importKind = .saveState }
             }

@@ -77,7 +77,7 @@ extension String {
 // MARK: - Save states
 
 struct SaveSlot: Identifiable, Codable, Equatable {
-    /// 0 == Auto, 1…4 == Slot 1…4
+    /// 0 == Auto, 1…9 == Slot 1…9
     let index: Int
     var savedAt: Date?
 
@@ -85,8 +85,15 @@ struct SaveSlot: Identifiable, Codable, Equatable {
     var name: String { index == 0 ? "Auto" : "Slot \(index)" }
     var isFilled: Bool { savedAt != nil }
 
-    static let count = 5
+    static let count = 10
     static var empty: [SaveSlot] { (0..<count).map { SaveSlot(index: $0, savedAt: nil) } }
+
+    /// Brings an older (shorter) slot list up to the current count.
+    static func padded(_ slots: [SaveSlot]) -> [SaveSlot] {
+        var out = slots
+        while out.count < count { out.append(SaveSlot(index: out.count, savedAt: nil)) }
+        return Array(out.prefix(count))
+    }
 }
 
 // MARK: - Cheats
@@ -274,7 +281,7 @@ struct GameData: Codable, Equatable {
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        slots = try c.decodeIfPresent([SaveSlot].self, forKey: .slots) ?? SaveSlot.empty
+        slots = SaveSlot.padded(try c.decodeIfPresent([SaveSlot].self, forKey: .slots) ?? SaveSlot.empty)
         cheats = try c.decodeIfPresent([Cheat].self, forKey: .cheats) ?? []
         overrides = try c.decodeIfPresent(GameOverrides.self, forKey: .overrides) ?? GameOverrides()
     }

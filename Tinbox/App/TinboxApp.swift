@@ -125,6 +125,7 @@ struct RootView: View {
                 case .gameActions: GameActionsSheet()
                 case .romFolder: ROMFolderSheet()
                 case .about: AboutSheet()
+                case .gameOverrides: GameOverridesSheet()
                 }
             }
             .zIndex(40)

@@ -21,7 +21,7 @@ telemetry. We do not collect, store or share any personal information.
 
 Tinbox only uses the network when you turn on or use one of these features:
 
-1. **Box art** (Settings › Extras › *Box art*, on by default). For games that have no cover,
+1. **Box art** (Settings › Library › *Box art*, on by default). For games that have no cover,
    Tinbox requests an image from the open-source *libretro-thumbnails* project hosted on GitHub
    (`raw.githubusercontent.com`). The request contains only the game's file name. You can turn
    this off at any time; it is never used for anything else.

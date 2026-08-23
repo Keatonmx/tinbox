@@ -147,8 +147,9 @@ struct AppSettings: Codable, Equatable {
 
     // Not user-facing: remembered state
     var lastPlayedGameID: String?
-    /// Settings sections the user has collapsed.
-    var collapsedSections: [String] = []
+    /// Settings sections whose open/closed state the user flipped from the
+    /// default (Library and Advanced start collapsed, the rest open).
+    var toggledSections: [String] = []
     var hasSeenFastForwardHint: Bool = false
 
     init() {}
@@ -188,7 +189,7 @@ struct AppSettings: Codable, Equatable {
         librarySort = try c.decodeIfPresent(LibrarySort.self, forKey: .librarySort) ?? d.librarySort
         volume = try c.decodeIfPresent(Int.self, forKey: .volume) ?? d.volume
         lastPlayedGameID = try c.decodeIfPresent(String.self, forKey: .lastPlayedGameID)
-        collapsedSections = try c.decodeIfPresent([String].self, forKey: .collapsedSections) ?? d.collapsedSections
+        toggledSections = try c.decodeIfPresent([String].self, forKey: .toggledSections) ?? d.toggledSections
         hasSeenFastForwardHint = try c.decodeIfPresent(Bool.self, forKey: .hasSeenFastForwardHint) ?? d.hasSeenFastForwardHint
     }
 }
