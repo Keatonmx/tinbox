@@ -299,8 +299,8 @@ struct SettingsSheet: View {
             SettingsRow(title: "Saving", subtitle: "In-game saves, the Auto slot on exit and an emergency snapshot on interruptions are always on") {
                 Text("On").font(Typography.detail).foregroundColor(Palette.text40)
             }
-            SettingsRow(title: "About", showsSeparator: false) {
-                Text("Tinbox 1.0 · Redfern's Outpost").font(Typography.detail).foregroundColor(Palette.text40)
+            NavRow(title: "About", subtitle: "Version, open-source licences, privacy", detail: "Tinbox \(AppInfo.versionString)", showsSeparator: false) {
+                model.openSheet(.about)
             }
         }
     }

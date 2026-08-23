@@ -20,6 +20,9 @@
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<!-- Only HTTPS via URLSession (exempt) — answers the export-compliance question at upload. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 
 	<!-- Documents/ROMs, Saves, States … visible and editable in the Files app. -->
 	<key>UIFileSharingEnabled</key>

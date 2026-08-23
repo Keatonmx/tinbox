@@ -28,9 +28,11 @@ FILE_TYPES = {
     '.plist': 'text.plist.xml',
     '.entitlements': 'text.plist.entitlements',
     '.xcframework': 'wrapper.xcframework',
+    '.txt': 'text',
+    '.md': 'net.daringfireball.markdown',
 }
 SOURCE_EXTS = {'.swift', '.mm', '.m', '.metal'}
-RESOURCE_EXTS = {'.xcassets'}
+RESOURCE_EXTS = {'.xcassets', '.txt'}
 
 
 def uid(key):

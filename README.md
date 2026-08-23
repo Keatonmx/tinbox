@@ -57,7 +57,7 @@ open Tinbox.xcodeproj
 
 `build-mgba.sh` documents the exact CMake invocation. Summary of what it does:
 
-* `cmake -S Vendor/mgba -B Vendor/build/<slice> -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=iphoneos|iphonesimulator -DCMAKE_OSX_ARCHITECTURES=… -DCMAKE_OSX_DEPLOYMENT_TARGET=16.0` with the GBA core only (`M_CORE_GB=OFF`), `BUILD_STATIC=ON`, all frontends / debuggers / scripting / ffmpeg / lua / sqlite / libzip off.
+* `cmake -S Vendor/mgba -B Vendor/build/<slice> -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=iphoneos|iphonesimulator -DCMAKE_OSX_ARCHITECTURES=… -DCMAKE_OSX_DEPLOYMENT_TARGET=16.0` with the GBA and GB/GBC cores (`M_CORE_GBA=ON`, `M_CORE_GB=ON`), `BUILD_STATIC=ON`, all frontends / debuggers / scripting / ffmpeg / lua / sqlite / libzip off.
 * zlib comes from the iOS SDK (`libz.tbd`, linked by the app target); mGBA compiles its bundled **libpng** (PNG save states with embedded screenshots) and the bundled **minizip** (`.zip` ROMs).
 * The three archives are merged with `libtool -static`, and `xcodebuild -create-xcframework` packages both slices together with `include/mgba`, `include/mgba-util` and the generated `include/mgba/flags.h`.
 * `flags.h` must be the first mGBA header the bridge includes (it is): `struct mCore`'s layout depends on `ENABLE_VFS`, `ENABLE_DIRECTORIES`, `ENABLE_DEBUGGERS`, `MINIMAL_CORE`. The script also asserts that device and simulator were configured identically.
@@ -101,6 +101,11 @@ Written against the real headers, not from memory:
 ## Audio pipeline
 
 The GBA's sample rate is not fixed: games set it through SOUNDBIAS (32768 / 65536 / 131072 / 262144 Hz — Pokémon's m4a driver uses 65536 Hz). The emulation thread reports the core's current rate after every frame; the audio thread pulls samples through a linear-interpolation resampler whose ratio is (core rate ÷ 48 kHz) corrected by ≤ ±1 % from the buffer fill level (dynamic rate control), with an 80 ms cushion. See `Tinbox/Emulator/AudioEngine.swift`.
+
+## App Store
+
+See `docs/APP_STORE.md` for the submission checklist (Guideline 4.7 applies to emulators; licences are
+shown in-app; `PRIVACY.md` is the privacy policy). Needs a paid Apple Developer account.
 
 ## Scope notes
 

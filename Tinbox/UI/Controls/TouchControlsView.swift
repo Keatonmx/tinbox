@@ -69,12 +69,14 @@ struct TouchControlsView: View {
         }
         .frame(width: size.width, height: size.height)
         .onAppear {
+            #if DEBUG
             // CI: `-tinbox-tapstorm` churns the pressed state like rapid tapping.
             guard CommandLine.arguments.contains("-tinbox-tapstorm") else { return }
             Timer.scheduledTimer(withTimeInterval: 0.04, repeats: true) { [press] _ in
                 press.pressed = press.pressed.isEmpty ? [.a, .dpad] : []
                 press.dpadHighlight = press.pressed.isEmpty ? [] : [.right]
             }
+            #endif
         }
     }
 }

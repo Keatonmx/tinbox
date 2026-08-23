@@ -31,6 +31,7 @@ enum ActiveSheet: Equatable, Identifiable {
     /// Play / load save / patch / remove for `AppModel.selectedGame`.
     case gameActions
     case romFolder
+    case about
     var id: Self { self }
 }
 
@@ -106,7 +107,10 @@ final class AppModel: ObservableObject {
             }
             .store(in: &cancellables)
 
-        // CI screenshots: `-tinbox-theme <Name>` and `-tinbox-sheet <settings|themes|skins|quickMenu>`.
+        #if DEBUG
+        // Debug builds only (CI simulator screenshots); compiled out of Release.
+        // `-tinbox-theme <Name>`, `-tinbox-sheet <settings|themes|skins|quickMenu>`,
+        // `-tinbox-autoplay`, `-tinbox-landscape`, `-tinbox-tapstorm`.
         let args = CommandLine.arguments
         if let i = args.firstIndex(of: "-tinbox-theme"), i + 1 < args.count, let t = ThemeName(rawValue: args[i + 1]) {
             self.settings.theme = t
@@ -136,6 +140,7 @@ final class AppModel: ObservableObject {
                 }
             }
         }
+        #endif
     }
 
     // MARK: Library
