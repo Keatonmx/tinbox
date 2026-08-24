@@ -134,6 +134,15 @@ struct PortraitGameView: View {
             }
         }
         .onAppear {
+            #if DEBUG
+            // CI: freeze the boot mid-insert so a screenshot can check the cart.
+            if CommandLine.arguments.contains("-tinbox-cart") {
+                cartVisible = true
+                cartOpacity = 1
+                cartOffset = -60
+                return
+            }
+            #endif
             if session.lidShown {
                 lidOpen = true          // rotation / menu return: no replay
             } else {
