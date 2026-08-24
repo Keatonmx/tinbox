@@ -140,6 +140,8 @@ struct AppSettings: Codable, Equatable {
     /// Bluetooth pad bindings: physical element id to GBA action id.
     /// Missing keys fall back to ControllerManager.defaultBindings.
     var controllerBindings: [String: String] = [:]
+    /// The hidden theme, unlocked by tapping the version in About 5 times.
+    var secretThemeUnlocked: Bool = false
     var autoSuspendSave: Bool = true
     var backgroundAudioMixing: Bool = false
 
@@ -216,6 +218,7 @@ struct AppSettings: Codable, Equatable {
         bootAnimationEnabled = try c.decodeIfPresent(Bool.self, forKey: .bootAnimationEnabled) ?? d.bootAnimationEnabled
         rtcOffsetSeconds = try c.decodeIfPresent(Int.self, forKey: .rtcOffsetSeconds) ?? d.rtcOffsetSeconds
         controllerBindings = try c.decodeIfPresent([String: String].self, forKey: .controllerBindings) ?? d.controllerBindings
+        secretThemeUnlocked = try c.decodeIfPresent(Bool.self, forKey: .secretThemeUnlocked) ?? d.secretThemeUnlocked
         autoSuspendSave = true
         backgroundAudioMixing = try c.decodeIfPresent(Bool.self, forKey: .backgroundAudioMixing) ?? d.backgroundAudioMixing
         scaling = try c.decodeIfPresent(DisplayScaling.self, forKey: .scaling) ?? d.scaling

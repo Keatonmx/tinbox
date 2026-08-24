@@ -142,10 +142,18 @@ struct LibraryView: View {
         } label: {
             ZStack {
                 Color.clear
+                if model.games.isEmpty {
+                    GlitchTexture().opacity(0.5).clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
                 VStack(spacing: 6) {
                     Text("+").font(.system(size: 26, weight: .regular)).foregroundColor(theme.accent)
                     Text("Import ROM").font(.system(size: 13, weight: .semibold)).foregroundColor(Palette.text55)
                         .lineLimit(1)
+                    if model.games.isEmpty, !EggText.glitchCaption.isEmpty {
+                        Text(EggText.glitchCaption)
+                            .font(Typography.mono8Bold).tracking(1)
+                            .foregroundColor(Palette.textQuaternary)
+                    }
                 }
             }
             .aspectRatio(1, contentMode: .fit)

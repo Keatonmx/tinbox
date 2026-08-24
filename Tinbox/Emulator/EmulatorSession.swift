@@ -113,6 +113,8 @@ final class EmulationRunner: NSObject, @unchecked Sendable {
     /// Game Boy Camera: size when the cart wants frames, nil when it stops.
     /// Delivered on the main thread.
     var onCameraRequest: ((CGSize?) -> Void)?
+    /// Fired when the game writes its battery save (emulation thread).
+    var onSaveData: (() -> Void)?
 
     init(core: GBAEmulatorCore, frameStore: FrameStore, audio: AudioEngine) {
         self.core = core
@@ -229,6 +231,7 @@ extension EmulationRunner: GBAEmulatorCoreDelegate {
 
     func emulatorCoreDidUpdateSaveData(_ core: GBAEmulatorCore) {
         CloudSync.shared.markDirty()
+        onSaveData?()
     }
 
     func emulatorCore(_ core: GBAEmulatorCore, cameraWantsFramesOfWidth width: UInt, height: UInt) {
@@ -283,6 +286,8 @@ final class EmulatorSession: ObservableObject {
     /// The boot "lid-open" animation plays once per game load (not on
     /// rotation or when a menu closes). Deliberately not published.
     var lidShown = false
+    /// Bumped whenever the game writes its battery save (easter-egg flash).
+    @Published private(set) var saveFlash = 0
 
     /// Effective speed (1 when fast-forward is off).
     var currentSpeed: Double { isFastForward ? ffSpeed : 1 }
@@ -329,6 +334,10 @@ final class EmulatorSession: ObservableObject {
         sensors.onTilt = { [weak self] x, y, z in
             guard let self, self.settings.sensorsEnabled else { return }
             self.runner.withCore { $0.setTilt(x: x, y: y, gyroZ: z) }
+        }
+
+        runner.onSaveData = { [weak self] in
+            DispatchQueue.main.async { self?.saveFlash &+= 1 }
         }
 
         // Game Boy Camera: start/stop the phone camera when the cart asks.

@@ -49,6 +49,8 @@ struct AboutSheet: View {
                     Card {
                         SettingsRow(title: "Tinbox", subtitle: "by Redfern's Outpost") {
                             Text(AppInfo.versionString).font(Typography.detail).foregroundColor(Palette.text40)
+                                .contentShape(Rectangle())
+                                .onTapGesture { model.registerVersionTap() }
                         }
                         SettingsRow(title: "Emulation core", subtitle: GBAEmulatorCore.coreVersion, showsSeparator: true) { EmptyView() }
                         SettingsRow(title: "Saving",

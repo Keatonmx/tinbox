@@ -80,7 +80,7 @@ struct ThemesSheet: View {
             SheetHeader(title: "Theme", onBack: { model.openSheet(.settings) }, bottomSpacing: 14) { EmptyView() }
             HuggingScrollView {
                 LazyVGrid(columns: columns, spacing: 14) {
-                    ForEach(ThemeName.allCases) { name in
+                    ForEach(ThemeName.allCases.filter { $0 != .saX || model.settings.secretThemeUnlocked }) { name in
                         ThemeSwatch(name: name, tokens: ThemeTokens.tokens(for: name), selected: name == model.settings.theme) {
                             ButtonHaptics.shared.tap()
                             model.settings.theme = name

@@ -18,6 +18,8 @@ enum ThemeName: String, CaseIterable, Codable, Identifiable {
     case ember = "Ember"
     case sakura = "Sakura"
     case mint = "Mint"
+    /// Hidden until unlocked by tapping the version number in About 5 times.
+    case saX = "SA-X"
     var id: String { rawValue }
 
     var tagline: String {
@@ -31,6 +33,7 @@ enum ThemeName: String, CaseIterable, Codable, Identifiable {
         case .ember: return "Coal and glowing orange"
         case .sakura: return "Pink on charcoal"
         case .mint: return "Teal on slate"
+        case .saX: return "It knows you found it"
         }
     }
 }
@@ -152,6 +155,9 @@ struct ThemeTokens: Equatable {
     static let sakura = make(name: .sakura, accent: 0xF07AA0, accentText: 0xFFA3C1, accentText2: 0xFFB5CD,
                              badge: (210, 96, 140), bg: 0x140C10, sheet: 0x1E1218, card: 0x2A1A22, well: 0x170D12,
                              chip: 0x211419, button: 0x44303A)
+    static let saX = make(name: .saX, accent: 0x9FD8FF, accentText: 0xC6E8FF, accentText2: 0xD6EFFF,
+                          badge: (110, 170, 220), bg: 0x090D12, sheet: 0x10161D, card: 0x161F28, well: 0x0B1016,
+                          chip: 0x121A22, button: 0x2B3948)
     static let mint = make(name: .mint, accent: 0x3FD6B0, accentText: 0x7FE6CC, accentText2: 0x97EDD6,
                            badge: (44, 170, 140), bg: 0x0B1211, sheet: 0x121C1A, card: 0x1A2624, well: 0x0E1515,
                            chip: 0x152020, button: 0x304542)
@@ -167,6 +173,7 @@ struct ThemeTokens: Equatable {
         case .ember: return .ember
         case .sakura: return .sakura
         case .mint: return .mint
+        case .saX: return .saX
         }
     }
 }

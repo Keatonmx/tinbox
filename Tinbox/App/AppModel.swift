@@ -343,7 +343,7 @@ final class AppModel: ObservableObject {
         let suspend = FileLocations.suspendState(gameID: game.id)
         if FileManager.default.fileExists(atPath: suspend.path) {
             if session.loadState(from: suspend) {
-                showToast("Resumed suspended session")
+                showToast(EggText.abruptExit)
             }
             try? FileManager.default.removeItem(at: suspend)
         }
@@ -448,6 +448,29 @@ final class AppModel: ObservableObject {
             showToast("Saved to \(gameData.slots[index].name)")
         } else {
             showToast("Couldn't save state")
+        }
+    }
+
+    // MARK: Easter eggs
+
+    private var versionTaps = 0
+    private var lastVersionTap = Date.distantPast
+
+    /// Tapping the version number in About 5 times quickly unlocks SA-X.
+    func registerVersionTap() {
+        let now = Date()
+        versionTaps = now.timeIntervalSince(lastVersionTap) < 2 ? versionTaps + 1 : 1
+        lastVersionTap = now
+        guard versionTaps >= 5 else { return }
+        versionTaps = 0
+        RetroChirp.play()
+        if settings.secretThemeUnlocked {
+            settings.theme = .saX
+            showToast("\(EggText.secretTheme) applied")
+        } else {
+            settings.secretThemeUnlocked = true
+            settings.theme = .saX
+            showToast(EggText.secretToast)
         }
     }
 

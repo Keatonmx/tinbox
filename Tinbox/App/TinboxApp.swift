@@ -69,6 +69,9 @@ struct RootView: View {
 
                 sheetHost(landscape: landscape)
 
+                EggAmbient()
+                    .zIndex(55)
+
                 if let toast = model.toast {
                     VStack {
                         Spacer()
