@@ -72,6 +72,18 @@ struct RootView: View {
                 EggAmbient()
                     .zIndex(55)
 
+                if model.systemBubbleText != nil {
+                    VStack {
+                        Spacer()
+                        ResettiLetter {
+                            withAnimation(.easeIn(duration: 0.25)) { model.systemBubbleText = nil }
+                        }
+                        .padding(.horizontal, 18)
+                        .padding(.bottom, landscape ? 40 : 120)
+                    }
+                    .zIndex(62)
+                }
+
                 if let toast = model.toast {
                     VStack {
                         Spacer()

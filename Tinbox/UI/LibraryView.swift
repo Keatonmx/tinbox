@@ -44,6 +44,23 @@ struct LibraryView: View {
                             importTile
                         }
                     }
+                    if !model.searchText.isEmpty, model.visibleGames.isEmpty {
+                        VStack(spacing: 8) {
+                            GlitchTexture()
+                                .frame(width: 120, height: 90)
+                                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            if !EggText.glitchCaption.isEmpty {
+                                Text(EggText.glitchCaption)
+                                    .font(Typography.mono8Bold).tracking(1)
+                                    .foregroundColor(Palette.textQuaternary)
+                            }
+                            Text("No games match")
+                                .font(Typography.meta13)
+                                .foregroundColor(Palette.textTertiary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 30)
+                    }
                     if model.games.isEmpty {
                         VStack(spacing: 12) {
                             Image("EmptyTin")

@@ -75,6 +75,8 @@ final class AppModel: ObservableObject {
     @Published var toast: String?
     /// Backup archive waiting to be shared.
     @Published var shareURL: URL?
+    /// Animal Crossing style system bubble (easter eggs).
+    @Published var systemBubbleText: String?
     /// Bumped whenever a cover image changes so tiles reload from disk.
     @Published var coverVersion = 0
     /// Library search text.
@@ -343,7 +345,7 @@ final class AppModel: ObservableObject {
         let suspend = FileLocations.suspendState(gameID: game.id)
         if FileManager.default.fileExists(atPath: suspend.path) {
             if session.loadState(from: suspend) {
-                showToast(EggText.abruptExit)
+                showSystemBubble(EggText.abruptExit)
             }
             try? FileManager.default.removeItem(at: suspend)
         }
@@ -452,6 +454,15 @@ final class AppModel: ObservableObject {
     }
 
     // MARK: Easter eggs
+
+    /// Shows the AC-style bubble for ~8 s (or until tapped).
+    func showSystemBubble(_ text: String) {
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) { systemBubbleText = text }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self] in
+            guard self?.systemBubbleText == text else { return }
+            withAnimation(.easeIn(duration: 0.3)) { self?.systemBubbleText = nil }
+        }
+    }
 
     private var versionTaps = 0
     private var lastVersionTap = Date.distantPast

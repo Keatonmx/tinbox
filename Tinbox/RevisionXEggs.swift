@@ -24,6 +24,10 @@ enum EggText {
     static var glitchCaption: String { sanitized ? "" : "MISSINGNO." }
     static var abruptExit: String { sanitized ? "ERR · last session ended abruptly. Your spot was saved."
                                               : "Resetti would be very upset right now. Your spot was saved." }
+    static var letterGreeting: String { sanitized ? "Dear Player," : "Dear Villager," }
+    static var letterBody: String { sanitized ? "The last session ended abruptly. Your spot was saved."
+                                              : "I am very upset right now… but your spot was saved." }
+    static var letterSignature: String { sanitized ? "From Tinbox" : "From Resetti" }
 }
 
 // MARK: - Synthesized retro chirp (no bundled assets)
@@ -115,11 +119,12 @@ struct EggScreenOverlays: View {
             // Sleeping while paused in a menu.
             if zzz {
                 Text("Zzz…")
-                    .font(.system(size: 12, weight: .bold, design: .monospaced))
-                    .foregroundColor(.white.opacity(0.55))
-                    .opacity(dotOn ? 0.9 : 0.4)
+                    .font(.system(size: 17, weight: .heavy, design: .monospaced))
+                    .foregroundColor(.white)
+                    .shadow(color: .black, radius: 0, x: 1.5, y: 1.5)
+                    .opacity(dotOn ? 1 : 0.55)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                    .padding(14)
+                    .padding(12)
                     .allowsHitTesting(false)
             }
         }
@@ -253,6 +258,156 @@ private struct PixelBat: View {
                 .rotationEffect(.degrees(flap ? 18 : -6))
         }
         .opacity(0.8)
+    }
+}
+
+// MARK: - The letter (abrupt-exit recovery)
+
+/// Animal Crossing stationery: torn spiral edge, greeting, body, signature.
+/// Shown on the next boot after the app died mid-session. Tap to dismiss.
+struct ResettiLetter: View {
+    let onDismiss: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(EggText.letterGreeting)
+                .padding(.top, 26)
+            Text(EggText.letterBody)
+                .padding(.top, 30)
+                .padding(.trailing, 26)
+                .lineSpacing(4)
+            Text(EggText.letterSignature)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                .padding(.top, 34)
+                .padding(.trailing, 26)
+                .padding(.bottom, 26)
+        }
+        .font(.system(size: 16, weight: .semibold, design: .rounded))
+        .foregroundColor(Color(hex: 0x6E6E73))
+        .padding(.leading, 52)
+        .frame(maxWidth: 380, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(LinearGradient(colors: [Color(hex: 0xFCFBF7), Color(hex: 0xF1F0EC)],
+                                     startPoint: .topLeading, endPoint: .bottomTrailing))
+        )
+        // Torn spiral holes punched out of the left margin.
+        .overlay(alignment: .leading) {
+            VStack(spacing: 18) {
+                ForEach(0..<7, id: \.self) { i in
+                    Circle()
+                        .frame(width: 13, height: 13)
+                        .offset(x: i % 2 == 0 ? 0 : -3)
+                }
+            }
+            .padding(.leading, 14)
+            .blendMode(.destinationOut)
+        }
+        .compositingGroup()
+        .shadow(color: .black.opacity(0.45), radius: 16, y: 10)
+        .contentShape(Rectangle())
+        .onTapGesture { onDismiss() }
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+    }
+}
+
+// MARK: - Animal Crossing style system bubble
+
+/// The dialogue bubble from the reference: striped border, dotted dark blob,
+/// green name tag, continue triangle. Tap to dismiss.
+struct SystemBubble: View {
+    let text: String
+    let onDismiss: () -> Void
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            // Striped border blob.
+            RoundedRectangle(cornerRadius: 46, style: .continuous)
+                .fill(.clear)
+                .background(StripePattern().clipShape(RoundedRectangle(cornerRadius: 46, style: .continuous)))
+            // Dark dotted interior.
+            RoundedRectangle(cornerRadius: 38, style: .continuous)
+                .fill(Color(hex: 0x3E3E44))
+                .overlay(DotPattern().clipShape(RoundedRectangle(cornerRadius: 38, style: .continuous)))
+                .padding(9)
+            Text(text)
+                .font(.system(size: 16, weight: .semibold, design: .rounded))
+                .foregroundColor(.white)
+                .lineSpacing(3)
+                .multilineTextAlignment(.leading)
+                .padding(.horizontal, 26)
+                .padding(.top, 30)
+                .padding(.bottom, 30)
+            // Continue triangle.
+            Triangle()
+                .fill(Color(hex: 0xF2DCAF))
+                .frame(width: 14, height: 10)
+                .rotationEffect(.degrees(180))
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                .padding(22)
+        }
+        .frame(maxWidth: 380)
+        .fixedSize(horizontal: false, vertical: true)
+        // Green name tag riding the top edge.
+        .overlay(alignment: .topLeading) {
+            Text("SYSTEM")
+                .font(.system(size: 15, weight: .heavy, design: .rounded))
+                .foregroundColor(.white)
+                .shadow(color: .black.opacity(0.25), radius: 0, y: 1)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 8)
+                .background(
+                    Capsule().fill(LinearGradient(colors: [Color(hex: 0x46D63A), Color(hex: 0x2FAE2A)],
+                                                  startPoint: .top, endPoint: .bottom)))
+                .overlay(Capsule().stroke(Color(hex: 0x1E7A1C), lineWidth: 2))
+                .offset(x: 14, y: -14)
+        }
+        .shadow(color: .black.opacity(0.45), radius: 14, y: 8)
+        .contentShape(Rectangle())
+        .onTapGesture { onDismiss() }
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+    }
+}
+
+/// Diagonal cream candy stripes (the bubble's border).
+private struct StripePattern: View {
+    var body: some View {
+        Canvas { ctx, size in
+            let step: CGFloat = 16
+            var x: CGFloat = -size.height
+            ctx.fill(Path(CGRect(origin: .zero, size: size)), with: .color(Color(hex: 0xFBF4E4)))
+            while x < size.width + size.height {
+                var p = Path()
+                p.move(to: CGPoint(x: x, y: size.height))
+                p.addLine(to: CGPoint(x: x + size.height, y: 0))
+                p.addLine(to: CGPoint(x: x + size.height + step * 0.55, y: 0))
+                p.addLine(to: CGPoint(x: x + step * 0.55, y: size.height))
+                p.closeSubpath()
+                ctx.fill(p, with: .color(Color(hex: 0xF0D9A8)))
+                x += step
+            }
+        }
+    }
+}
+
+/// The faint polka-dot grid inside the bubble.
+private struct DotPattern: View {
+    var body: some View {
+        Canvas { ctx, size in
+            let step: CGFloat = 15
+            var row = 0
+            var y: CGFloat = 6
+            while y < size.height {
+                var x: CGFloat = row % 2 == 0 ? 6 : 6 + step / 2
+                while x < size.width {
+                    ctx.fill(Path(ellipseIn: CGRect(x: x, y: y, width: 3.4, height: 3.4)),
+                             with: .color(Color(hex: 0x35353B)))
+                    x += step
+                }
+                y += step
+                row += 1
+            }
+        }
     }
 }
 
