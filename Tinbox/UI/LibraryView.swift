@@ -46,9 +46,8 @@ struct LibraryView: View {
                     }
                     if !model.searchText.isEmpty, model.visibleGames.isEmpty {
                         VStack(spacing: 8) {
-                            GlitchTexture()
-                                .frame(width: 120, height: 90)
-                                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            GlitchTexture(lShape: true)
+                                .frame(width: 120, height: 96)
                             if !EggText.glitchCaption.isEmpty {
                                 Text(EggText.glitchCaption)
                                     .font(Typography.mono8Bold).tracking(1)
@@ -160,7 +159,7 @@ struct LibraryView: View {
             ZStack {
                 Color.clear
                 if model.games.isEmpty {
-                    GlitchTexture().opacity(0.5).clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    GlitchTexture().opacity(0.28).clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
                 VStack(spacing: 6) {
                     Text("+").font(.system(size: 26, weight: .regular)).foregroundColor(theme.accent)
@@ -330,12 +329,12 @@ struct CoverArt: View {
                 Image(uiImage: image).resizable().scaledToFit()
                     .id(coverVersion)
             } else {
-                theme.chip
-                StripedPlaceholder(stripe: Color(hue: game.coverHue / 360, saturation: 0.4, brightness: 0.65).opacity(0.13),
-                                   period: 20, width: 8)
+                // MissingNo. homage: coverless games glitch in their own hue.
+                GlitchTexture(palette: GlitchTexture.tinted(hue: game.coverHue),
+                              seed: UInt64(max(0, game.coverHue) * 997) &+ 0x9E37)
                 Text(initials)
                     .font(.system(size: 28, weight: .bold, design: .rounded))
-                    .foregroundColor(.white.opacity(0.35))
+                    .foregroundColor(.black.opacity(0.42))
             }
         }
     }

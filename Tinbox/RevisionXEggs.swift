@@ -413,26 +413,56 @@ private struct DotPattern: View {
 
 // MARK: - Glitch texture for the empty-library import tile
 
-/// Deterministic pseudo-random glitch blocks, MissingNo. style.
+/// Deterministic MissingNo.-style glitch: banded horizontal runs in the
+/// sprite's lavender/purple/peach/black palette. `lShape` carves out the
+/// top-left quadrant like the real sprite; `palette` can be hue-tinted so
+/// every coverless game glitches in its own colour.
 struct GlitchTexture: View {
+    var palette: [Color] = GlitchTexture.missingNo
+    var lShape = false
+    var seed: UInt64 = 0x1F3B
+
+    /// The sprite's colours: pale lavender, purple, peach, near-black.
+    static let missingNo: [Color] = [
+        Color(hex: 0xF4ECF6), Color(hex: 0x9187B0), Color(hex: 0xEFB58A), Color(hex: 0x18121A),
+    ]
+
+    /// Same DNA, tinted by a game's hue (light, mid, signature peach, black).
+    static func tinted(hue: Double) -> [Color] {
+        [Color(hue: hue / 360, saturation: 0.10, brightness: 0.94),
+         Color(hue: hue / 360, saturation: 0.32, brightness: 0.60),
+         Color(hex: 0xEFB58A),
+         Color(hex: 0x18121A)]
+    }
+
     var body: some View {
         Canvas { ctx, size in
-            var seed: UInt64 = 0x1F3B
+            var s = seed
             func rand() -> CGFloat {
-                seed = seed &* 6364136223846793005 &+ 1442695040888963407
-                return CGFloat((seed >> 33) & 0xFFFF) / 65_535
+                s = s &* 6364136223846793005 &+ 1442695040888963407
+                return CGFloat((s >> 33) & 0xFFFF) / 65_535
             }
-            let cols = 12, rows = 9
+            let cols = 14
             let cw = size.width / CGFloat(cols)
+            let rows = max(1, Int(size.height / cw))
             let ch = size.height / CGFloat(rows)
             for r in 0..<rows {
-                for c in 0..<cols {
+                var c = 0
+                while c < cols {
+                    let run = 1 + Int(rand() * 3)
                     let v = rand()
-                    guard v > 0.55 else { continue }
-                    let shade = v > 0.9 ? 0.30 : (v > 0.75 ? 0.16 : 0.08)
-                    ctx.fill(Path(CGRect(x: CGFloat(c) * cw, y: CGFloat(r) * ch,
-                                         width: cw * (v > 0.8 ? 2 : 1), height: ch)),
-                             with: .color(.white.opacity(shade)))
+                    // Weighted like the sprite: mostly light, then purple,
+                    // peach bands, rare black dashes.
+                    let color: Color = v < 0.44 ? palette[0] : v < 0.76 ? palette[1] : v < 0.90 ? palette[2] : palette[3]
+                    for i in 0..<run where c + i < cols {
+                        let col = c + i
+                        // The inverted-L: top-left quadrant stays empty.
+                        if lShape, col < cols * 2 / 5, r < rows * 5 / 11 { continue }
+                        ctx.fill(Path(CGRect(x: CGFloat(col) * cw, y: CGFloat(r) * ch,
+                                             width: cw + 0.5, height: ch + 0.5)),
+                                 with: .color(color))
+                    }
+                    c += run
                 }
             }
         }
