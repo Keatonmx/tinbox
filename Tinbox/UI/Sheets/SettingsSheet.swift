@@ -342,32 +342,31 @@ struct ControllersSheet: View {
     @Environment(\.theme) private var theme
 
     var body: some View {
-        BottomSheet(onDismiss: { model.openSheet(.settings) }) {
+        BottomSheet(maxHeightFraction: 0.88, onDismiss: { model.openSheet(.settings) }) {
             SheetHeader(title: "Bluetooth Controller", onBack: { model.openSheet(.settings) }) {
                 TintPill(title: "Scan") {
                     ControllerManager.shared.startDiscovery()
                     model.showToast("Scanning for controllers…")
                 }
             }
-            Card {
-                SettingsRow(title: "Status", subtitle: session.controllerConnected ? "Touch controls hide while connected" : "Pair in iOS Settings › Bluetooth, then return here", showsSeparator: false) {
-                    Text(session.controllerConnected ? ControllerManager.shared.controllerName : "None connected")
-                        .font(Typography.detail).foregroundColor(session.controllerConnected ? theme.accentText : Palette.text40)
+            HuggingScrollView {
+                VStack(spacing: 0) {
+                    Card {
+                        SettingsRow(title: "Status", subtitle: session.controllerConnected ? "Touch controls hide while connected" : "Pair in iOS Settings › Bluetooth, then return here", showsSeparator: false) {
+                            Text(session.controllerConnected ? ControllerManager.shared.controllerName : "None connected")
+                                .font(Typography.detail).foregroundColor(session.controllerConnected ? theme.accentText : Palette.text40)
+                        }
+                    }
+                    SectionHeader(title: "Button mapping")
+                    ControllerRemapCard()
+                    Text("D-pad and left stick always steer. The Home button (or holding Menu on MFi pads) opens the Quick Menu.")
+                        .font(Typography.meta)
+                        .foregroundColor(Palette.text40)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 4)
+                        .padding(.top, 10)
                 }
             }
-            Card(bottomSpacing: 0) {
-                mappingRow("A / B", "A / B (X / Y mirror them)")
-                mappingRow("L / R", "Shoulders or triggers")
-                mappingRow("Start / Select", "Menu / Options")
-                mappingRow("D-pad", "D-pad or left stick")
-                SettingsRow(title: "Quick Menu", subtitle: "Home button (or hold Menu on MFi)", showsSeparator: false) { EmptyView() }
-            }
-        }
-    }
-
-    private func mappingRow(_ title: String, _ detail: String) -> some View {
-        SettingsRow(title: title) {
-            Text(detail).font(Typography.detail).foregroundColor(Palette.text40)
         }
     }
 }

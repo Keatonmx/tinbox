@@ -110,6 +110,10 @@ final class EmulationRunner: NSObject, @unchecked Sendable {
     private var lastTimestamp: CFTimeInterval = 0
     private var wasSilent = false
 
+    /// Game Boy Camera: size when the cart wants frames, nil when it stops.
+    /// Delivered on the main thread.
+    var onCameraRequest: ((CGSize?) -> Void)?
+
     init(core: GBAEmulatorCore, frameStore: FrameStore, audio: AudioEngine) {
         self.core = core
         self.frameStore = frameStore
@@ -226,6 +230,18 @@ extension EmulationRunner: GBAEmulatorCoreDelegate {
     func emulatorCoreDidUpdateSaveData(_ core: GBAEmulatorCore) {
         CloudSync.shared.markDirty()
     }
+
+    func emulatorCore(_ core: GBAEmulatorCore, cameraWantsFramesOfWidth width: UInt, height: UInt) {
+        DispatchQueue.main.async { [weak self] in
+            self?.onCameraRequest?(CGSize(width: CGFloat(width), height: CGFloat(height)))
+        }
+    }
+
+    func emulatorCoreCameraStopped(_ core: GBAEmulatorCore) {
+        DispatchQueue.main.async { [weak self] in
+            self?.onCameraRequest?(nil)
+        }
+    }
 }
 
 // MARK: - EmulatorSession (main thread API)
@@ -280,6 +296,8 @@ final class EmulatorSession: ObservableObject {
     var frameStore: FrameStore { runner.frameStore }
     var audio: AudioEngine { runner.audio }
     let sensors = SensorBridge()
+    /// Game Boy Camera feed (Revision X); idle unless a camera cart asks.
+    private let cameraFeed = GBCameraFeed()
     private let thread: EmulationThread
     private var cancellables = Set<AnyCancellable>()
 
@@ -311,6 +329,18 @@ final class EmulatorSession: ObservableObject {
         sensors.onTilt = { [weak self] x, y, z in
             guard let self, self.settings.sensorsEnabled else { return }
             self.runner.withCore { $0.setTilt(x: x, y: y, gyroZ: z) }
+        }
+
+        // Game Boy Camera: start/stop the phone camera when the cart asks.
+        runner.onCameraRequest = { [weak self] size in
+            guard let self else { return }
+            if let size {
+                self.cameraFeed.start(width: Int(size.width), height: Int(size.height)) { [weak self] buffer, w, h in
+                    self?.runner.withCore { $0.submitCameraFrame(buffer, width: UInt(w), height: UInt(h)) }
+                }
+            } else {
+                self.cameraFeed.stop()
+            }
         }
 
         // Auto sun: iOS has no public lux API, but with auto-brightness on the
@@ -397,6 +427,7 @@ final class EmulatorSession: ObservableObject {
     /// Stops emulation and unloads the ROM (the core flushes the battery save).
     func stop() {
         stopCapsuleTimer()
+        cameraFeed.stop()
         runner.running = false
         runner.paused = false
         isRunning = false

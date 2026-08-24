@@ -13,6 +13,7 @@
 
 import SwiftUI
 import UIKit
+import AVFoundation
 
 // MARK: - 1. Postcards
 
@@ -164,5 +165,417 @@ struct DarkRoomCue: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 3.5) {
             withAnimation(.easeIn(duration: 0.45)) { visible = false }
         }
+    }
+}
+
+// MARK: - 3. Game Boy Camera feed
+
+/// Feeds phone-camera frames to a Game Boy Camera cartridge. Idle (no capture
+/// session, no permission prompt) unless the cart actually asks for frames.
+/// The GB Camera ROM itself does the 4-shade dithering, exactly like hardware.
+final class GBCameraFeed: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
+    private let session = AVCaptureSession()
+    private let queue = DispatchQueue(label: "com.redfernsoutpost.tinbox.gbcamera")
+    private var sink: ((UnsafePointer<UInt16>, Int, Int) -> Void)?
+    private var width = 128
+    private var height = 112
+    private var buffer: [UInt16] = []
+    private var configured = false
+
+    func start(width: Int, height: Int, sink: @escaping (UnsafePointer<UInt16>, Int, Int) -> Void) {
+        guard width > 0, height > 0 else { return }
+        self.width = width
+        self.height = height
+        self.sink = sink
+        buffer = [UInt16](repeating: 0, count: width * height)
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized:
+            configureAndRun()
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
+                if granted { self?.configureAndRun() }
+            }
+        default:
+            break   // denied: the game sees black, same as a covered lens
+        }
+    }
+
+    func stop() {
+        queue.async { [self] in
+            sink = nil
+            if session.isRunning { session.stopRunning() }
+        }
+    }
+
+    private func configureAndRun() {
+        queue.async { [self] in
+            if !configured {
+                session.beginConfiguration()
+                session.sessionPreset = .low
+                if let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
+                   let input = try? AVCaptureDeviceInput(device: device), session.canAddInput(input) {
+                    session.addInput(input)
+                }
+                let output = AVCaptureVideoDataOutput()
+                output.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA]
+                output.alwaysDiscardsLateVideoFrames = true
+                output.setSampleBufferDelegate(self, queue: queue)
+                if session.canAddOutput(output) { session.addOutput(output) }
+                session.commitConfiguration()
+                configured = true
+            }
+            if !session.isRunning { session.startRunning() }
+        }
+    }
+
+    func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
+        guard sink != nil, let pixels = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+        CVPixelBufferLockBaseAddress(pixels, .readOnly)
+        defer { CVPixelBufferUnlockBaseAddress(pixels, .readOnly) }
+        guard let base = CVPixelBufferGetBaseAddress(pixels) else { return }
+        let sw = CVPixelBufferGetWidth(pixels)
+        let sh = CVPixelBufferGetHeight(pixels)
+        let rowBytes = CVPixelBufferGetBytesPerRow(pixels)
+        let src = base.assumingMemoryBound(to: UInt8.self)
+
+        // Centre-crop to the cart's aspect, nearest-sample, BGRA to RGB565.
+        let cropW = min(sw, sh * width / height)
+        let cropH = min(sh, sw * height / width)
+        let x0 = (sw - cropW) / 2
+        let y0 = (sh - cropH) / 2
+        for y in 0..<height {
+            let sy = y0 + y * cropH / height
+            for x in 0..<width {
+                let sx = x0 + x * cropW / width
+                let o = sy * rowBytes + sx * 4
+                let b = UInt16(src[o])
+                let g = UInt16(src[o + 1])
+                let r = UInt16(src[o + 2])
+                buffer[y * width + x] = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3)
+            }
+        }
+        let w = width, h = height
+        if let sink {
+            buffer.withUnsafeBufferPointer { p in
+                if let addr = p.baseAddress { sink(addr, w, h) }
+            }
+        }
+    }
+}
+
+// MARK: - 4. Save archaeology (Gen 3 Pokemon)
+
+/// Read-only peek inside a Gen-3 Pokemon battery save (Ruby/Sapphire/Emerald/
+/// FireRed/LeafGreen and most hacks of them): player, playtime, party.
+/// Nicknames default to the species name on real hardware, so the party reads
+/// correctly without decrypting the species substructures.
+enum Gen3Save {
+    struct Insight {
+        let playerName: String
+        let hours: Int
+        let minutes: Int
+        let team: [Mon]
+    }
+    struct Mon: Identifiable {
+        let id: Int
+        let name: String
+        let level: Int
+    }
+
+    static func read(for game: Game) -> Insight? {
+        guard !game.isGameBoy else { return nil }
+        let sav = FileLocations.saves.appendingPathComponent((game.fileName as NSString).deletingPathExtension + ".sav")
+        guard let data = try? Data(contentsOf: sav), data.count >= 0xE000 else { return nil }
+
+        func u16(_ o: Int) -> Int { Int(data[o]) | Int(data[o + 1]) << 8 }
+        func u32(_ o: Int) -> UInt32 {
+            UInt32(data[o]) | UInt32(data[o + 1]) << 8 | UInt32(data[o + 2]) << 16 | UInt32(data[o + 3]) << 24
+        }
+
+        // Two save slots; the valid one with the highest counter wins.
+        var best: (index: UInt32, sections: [Int: Int])?
+        for base in [0, 0xE000] where base + 0xE000 <= data.count {
+            var sections: [Int: Int] = [:]
+            var counter: UInt32 = 0
+            var valid = true
+            for i in 0..<14 {
+                let off = base + i * 0x1000
+                guard u32(off + 0xFF8) == 0x08012025 else { valid = false; break }
+                sections[u16(off + 0xFF4)] = off
+                counter = u32(off + 0xFFC)
+            }
+            if valid, sections.count == 14, best == nil || counter >= best!.index {
+                best = (counter, sections)
+            }
+        }
+        guard let slot = best, let trainer = slot.sections[0], let teamSection = slot.sections[1] else { return nil }
+
+        let name = decodeText(data, at: trainer, max: 7)
+        let hours = u16(trainer + 0x0E)
+        let minutes = Int(data[trainer + 0x10])
+        guard !name.isEmpty, hours < 1000 else { return nil }
+
+        // FRLG keeps the party at a different offset than RS/E.
+        let frlg = u32(trainer + 0xAC) == 1
+        let countOffset = teamSection + (frlg ? 0x034 : 0x234)
+        let listOffset = teamSection + (frlg ? 0x038 : 0x238)
+        let count = min(6, Int(u32(countOffset)))
+        var team: [Mon] = []
+        for i in 0..<count {
+            let m = listOffset + i * 100
+            guard m + 100 <= data.count else { break }
+            let nick = decodeText(data, at: m + 8, max: 10)
+            let level = Int(data[m + 84])
+            guard !nick.isEmpty, (1...100).contains(level) else { continue }
+            team.append(Mon(id: i, name: nick, level: level))
+        }
+        return Insight(playerName: name, hours: hours, minutes: minutes, team: team)
+    }
+
+    /// The Gen-3 proprietary character set (western), letters and digits subset.
+    private static func decodeText(_ data: Data, at offset: Int, max: Int) -> String {
+        var out = ""
+        for i in 0..<max {
+            guard offset + i < data.count else { break }
+            let b = data[offset + i]
+            switch b {
+            case 0xFF: return out
+            case 0x00: out.append(" ")
+            case 0xA1...0xAA: out.append(Character(UnicodeScalar(UInt8(b - 0xA1) + 0x30)))   // 0-9
+            case 0xBB...0xD4: out.append(Character(UnicodeScalar(UInt8(b - 0xBB) + 0x41)))   // A-Z
+            case 0xD5...0xEE: out.append(Character(UnicodeScalar(UInt8(b - 0xD5) + 0x61)))   // a-z
+            case 0xB5: out.append("♂")
+            case 0xB6: out.append("♀")
+            case 0xAD: out.append(".")
+            case 0xAE: out.append("-")
+            default: break
+            }
+        }
+        return out
+    }
+}
+
+/// "Inside the save" rows for the game actions sheet.
+struct SaveInsightRows: View {
+    @Environment(\.theme) private var theme
+    let insight: Gen3Save.Insight
+
+    var body: some View {
+        VStack(spacing: 0) {
+            SettingsRow(title: "Inside the save",
+                        subtitle: "\(insight.playerName) · \(insight.hours)h \(String(format: "%02d", insight.minutes))m played",
+                        showsSeparator: !insight.team.isEmpty) { EmptyView() }
+            if !insight.team.isEmpty {
+                HStack(spacing: 6) {
+                    ForEach(insight.team) { mon in
+                        VStack(spacing: 1) {
+                            Text(mon.name)
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(Palette.text85)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.7)
+                            Text("Lv \(mon.level)")
+                                .font(.system(size: 10))
+                                .foregroundColor(theme.accentText)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 7)
+                        .background(theme.well)
+                        .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+                    }
+                }
+                .padding(.horizontal, 14)
+                .padding(.bottom, 12)
+            }
+        }
+    }
+}
+
+// MARK: - 5. Speedrun timer
+
+/// RTA split timer, LiveSplit-style but on-screen. Tap the time to start and
+/// to split; the ellipsis menu finishes (saving a personal best), resets or
+/// hides. Time keeps running through menus, like real RTA.
+final class SpeedrunTimer: ObservableObject {
+    static let shared = SpeedrunTimer()
+
+    @Published var visible = false
+    @Published private(set) var running = false
+    @Published private(set) var elapsed: TimeInterval = 0
+    @Published private(set) var splits: [TimeInterval] = []
+    private(set) var personalBest: [TimeInterval] = []
+
+    private var startDate: Date?
+    private var tick: Timer?
+    private var gameID = ""
+
+    func attach(gameID: String) {
+        guard gameID != self.gameID else { return }
+        hardReset()
+        self.gameID = gameID
+        personalBest = Self.loadPB(gameID: gameID)
+    }
+
+    func startOrSplit() {
+        if running {
+            splits.append(elapsed)
+        } else {
+            splits = []
+            startDate = Date()
+            running = true
+            tick?.invalidate()
+            let t = Timer(timeInterval: 0.05, repeats: true) { [weak self] _ in
+                guard let self, let start = self.startDate else { return }
+                self.elapsed = Date().timeIntervalSince(start)
+            }
+            t.tolerance = 0.01
+            RunLoop.main.add(t, forMode: .common)
+            tick = t
+        }
+    }
+
+    /// Ends the run; keeps it as the personal best if it beats the old one.
+    func finish() {
+        guard running else { return }
+        splits.append(elapsed)
+        running = false
+        tick?.invalidate()
+        if personalBest.isEmpty || (splits.last ?? .infinity) < (personalBest.last ?? .infinity) {
+            personalBest = splits
+            Self.savePB(splits, gameID: gameID)
+        }
+    }
+
+    func hardReset() {
+        tick?.invalidate()
+        running = false
+        elapsed = 0
+        splits = []
+        startDate = nil
+    }
+
+    /// Delta of the latest split against the personal best's same split.
+    var lastDelta: TimeInterval? {
+        guard let i = splits.indices.last, i < personalBest.count else { return nil }
+        return splits[i] - personalBest[i]
+    }
+
+    static func format(_ t: TimeInterval) -> String {
+        let cs = Int((t * 100).rounded())
+        return String(format: "%d:%02d.%02d", cs / 6000, (cs / 100) % 60, cs % 100)
+    }
+
+    private static func pbFile(_ gameID: String) -> URL {
+        let dir = FileLocations.documents.appendingPathComponent("Speedrun", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appendingPathComponent("\(gameID).json")
+    }
+    private static func loadPB(gameID: String) -> [TimeInterval] {
+        guard let data = try? Data(contentsOf: pbFile(gameID)) else { return [] }
+        return (try? JSONDecoder().decode([TimeInterval].self, from: data)) ?? []
+    }
+    private static func savePB(_ pb: [TimeInterval], gameID: String) {
+        if let data = try? JSONEncoder().encode(pb) {
+            try? data.write(to: pbFile(gameID), options: .atomic)
+        }
+    }
+}
+
+struct SpeedrunOverlay: View {
+    @ObservedObject private var timer = SpeedrunTimer.shared
+    @Environment(\.theme) private var theme
+
+    var body: some View {
+        if timer.visible {
+            HStack(spacing: 8) {
+                Button {
+                    ButtonHaptics.shared.tap()
+                    timer.startOrSplit()
+                } label: {
+                    HStack(spacing: 6) {
+                        Text(SpeedrunTimer.format(timer.elapsed))
+                            .font(.system(size: 14, weight: .bold, design: .monospaced))
+                            .foregroundColor(timer.running ? .white : Palette.text55)
+                        if !timer.splits.isEmpty {
+                            Text("\(timer.splits.count)")
+                                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                .foregroundColor(theme.accentText)
+                        }
+                        if let delta = timer.lastDelta {
+                            Text(String(format: "%@%@", delta <= 0 ? "-" : "+", SpeedrunTimer.format(abs(delta))))
+                                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                .foregroundColor(delta <= 0 ? Color(hex: 0x58CC52) : Palette.destructive)
+                        }
+                    }
+                }
+                .buttonStyle(FadePressStyle())
+                Menu {
+                    Button { timer.finish() } label: { Label("Finish run (save PB)", systemImage: "flag.checkered") }
+                    Button { timer.hardReset() } label: { Label("Reset", systemImage: "arrow.counterclockwise") }
+                    Button(role: .destructive) { timer.visible = false } label: { Label("Hide timer", systemImage: "eye.slash") }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(Palette.text55)
+                        .frame(width: 22, height: 22)
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(Color.black.opacity(0.72))
+            .clipShape(Capsule())
+            .overlay(Capsule().stroke(Palette.hairline12, lineWidth: 0.5))
+        }
+    }
+}
+
+// MARK: - 6. Controller remapping
+
+/// One picker row per physical pad element; targets are GBA actions.
+struct ControllerRemapCard: View {
+    @EnvironmentObject private var model: AppModel
+    @Environment(\.theme) private var theme
+
+    static let physical: [(id: String, label: String)] = [
+        ("a", "A button"), ("b", "B button"), ("x", "X button"), ("y", "Y button"),
+        ("l1", "Left shoulder"), ("r1", "Right shoulder"),
+        ("l2", "Left trigger"), ("r2", "Right trigger"),
+        ("options", "Options button"), ("menu", "Menu button"),
+    ]
+    static let targets: [(id: String, label: String)] = [
+        ("a", "A"), ("b", "B"), ("l", "L"), ("r", "R"),
+        ("select", "Select"), ("start", "Start"), ("off", "Nothing"),
+    ]
+
+    var body: some View {
+        Card(bottomSpacing: 0) {
+            ForEach(Array(Self.physical.enumerated()), id: \.element.id) { index, phys in
+                SettingsRow(title: phys.label, showsSeparator: index < Self.physical.count - 1) {
+                    Menu {
+                        Picker(phys.label, selection: binding(for: phys.id)) {
+                            ForEach(Self.targets, id: \.id) { t in Text(t.label).tag(t.id) }
+                        }
+                    } label: {
+                        Text(label(for: current(phys.id)))
+                            .font(Typography.detailSemibold)
+                            .foregroundColor(theme.accentText)
+                            .padding(.horizontal, 10).padding(.vertical, 4)
+                            .background(theme.tint)
+                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    }
+                }
+            }
+        }
+    }
+
+    private func current(_ physical: String) -> String {
+        model.settings.controllerBindings[physical] ?? ControllerManager.defaultBindings[physical] ?? "off"
+    }
+    private func label(for target: String) -> String {
+        Self.targets.first { $0.id == target }?.label ?? target
+    }
+    private func binding(for physical: String) -> Binding<String> {
+        Binding(get: { current(physical) },
+                set: { model.settings.controllerBindings[physical] = $0 })
     }
 }

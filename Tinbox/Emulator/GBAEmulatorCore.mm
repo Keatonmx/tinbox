@@ -38,6 +38,7 @@
 #include <mgba-util/vfs.h>
 
 #include <fcntl.h>
+#include <os/lock.h>
 #include <string.h>
 
 #pragma mark - Peripheral glue structs
@@ -75,15 +76,59 @@ static int32_t _rotationGyroZ(struct mRotationSource* s) { return ((struct Tinbo
 static void _luxSample(struct GBALuminanceSource* s) { (void) s; }
 static uint8_t _luxRead(struct GBALuminanceSource* s) { return ((struct TinboxLuminance*) s)->value; }
 
-// Real-time clock fed to the cores; `offset` shifts it forward ("time travel"
-// for berry growth and day/night events). 0 == the phone's real clock.
-struct TinboxRTC {
-    struct mRTCSource source;    // must be first
-    int64_t offset;
+// Real-time clock: the core's embedded generic RTC source supports a
+// wall-clock offset ("time travel" for berry growth and day/night events).
+static void _applyRTCOffset(struct mCore* core, int64_t offset) {
+    if (!core) return;
+    core->rtc.override = offset != 0 ? RTC_WALLCLOCK_OFFSET : RTC_NO_OVERRIDE;
+    core->rtc.value = offset;
+}
+
+// Game Boy Camera: mGBA asks for frames via mImageSource; the app feeds RGB565
+// frames from AVFoundation through -submitCameraFrame:width:height:.
+struct TinboxCamera {
+    struct mImageSource source;   // must be first
+    void* owner;                  // GBAEmulatorCore (unretained)
+    unsigned w;
+    unsigned h;
+    uint16_t* buffer;
+    os_unfair_lock lock;
+    bool active;
 };
-static void _rtcSample(struct mRTCSource* s) { (void) s; }
-static time_t _rtcUnixTime(struct mRTCSource* s) {
-    return time(0) + (time_t) ((struct TinboxRTC*) s)->offset;
+static void _camStart(struct mImageSource* s, unsigned w, unsigned h, int colorFormats) {
+    (void) colorFormats;
+    struct TinboxCamera* cam = (struct TinboxCamera*) s;
+    os_unfair_lock_lock(&cam->lock);
+    if (cam->w != w || cam->h != h || !cam->buffer) {
+        free(cam->buffer);
+        cam->buffer = (uint16_t*) calloc((size_t) w * h, sizeof(uint16_t));
+        cam->w = w;
+        cam->h = h;
+    }
+    cam->active = true;
+    os_unfair_lock_unlock(&cam->lock);
+    GBAEmulatorCore* core = (__bridge GBAEmulatorCore*) cam->owner;
+    id<GBAEmulatorCoreDelegate> delegate = core.delegate;
+    if ([delegate respondsToSelector:@selector(emulatorCore:cameraWantsFramesOfWidth:height:)]) {
+        [delegate emulatorCore:core cameraWantsFramesOfWidth:w height:h];
+    }
+}
+static void _camStop(struct mImageSource* s) {
+    struct TinboxCamera* cam = (struct TinboxCamera*) s;
+    os_unfair_lock_lock(&cam->lock);
+    cam->active = false;
+    os_unfair_lock_unlock(&cam->lock);
+    GBAEmulatorCore* core = (__bridge GBAEmulatorCore*) cam->owner;
+    id<GBAEmulatorCoreDelegate> delegate = core.delegate;
+    if ([delegate respondsToSelector:@selector(emulatorCoreCameraStopped:)]) {
+        [delegate emulatorCoreCameraStopped:core];
+    }
+}
+static void _camRequestImage(struct mImageSource* s, const void** buffer, size_t* stride, enum mColorFormat* colorFormat) {
+    struct TinboxCamera* cam = (struct TinboxCamera*) s;
+    *buffer = cam->buffer;
+    *stride = cam->w;
+    *colorFormat = mCOLOR_RGB565;
 }
 
 static const int kSaveFlags = SAVESTATE_SCREENSHOT | SAVESTATE_SAVEDATA | SAVESTATE_RTC | SAVESTATE_METADATA;
@@ -131,8 +176,8 @@ static enum mPlatform _platformForPath(const char* path) {
     struct TinboxRumble _rumble;
     struct TinboxRotation _rotation;
     struct TinboxLuminance _lux;
-    struct TinboxRTC _rtc;
     int64_t _rtcOffset;
+    struct TinboxCamera _camera;
 
     struct mCoreRewindContext _rewind;
     BOOL _rewindEnabled;
@@ -264,11 +309,7 @@ static void _rumbleSet(struct mRumbleIntegrator* integrator, float value) {
     _rotation.source.readGyroZ = _rotationGyroZ;
     _core->setPeripheral(_core, mPERIPH_ROTATION, &_rotation.source);
 
-    memset(&_rtc, 0, sizeof(_rtc));
-    _rtc.source.sample = _rtcSample;
-    _rtc.source.unixTime = _rtcUnixTime;
-    _rtc.offset = _rtcOffset;
-    _core->setPeripheral(_core, mPERIPH_RTC, &_rtc.source);
+    _applyRTCOffset(_core, _rtcOffset);
 
     if (_platform == TinboxPlatformGBA) {
         memset(&_lux, 0, sizeof(_lux));
@@ -276,6 +317,16 @@ static void _rumbleSet(struct mRumbleIntegrator* integrator, float value) {
         _lux.source.readLuminance = _luxRead;
         _core->setPeripheral(_core, mPERIPH_GBA_LUMINANCE, &_lux.source);
         [self applyLuminanceLevel:_luminanceLevel];
+    } else {
+        // Game Boy Camera cartridge support.
+        free(_camera.buffer);
+        memset(&_camera, 0, sizeof(_camera));
+        _camera.source.startRequestImage = _camStart;
+        _camera.source.stopRequestImage = _camStop;
+        _camera.source.requestImage = _camRequestImage;
+        _camera.owner = (__bridge void*) self;
+        _camera.lock = OS_UNFAIR_LOCK_INIT;
+        _core->setPeripheral(_core, mPERIPH_IMAGE_SOURCE, &_camera.source);
     }
 
     // Rewind history is tied to a core's state size; rebuild it for this core.
@@ -364,6 +415,7 @@ static void _rumbleSet(struct mRumbleIntegrator* integrator, float value) {
             case GB_MBC5_RUMBLE: hw |= TinboxCartHardwareRumble; break;
             case GB_MBC7:        hw |= TinboxCartHardwareTilt;   break;
             case GB_MBC3_RTC:    hw |= TinboxCartHardwareRTC;    break;
+            case GB_POCKETCAM:   hw |= TinboxCartHardwareCamera; break;
             default: break;
         }
     }
@@ -845,7 +897,15 @@ static float _clamp1(float v) { return v < -1.f ? -1.f : (v > 1.f ? 1.f : v); }
 
 - (void)setRTCOffsetSeconds:(int64_t)seconds {
     _rtcOffset = seconds;
-    _rtc.offset = seconds;
+    _applyRTCOffset(_core, seconds);
+}
+
+- (void)submitCameraFrame:(const uint16_t *)rgb565 width:(NSUInteger)width height:(NSUInteger)height {
+    os_unfair_lock_lock(&_camera.lock);
+    if (_camera.active && _camera.buffer && width == _camera.w && height == _camera.h) {
+        memcpy(_camera.buffer, rgb565, (size_t) width * height * sizeof(uint16_t));
+    }
+    os_unfair_lock_unlock(&_camera.lock);
 }
 
 - (NSInteger)luminanceLevel {

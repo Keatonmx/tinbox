@@ -32,6 +32,14 @@ Tinbox only uses the network when you turn on or use one of these features:
 
 No other servers are contacted. Tinbox never uploads your games or saves.
 
+## Camera
+
+If you play a **Game Boy Camera** cartridge, Tinbox asks for camera permission the first time the
+cartridge requests a frame. Camera frames are handed directly to the emulated cartridge on your
+device, exactly like pointing the original hardware at something. Nothing is stored by Tinbox
+(the game itself saves its photos into its own battery save) and nothing ever leaves your phone.
+No other feature uses the camera.
+
 ## Children
 
 Tinbox does not knowingly collect any information from anyone, including children.

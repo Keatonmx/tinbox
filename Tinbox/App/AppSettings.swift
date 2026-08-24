@@ -137,6 +137,9 @@ struct AppSettings: Codable, Equatable {
     var bootAnimationEnabled: Bool = true
     /// Seconds added to the in-game real-time clock (berry farming etc.).
     var rtcOffsetSeconds: Int = 0
+    /// Bluetooth pad bindings: physical element id to GBA action id.
+    /// Missing keys fall back to ControllerManager.defaultBindings.
+    var controllerBindings: [String: String] = [:]
     var autoSuspendSave: Bool = true
     var backgroundAudioMixing: Bool = false
 
@@ -212,6 +215,7 @@ struct AppSettings: Codable, Equatable {
         timeCapsuleMinutes = try c.decodeIfPresent(Int.self, forKey: .timeCapsuleMinutes) ?? d.timeCapsuleMinutes
         bootAnimationEnabled = try c.decodeIfPresent(Bool.self, forKey: .bootAnimationEnabled) ?? d.bootAnimationEnabled
         rtcOffsetSeconds = try c.decodeIfPresent(Int.self, forKey: .rtcOffsetSeconds) ?? d.rtcOffsetSeconds
+        controllerBindings = try c.decodeIfPresent([String: String].self, forKey: .controllerBindings) ?? d.controllerBindings
         autoSuspendSave = true
         backgroundAudioMixing = try c.decodeIfPresent(Bool.self, forKey: .backgroundAudioMixing) ?? d.backgroundAudioMixing
         scaling = try c.decodeIfPresent(DisplayScaling.self, forKey: .scaling) ?? d.scaling

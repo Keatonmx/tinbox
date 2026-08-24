@@ -28,6 +28,10 @@
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 
+	<!-- Only requested when a Game Boy Camera cartridge asks for frames. -->
+	<key>NSCameraUsageDescription</key>
+	<string>Game Boy Camera cartridges use the camera to take their photos. Frames go straight to the emulated cartridge on this phone and are never uploaded.</string>
+
 	<!-- Documents/ROMs, Saves, States … visible and editable in the Files app. -->
 	<key>UIFileSharingEnabled</key>
 	<true/>

@@ -47,6 +47,7 @@ final class AppModel: ObservableObject {
             SettingsStore.shared.save(settings)
             session.settings = settings
             ButtonHaptics.shared.enabled = settings.hapticsEnabled
+            ControllerManager.shared.bindings = settings.controllerBindings
             if screen == .game, gameData.overrides.enabled {
                 session.turboA = effective.turboA
                 session.turboB = effective.turboB
@@ -92,6 +93,7 @@ final class AppModel: ObservableObject {
         self.profiles = SettingsStore.shared.loadProfiles()
         self.session = EmulatorSession(settings: settings)
         ButtonHaptics.shared.enabled = settings.hapticsEnabled
+        ControllerManager.shared.bindings = settings.controllerBindings
         ROMFolderAccess.shared.activate(bookmark: settings.customROMFolderBookmark)
         refreshLibrary()
         updateSyncText()

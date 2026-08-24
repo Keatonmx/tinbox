@@ -118,6 +118,9 @@ struct PortraitGameView: View {
                     .padding(.trailing, 22)
             }
         }
+        .overlay(alignment: .topLeading) {
+            SpeedrunOverlay().padding(.top, 18).padding(.leading, 18)
+        }
         .padding(.top, 6)
         .fixedSize(horizontal: false, vertical: true)
         // Lid-open: hinged at the bottom like the icon's clamshell.

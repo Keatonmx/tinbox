@@ -22,9 +22,30 @@ final class ControllerManager: ObservableObject {
     /// Fired when the controller's menu/home button should open the Quick Menu.
     var onMenuPressed: (() -> Void)?
 
+    /// User remapping (Settings › Bluetooth controller). Missing keys fall
+    /// back to the defaults below; "off" disables an element.
+    var bindings: [String: String] = [:]
+    static let defaultBindings: [String: String] = [
+        "a": "a", "b": "b", "x": "a", "y": "b",
+        "l1": "l", "r1": "r", "l2": "l", "r2": "r",
+        "options": "select", "menu": "start",
+    ]
+
     private var current: GCController?
     private var keys: GBAKeyMask = [] {
         didSet { if keys != oldValue { onKeysChanged?(keys) } }
+    }
+
+    private func target(_ physical: String) -> GBAKeyMask? {
+        switch bindings[physical] ?? ControllerManager.defaultBindings[physical] ?? "off" {
+        case "a": return .a
+        case "b": return .b
+        case "l": return .l
+        case "r": return .r
+        case "select": return .select
+        case "start": return .start
+        default: return nil
+        }
     }
 
     private init() {
@@ -73,14 +94,16 @@ final class ControllerManager: ObservableObject {
         var mask: GBAKeyMask = []
         // Face buttons: keep the physical layout (bottom = A, right = B on GBA
         // matches Nintendo; on Xbox/PS layouts bottom is A/Cross, right is B/Circle).
-        if pad.buttonA.isPressed { mask.insert(.a) }
-        if pad.buttonB.isPressed { mask.insert(.b) }
-        if pad.buttonX.isPressed { mask.insert(.a) }   // turbo-friendly alias
-        if pad.buttonY.isPressed { mask.insert(.b) }
-        if pad.leftShoulder.isPressed || pad.leftTrigger.isPressed { mask.insert(.l) }
-        if pad.rightShoulder.isPressed || pad.rightTrigger.isPressed { mask.insert(.r) }
-        if pad.buttonOptions?.isPressed == true { mask.insert(.select) }
-        if pad.buttonMenu.isPressed { mask.insert(.start) }
+        if pad.buttonA.isPressed, let k = target("a") { mask.insert(k) }
+        if pad.buttonB.isPressed, let k = target("b") { mask.insert(k) }
+        if pad.buttonX.isPressed, let k = target("x") { mask.insert(k) }
+        if pad.buttonY.isPressed, let k = target("y") { mask.insert(k) }
+        if pad.leftShoulder.isPressed, let k = target("l1") { mask.insert(k) }
+        if pad.rightShoulder.isPressed, let k = target("r1") { mask.insert(k) }
+        if pad.leftTrigger.isPressed, let k = target("l2") { mask.insert(k) }
+        if pad.rightTrigger.isPressed, let k = target("r2") { mask.insert(k) }
+        if pad.buttonOptions?.isPressed == true, let k = target("options") { mask.insert(k) }
+        if pad.buttonMenu.isPressed, let k = target("menu") { mask.insert(k) }
 
         let dpad = pad.dpad
         let stick = pad.leftThumbstick

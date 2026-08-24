@@ -44,6 +44,7 @@ typedef NS_OPTIONS(NSUInteger, TinboxCartHardware) {
     TinboxCartHardwareSolar  NS_SWIFT_NAME(solar)  = 1 << 2,
     TinboxCartHardwareGyro   NS_SWIFT_NAME(gyro)   = 1 << 3,
     TinboxCartHardwareTilt   NS_SWIFT_NAME(tilt)   = 1 << 4,
+    TinboxCartHardwareCamera NS_SWIFT_NAME(camera) = 1 << 5,
 };
 
 @class GBAEmulatorCore;
@@ -55,6 +56,10 @@ typedef NS_OPTIONS(NSUInteger, TinboxCartHardware) {
 - (void)emulatorCore:(GBAEmulatorCore *)core rumbleIntensity:(float)intensity;
 /// Called on the emulation thread after the core flushed battery-backed save data.
 - (void)emulatorCoreDidUpdateSaveData:(GBAEmulatorCore *)core;
+/// Game Boy Camera: the cart wants frames of the given size (emulation thread).
+- (void)emulatorCore:(GBAEmulatorCore *)core cameraWantsFramesOfWidth:(NSUInteger)width height:(NSUInteger)height;
+/// Game Boy Camera: the cart no longer wants frames (emulation thread).
+- (void)emulatorCoreCameraStopped:(GBAEmulatorCore *)core;
 @end
 
 /// Which libmgba core is loaded.
@@ -184,6 +189,9 @@ typedef NS_ENUM(NSInteger, TinboxPlatform) {
 - (void)applyLuminanceLevel:(NSInteger)level NS_SWIFT_NAME(applyLuminanceLevel(_:));
 /// Shifts the emulated real-time clock forward (0 == the phone's clock).
 - (void)setRTCOffsetSeconds:(int64_t)seconds NS_SWIFT_NAME(setRTCOffset(seconds:));
+/// Game Boy Camera: hands the cart one RGB565 frame (any thread; copied).
+- (void)submitCameraFrame:(const uint16_t *)rgb565 width:(NSUInteger)width height:(NSUInteger)height
+    NS_SWIFT_NAME(submitCameraFrame(_:width:height:));
 @property (nonatomic, readonly) NSInteger luminanceLevel;
 
 #pragma mark - Archives

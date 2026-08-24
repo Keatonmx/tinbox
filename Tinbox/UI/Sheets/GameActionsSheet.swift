@@ -51,6 +51,11 @@ struct GameActionsSheet: View {
                 .buttonStyle(DimPressStyle())
                 .padding(.bottom, 12)
 
+                // Revision X: what the battery save says (Gen-3 Pokemon only).
+                if let insight = Gen3Save.read(for: game) {
+                    Card { SaveInsightRows(insight: insight) }
+                }
+
                 Card {
                     if let latest = model.selectedGameLatestSave, let slot = model.latestSlotIndex(for: game) {
                         Button {

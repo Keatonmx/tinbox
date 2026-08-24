@@ -71,6 +71,11 @@ struct QuickMenuSheet: View {
                 NavRow(title: "All save states", detail: "\(model.gameData.slots.filter(\.isFilled).count) of \(SaveSlot.count) used") { model.openSheet(.saveStates) }
                 NavRow(title: "Time Capsule", detail: capsuleDetail) { model.openSheet(.timeCapsule) }
                 NavRow(title: "Cheats", detail: "\(model.activeCheatCount) active") { model.openSheet(.cheats) }
+                NavRow(title: "Speedrun timer", detail: SpeedrunTimer.shared.visible ? "On" : "Off") {
+                    if let id = model.currentGame?.id { SpeedrunTimer.shared.attach(gameID: id) }
+                    SpeedrunTimer.shared.visible.toggle()
+                    model.closeSheet()
+                }
                 NavRow(title: "Settings", showsSeparator: false) { model.openSheet(.settings) }
             }
 
