@@ -121,6 +121,10 @@ final class AppModel: ObservableObject {
            let g = PressGlow(rawValue: args[i + 1].capitalized) {
             self.settings.pressGlow = g
         }
+        if let i = args.firstIndex(of: "-tinbox-skin"), i + 1 < args.count,
+           let s = ControllerSkinName(rawValue: args[i + 1]) {
+            self.settings.skin = s
+        }
         // `-tinbox-sections A,B` flips those Settings sections from their default
         // open/closed state (so a screenshot can show Library/Advanced expanded).
         if let i = args.firstIndex(of: "-tinbox-sections"), i + 1 < args.count {

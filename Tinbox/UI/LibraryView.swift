@@ -45,12 +45,24 @@ struct LibraryView: View {
                         }
                     }
                     if model.games.isEmpty {
-                        Text("Add .gba, .gb, .gbc or .zip files from the Files app. They go into your ROM folder, which you can also open in Files.")
-                            .font(Typography.meta13)
-                            .foregroundColor(Palette.textTertiary)
-                            .multilineTextAlignment(.leading)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 2)
+                        VStack(spacing: 12) {
+                            Image("EmptyTin")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 88, height: 88)
+                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                .opacity(0.9)
+                            Text("The tin is empty")
+                                .font(Typography.cardTitle)
+                                .foregroundColor(Palette.text55)
+                            Text("Add .gba, .gb, .gbc or .zip files from the Files app. They go into your ROM folder, which you can also open in Files.")
+                                .font(Typography.meta13)
+                                .foregroundColor(Palette.textTertiary)
+                                .multilineTextAlignment(.center)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 20)
+                        .padding(.horizontal, 12)
                     }
                 }
                 .padding(.horizontal, 20)
@@ -106,12 +118,8 @@ struct LibraryView: View {
 
     private var header: some View {
         HStack(alignment: .bottom) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Tinbox")
-                    .font(Typography.eyebrow)
-                    .textCase(.uppercase)
-                    .tracking(1.2)
-                    .foregroundColor(Palette.textTertiary)
+            VStack(alignment: .leading, spacing: 5) {
+                TinStamp()
                 Text("Library")
                     .font(Typography.largeTitle)
                     .tracking(0.3)
@@ -150,6 +158,25 @@ struct LibraryView: View {
         }
         .buttonStyle(FadePressStyle())
         .frame(maxWidth: .infinity, alignment: .top)
+    }
+}
+
+/// The "TINBOX" eyebrow as the stamped badge from the app icon: uppercase,
+/// thin rounded outline, slight skew, pressed-into-metal shading.
+struct TinStamp: View {
+    var body: some View {
+        Text("TINBOX")
+            .font(Typography.eyebrow)
+            .tracking(2)
+            .foregroundColor(Palette.textTertiary)
+            // Debossed: a hair of light catching the stamp's lower edge.
+            .shadow(color: .white.opacity(0.18), radius: 0, y: 0.7)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 2.5)
+            .overlay(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .stroke(Palette.textQuaternary, lineWidth: 1.2))
+            .rotationEffect(.degrees(-3), anchor: .bottomLeading)
     }
 }
 

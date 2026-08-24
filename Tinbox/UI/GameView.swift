@@ -39,6 +39,9 @@ struct PortraitGameView: View {
     @EnvironmentObject private var session: EmulatorSession
     @Environment(\.theme) private var theme
     @State private var editingLayout: ControlLayout = .portraitDefault
+    /// Boot flourish: the screen flips down like the tin's lid. First render
+    /// is closed; onAppear either snaps or animates it open.
+    @State private var lidOpen = false
 
     private let metrics = ControlMetrics(isLandscape: false)
 
@@ -113,6 +116,20 @@ struct PortraitGameView: View {
         }
         .padding(.top, 6)
         .fixedSize(horizontal: false, vertical: true)
+        // Lid-open: hinged at the bottom like the icon's clamshell.
+        .rotation3DEffect(.degrees(lidOpen ? 0 : -72), axis: (x: 1, y: 0, z: 0),
+                          anchor: .bottom, perspective: 0.55)
+        .opacity(lidOpen ? 1 : 0.4)
+        .onAppear {
+            if session.lidShown {
+                lidOpen = true          // rotation / menu return: no replay
+            } else {
+                session.lidShown = true
+                withAnimation(.spring(response: 0.55, dampingFraction: 0.8).delay(0.08)) {
+                    lidOpen = true
+                }
+            }
+        }
     }
 
     private var controlsArea: some View {

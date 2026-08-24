@@ -61,9 +61,9 @@ struct RootView: View {
                     LibraryView()
                         .transition(.opacity)
                 case .game:
+                    // The controls opt out of animation themselves (TouchControlsView);
+                    // the container may animate so the boot lid-open can play.
                     GameContainerView()
-                        // Controls must never animate from a zero-size first pass.
-                        .transaction { $0.animation = nil }
                         .transition(.opacity)
                 }
 

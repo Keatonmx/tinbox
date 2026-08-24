@@ -92,7 +92,7 @@ Written against the real headers, not from memory:
 * **» button** (optional, Settings › Controls) — hold and slide right to fast-forward (up to the speed in Quick Menu), slide left to rewind live; release to return to normal. The Quick Menu toggle is the permanent fast-forward. The rotate button is optional too — the screen follows the phone's orientation by default.
 * **Quick Menu** — Save (Auto slot), Load (newest state), Rewind 10 s, fast-forward speed, all save states (Auto + 9 slots, each with a screenshot), cheats, settings, exit. Leaving a game always writes the Auto slot.
 * **Settings** — Playback · Video · Controls · Appearance open by default; Library (ROM folder, import mode, box art, backup/restore), Connections (RetroAchievements; cloud saves later) and Advanced (volume, BIOS, sensors, About) start collapsed. In game, the first row opens the per-game overrides sheet.
-* **Themes** — Modern, Outpost, Midnight, Grape, Forest, Ember, Sakura, Mint (Settings › Appearance), plus six controller skins.
+* **Themes** — Modern, Tin (the app icon's olive drab & LED green), Outpost, Midnight, Grape, Forest, Ember, Sakura, Mint (Settings › Appearance), plus seven controller skins (Surplus pairs with Tin). The MENU pill carries the icon's power LED — green running, amber paused — the TINBOX eyebrow is stamped like the icon's badge, and booting a game plays a one-time clamshell lid-open.
 * **Landscape** — Settings › Video › Landscape screen: Fit (true 3:2), Wide (10 % stretch), Fill.
 
 ## Files on device

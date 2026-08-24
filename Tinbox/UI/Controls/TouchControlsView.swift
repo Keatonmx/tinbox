@@ -78,6 +78,9 @@ struct TouchControlsView: View {
                 .frame(width: size.width, height: size.height)
         }
         .frame(width: size.width, height: size.height)
+        // Positions must never animate — not from a first zero-size pass, and
+        // not from sheet-spring transactions passing through.
+        .transaction { $0.animation = nil }
         .onChange(of: size) { s in
             if TouchControlsView.isPlausible(s) { stableSize = s }
         }
@@ -125,7 +128,8 @@ private struct ControlSlot: View {
             case .start:
                 BottomPillView(label: "START", metrics: metrics, pressed: pressed.contains(.start))
             case .menu:
-                BottomPillView(label: "MENU", metrics: metrics, pressed: pressed.contains(.menu), accent: true)
+                BottomPillView(label: "MENU", metrics: metrics, pressed: pressed.contains(.menu), accent: true,
+                               led: session.isRunning && !session.isPaused ? Color(hex: 0x58CC52) : Color(hex: 0xE0A835))
             case .fastForward:
                 FastForwardButtonView(active: session.isFastForward,
                                       pressed: pressed.contains(.fastForward),

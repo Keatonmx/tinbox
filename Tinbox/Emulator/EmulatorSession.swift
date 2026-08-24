@@ -264,6 +264,9 @@ final class EmulatorSession: ObservableObject {
     @Published var luminanceLevel: Int = 0 { didSet { runner.withCore { $0.applyLuminanceLevel(luminanceLevel) } } }
     /// Momentary state of the » scrubber.
     @Published private(set) var scrub: ScrubState = .none
+    /// The boot "lid-open" animation plays once per game load (not on
+    /// rotation or when a menu closes). Deliberately not published.
+    var lidShown = false
 
     /// Effective speed (1 when fast-forward is off).
     var currentSpeed: Double { isFastForward ? ffSpeed : 1 }
@@ -316,6 +319,7 @@ final class EmulatorSession: ObservableObject {
 
     func load(_ game: Game, cheats: [Cheat]) throws {
         stop()
+        lidShown = false
         try runner.withCore { core in
             try core.loadROM(at: game.romURL)
         }

@@ -10,6 +10,7 @@ import SwiftUI
 
 enum ThemeName: String, CaseIterable, Codable, Identifiable {
     case modern = "Modern"
+    case tin = "Tin"
     case outpost = "Outpost"
     case midnight = "Midnight"
     case grape = "Grape"
@@ -22,6 +23,7 @@ enum ThemeName: String, CaseIterable, Codable, Identifiable {
     var tagline: String {
         switch self {
         case .modern: return "Violet on graphite"
+        case .tin: return "The icon's olive & LED green"
         case .outpost: return "Copper and warm wood"
         case .midnight: return "Blue on deep navy"
         case .grape: return "Lavender on plum"
@@ -131,6 +133,10 @@ struct ThemeTokens: Equatable {
             chip: Color(hex: chip), secondaryButton: Color(hex: button), trackOff: Color(hex: button))
     }
 
+    /// The app icon's palette: olive-drab tin, cream stamp, green power LED.
+    static let tin = make(name: .tin, accent: 0x58CC52, accentText: 0x8FE087, accentText2: 0xA4E89C,
+                          badge: (68, 160, 62), bg: 0x10120B, sheet: 0x181B11, card: 0x232719, well: 0x13160D,
+                          chip: 0x1B1F13, button: 0x3C4230)
     static let midnight = make(name: .midnight, accent: 0x4FA3FF, accentText: 0x8CC4FF, accentText2: 0xA3D0FF,
                                badge: (56, 132, 224), bg: 0x0A0F1A, sheet: 0x121A2A, card: 0x1A2436, well: 0x0D1320,
                                chip: 0x141D2C, button: 0x2C3A52)
@@ -153,6 +159,7 @@ struct ThemeTokens: Equatable {
     static func tokens(for name: ThemeName) -> ThemeTokens {
         switch name {
         case .modern: return .modern
+        case .tin: return .tin
         case .outpost: return .outpost
         case .midnight: return .midnight
         case .grape: return .grape
@@ -202,6 +209,7 @@ enum Palette {
 
 enum ControllerSkinName: String, CaseIterable, Codable, Identifiable {
     case modern = "Modern"
+    case surplus = "Surplus"
     case outpostWood = "Outpost Wood"
     case grapeClassic = "Grape Classic"
     case cherry = "Cherry"
@@ -229,6 +237,11 @@ struct ControllerSkin: Equatable {
         name: .modern, description: "Neutral graphite",
         buttonTop: Color(hex: 0x45454C), buttonBottom: Color(hex: 0x2C2C31),
         padTop: Color(hex: 0x3A3A40), padBottom: Color(hex: 0x26262B))
+    /// Pairs with the Tin theme: the icon's olive-drab metal.
+    static let surplus = ControllerSkin(
+        name: .surplus, description: "Army-surplus olive",
+        buttonTop: Color(hex: 0x63614A), buttonBottom: Color(hex: 0x413F30),
+        padTop: Color(hex: 0x565440), padBottom: Color(hex: 0x383627))
     static let outpostWood = ControllerSkin(
         name: .outpostWood, description: "Warm walnut",
         buttonTop: Color(hex: 0x6B4F35), buttonBottom: Color(hex: 0x463222),
@@ -251,7 +264,7 @@ struct ControllerSkin: Equatable {
         buttonTop: Color(hex: 0x4F6B4A), buttonBottom: Color(hex: 0x334730),
         padTop: Color(hex: 0x435C3F), padBottom: Color(hex: 0x2B3E29))
 
-    static let all: [ControllerSkin] = [.modern, .outpostWood, .grapeClassic, .cherry, .glacier, .moss]
+    static let all: [ControllerSkin] = [.modern, .surplus, .outpostWood, .grapeClassic, .cherry, .glacier, .moss]
 
     static func skin(named name: ControllerSkinName) -> ControllerSkin {
         all.first { $0.name == name } ?? .modern

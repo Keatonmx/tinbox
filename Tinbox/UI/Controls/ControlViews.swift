@@ -185,6 +185,8 @@ struct BottomPillView: View {
     let metrics: ControlMetrics
     let pressed: Bool
     var accent = false
+    /// Power-LED colour (nil == no LED).
+    var led: Color? = nil
 
     var body: some View {
         Group {
@@ -207,6 +209,17 @@ struct BottomPillView: View {
                     .overlay(
                         Text(label).font(.system(size: metrics.pillFont, weight: .bold)).tracking(1)
                             .foregroundColor(metrics.isLandscape ? Palette.text65 : Palette.textSecondary))
+            }
+        }
+        .overlay(alignment: .trailing) {
+            // The power LED from the app icon: green while the core runs,
+            // amber while paused in a menu. MENU pill only.
+            if let led {
+                Circle()
+                    .fill(led)
+                    .frame(width: 5, height: 5)
+                    .shadow(color: led.opacity(0.9), radius: 3)
+                    .padding(.trailing, 9)
             }
         }
         .frame(width: metrics.pill.width, height: metrics.pill.height)
