@@ -202,7 +202,7 @@ struct TimeCapsuleSheet: View {
 
     private func caption(for moment: CapsuleMoment) -> String {
         let f = DateFormatter()
-        f.dateFormat = "EEEE, MMM d · HH:mm"
+        f.setLocalizedDateFormatFromTemplate("EEEE MMM d jmm")
         return f.string(from: moment.date)
     }
 
