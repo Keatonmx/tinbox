@@ -170,6 +170,8 @@ struct AppSettings: Codable, Equatable {
     var hasSeenFastForwardHint: Bool = false
     /// One-time toast when the very first Time Capsule snapshot is captured.
     var hasSeenCapsuleHint: Bool = false
+    /// The explainer card shows on the sheet's first open (then via the ? button).
+    var hasSeenCapsuleIntro: Bool = false
 
     init() {}
 
@@ -215,6 +217,7 @@ struct AppSettings: Codable, Equatable {
         toggledSections = try c.decodeIfPresent([String].self, forKey: .toggledSections) ?? d.toggledSections
         hasSeenFastForwardHint = try c.decodeIfPresent(Bool.self, forKey: .hasSeenFastForwardHint) ?? d.hasSeenFastForwardHint
         hasSeenCapsuleHint = try c.decodeIfPresent(Bool.self, forKey: .hasSeenCapsuleHint) ?? d.hasSeenCapsuleHint
+        hasSeenCapsuleIntro = try c.decodeIfPresent(Bool.self, forKey: .hasSeenCapsuleIntro) ?? d.hasSeenCapsuleIntro
     }
 }
 

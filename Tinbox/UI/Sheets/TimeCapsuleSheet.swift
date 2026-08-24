@@ -17,6 +17,7 @@ struct TimeCapsuleSheet: View {
     @State private var days: [(day: String, moments: [CapsuleMoment])] = []
     @State private var selected: CapsuleMoment?
     @State private var confirmClear = false
+    @State private var showIntro = false
 
     private var gameID: String { model.currentGame?.id ?? "" }
     private var allMoments: [CapsuleMoment] { days.flatMap(\.moments) }
@@ -24,9 +25,17 @@ struct TimeCapsuleSheet: View {
     var body: some View {
         BottomSheet(maxHeightFraction: 0.92, onDismiss: { model.openSheet(.quickMenu) }) {
             SheetHeader(title: "Time Capsule", onBack: { model.openSheet(.quickMenu) }) {
-                TintPill(title: "Capture") { captureNow() }
+                HStack(spacing: 8) {
+                    CircleIconButton(size: 34, action: { withAnimation(.easeInOut(duration: 0.2)) { showIntro.toggle() } }) {
+                        Text("?").font(.system(size: 15, weight: .bold))
+                            .foregroundColor(showIntro ? theme.accentText : Palette.text70)
+                    }
+                    TintPill(title: "Capture") { captureNow() }
+                }
             }
-            if allMoments.isEmpty {
+            if showIntro {
+                introCard
+            } else if allMoments.isEmpty {
                 emptyState
             } else {
                 HuggingScrollView {
@@ -44,7 +53,13 @@ struct TimeCapsuleSheet: View {
                 }
             }
         }
-        .onAppear { refresh(selectNewest: true) }
+        .onAppear {
+            refresh(selectNewest: true)
+            if !model.settings.hasSeenCapsuleIntro {
+                model.settings.hasSeenCapsuleIntro = true
+                showIntro = true
+            }
+        }
         .confirmationDialog("Clear this game's timeline?", isPresented: $confirmClear, titleVisibility: .visible) {
             Button("Clear \(allMoments.count) moments", role: .destructive) {
                 TimeCapsuleStore.shared.clear(gameID: gameID)
@@ -57,6 +72,50 @@ struct TimeCapsuleSheet: View {
     }
 
     // MARK: Pieces
+
+    /// The explainer: what the capsule is, why jumping is safe, how it manages
+    /// space. Shown on first open, and any time via the ? button.
+    private var introCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 12) {
+                Image("EmptyTin")
+                    .resizable().scaledToFit()
+                    .frame(width: 44, height: 44)
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                Text("Your playthrough, remembered")
+                    .font(Typography.rowSemibold).foregroundColor(.white)
+            }
+            introPoint("⏱", "While you play, Tinbox quietly keeps a snapshot every \(model.settings.timeCapsuleMinutes) minutes — plus one when you leave a game, and whenever you tap Capture. Each one is a real save state with a picture.")
+            introPoint("↩", "Scrub the filmstrip to any moment of any day and jump back to it. Your current spot is saved to the Auto slot first, so exploring the past never loses the present.")
+            introPoint("📦", "The tin looks after its own space: very old stretches thin out to every other snapshot instead of being deleted, so the start of your adventure stays in the capsule. Cadence and on/off live in Settings › Advanced.")
+            Button {
+                ButtonHaptics.shared.tap()
+                model.settings.hasSeenCapsuleIntro = true
+                withAnimation(.easeInOut(duration: 0.2)) { showIntro = false }
+            } label: {
+                Text("Got it")
+                    .font(Typography.buttonSemibold)
+                    .foregroundColor(theme.accentText)
+                    .frame(maxWidth: .infinity)
+                    .frame(minHeight: 44)
+                    .background(theme.tint)
+                    .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(theme.tintBorder, lineWidth: 1))
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            }
+            .buttonStyle(FadePressStyle())
+        }
+        .padding(16)
+        .background(theme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    private func introPoint(_ glyph: String, _ text: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Text(glyph).font(.system(size: 15))
+            Text(text).font(Typography.meta13).foregroundColor(Palette.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
 
     private var emptyState: some View {
         VStack(spacing: 12) {
