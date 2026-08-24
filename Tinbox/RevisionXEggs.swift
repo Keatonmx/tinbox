@@ -348,24 +348,25 @@ struct SystemBubble: View {
         }
         .frame(maxWidth: 380)
         .fixedSize(horizontal: false, vertical: true)
-        // Green name tag riding the top edge.
+        // Green name tag riding the top edge (black text, pale ring, like the
+        // reference asset).
         .overlay(alignment: .topLeading) {
-            Text("SYSTEM")
-                .font(.system(size: 15, weight: .heavy, design: .rounded))
-                .foregroundColor(.white)
-                .shadow(color: .black.opacity(0.25), radius: 0, y: 1)
-                .padding(.horizontal, 20)
-                .padding(.vertical, 8)
+            Text("System")
+                .font(.system(size: 17, weight: .heavy, design: .rounded))
+                .foregroundColor(.black.opacity(0.82))
+                .padding(.horizontal, 22)
+                .padding(.vertical, 9)
                 .background(
-                    Capsule().fill(LinearGradient(colors: [Color(hex: 0x46D63A), Color(hex: 0x2FAE2A)],
+                    Capsule().fill(LinearGradient(colors: [Color(hex: 0x4FE03F), Color(hex: 0x2FC42B)],
                                                   startPoint: .top, endPoint: .bottom)))
-                .overlay(Capsule().stroke(Color(hex: 0x1E7A1C), lineWidth: 2))
-                .offset(x: 14, y: -14)
+                .overlay(Capsule().stroke(Color(hex: 0xFBF4E4), lineWidth: 3))
+                .shadow(color: .black.opacity(0.3), radius: 3, y: 2)
+                .offset(x: 10, y: -16)
         }
         .shadow(color: .black.opacity(0.45), radius: 14, y: 8)
         .contentShape(Rectangle())
         .onTapGesture { onDismiss() }
-        .transition(.move(edge: .bottom).combined(with: .opacity))
+        .transition(.scale(scale: 0.85).combined(with: .opacity))
     }
 }
 

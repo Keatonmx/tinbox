@@ -366,6 +366,7 @@ final class AppModel: ObservableObject {
         session.stop()
         // A normal exit supersedes any emergency snapshot from an app switch.
         try? FileManager.default.removeItem(at: FileLocations.suspendState(gameID: game.id))
+        systemBubbleText = nil   // the letter/bubble belongs to the play screen
         activeSheet = nil
         isLayoutEditing = false
         forceLandscape = false

@@ -72,15 +72,12 @@ struct RootView: View {
                 EggAmbient()
                     .zIndex(55)
 
-                if model.systemBubbleText != nil {
-                    VStack {
-                        Spacer()
-                        ResettiLetter {
-                            withAnimation(.easeIn(duration: 0.25)) { model.systemBubbleText = nil }
-                        }
-                        .padding(.horizontal, 18)
-                        .padding(.bottom, landscape ? 40 : 120)
+                if let bubbleText = model.systemBubbleText {
+                    SystemBubble(text: bubbleText) {
+                        withAnimation(.easeIn(duration: 0.25)) { model.systemBubbleText = nil }
                     }
+                    .padding(.horizontal, 24)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                     .zIndex(62)
                 }
 
