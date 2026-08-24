@@ -119,6 +119,8 @@ struct AppSettings: Codable, Equatable {
     /// Time Capsule: automatic playthrough snapshots while you play.
     var timeCapsuleEnabled: Bool = true
     var timeCapsuleMinutes: Int = 5
+    /// The cartridge-insert + lid-open flourish when a game boots.
+    var bootAnimationEnabled: Bool = true
     var autoSuspendSave: Bool = true
     var backgroundAudioMixing: Bool = false
 
@@ -192,6 +194,7 @@ struct AppSettings: Codable, Equatable {
         rewindSeconds = try c.decodeIfPresent(Int.self, forKey: .rewindSeconds) ?? d.rewindSeconds
         timeCapsuleEnabled = try c.decodeIfPresent(Bool.self, forKey: .timeCapsuleEnabled) ?? d.timeCapsuleEnabled
         timeCapsuleMinutes = try c.decodeIfPresent(Int.self, forKey: .timeCapsuleMinutes) ?? d.timeCapsuleMinutes
+        bootAnimationEnabled = try c.decodeIfPresent(Bool.self, forKey: .bootAnimationEnabled) ?? d.bootAnimationEnabled
         autoSuspendSave = true
         backgroundAudioMixing = try c.decodeIfPresent(Bool.self, forKey: .backgroundAudioMixing) ?? d.backgroundAudioMixing
         scaling = try c.decodeIfPresent(DisplayScaling.self, forKey: .scaling) ?? d.scaling

@@ -45,6 +45,7 @@ struct PortraitGameView: View {
     @State private var cartOffset: CGFloat = -240
     @State private var cartOpacity: Double = 1
     @State private var cartVisible = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let metrics = ControlMetrics(isLandscape: false)
 
@@ -143,8 +144,9 @@ struct PortraitGameView: View {
                 return
             }
             #endif
-            if session.lidShown {
-                lidOpen = true          // rotation / menu return: no replay
+            if session.lidShown || !model.settings.bootAnimationEnabled || reduceMotion {
+                lidOpen = true          // off, Reduce Motion, rotation or menu return
+                session.lidShown = true
             } else {
                 session.lidShown = true
                 cartVisible = true

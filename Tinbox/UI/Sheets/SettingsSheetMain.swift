@@ -262,7 +262,7 @@ struct SettingsSheet: View {
                     model.removeBIOSFile()
                 }
             }
-            SettingsRow(title: "Time Capsule", subtitle: model.settings.timeCapsuleEnabled ? "Automatic snapshots while you play" : "No automatic snapshots · capture manually in game", showsSeparator: false, gap: 10) {
+            SettingsRow(title: "Time Capsule", subtitle: model.settings.timeCapsuleEnabled ? "Automatic snapshots while you play" : "No automatic snapshots · capture manually in game", gap: 10) {
                 HStack(spacing: 10) {
                     if model.settings.timeCapsuleEnabled {
                         SegmentedPill(options: CapsuleInterval.options, label: { "\($0) m" }, selection: settings.timeCapsuleMinutes,
@@ -270,6 +270,9 @@ struct SettingsSheet: View {
                     }
                     TinboxToggle(isOn: settings.timeCapsuleEnabled)
                 }
+            }
+            SettingsRow(title: "Boot animation", subtitle: "The cartridge and lid when a game starts", showsSeparator: false) {
+                TinboxToggle(isOn: settings.bootAnimationEnabled)
             }
         }
     }
