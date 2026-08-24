@@ -39,9 +39,12 @@ struct PortraitGameView: View {
     @EnvironmentObject private var session: EmulatorSession
     @Environment(\.theme) private var theme
     @State private var editingLayout: ControlLayout = .portraitDefault
-    /// Boot flourish: the screen flips down like the tin's lid. First render
-    /// is closed; onAppear either snaps or animates it open.
+    /// Boot flourish: the cartridge slides in, then the screen flips down like
+    /// the tin's lid. First render is closed; onAppear either snaps or animates.
     @State private var lidOpen = false
+    @State private var cartOffset: CGFloat = -240
+    @State private var cartOpacity: Double = 1
+    @State private var cartVisible = false
 
     private let metrics = ControlMetrics(isLandscape: false)
 
@@ -120,13 +123,32 @@ struct PortraitGameView: View {
         .rotation3DEffect(.degrees(lidOpen ? 0 : -72), axis: (x: 1, y: 0, z: 0),
                           anchor: .bottom, perspective: 0.55)
         .opacity(lidOpen ? 1 : 0.4)
+        // The cartridge rides on top (unrotated), sliding down into the band.
+        .overlay(alignment: .top) {
+            if cartVisible, let game = model.currentGame {
+                CartridgeView(game: game)
+                    .frame(width: 170)
+                    .offset(y: cartOffset)
+                    .opacity(cartOpacity)
+                    .allowsHitTesting(false)
+            }
+        }
         .onAppear {
             if session.lidShown {
                 lidOpen = true          // rotation / menu return: no replay
             } else {
                 session.lidShown = true
-                withAnimation(.spring(response: 0.55, dampingFraction: 0.8).delay(0.08)) {
+                cartVisible = true
+                cartOpacity = 1
+                withAnimation(.easeIn(duration: 0.5)) { cartOffset = 30 }
+                // Fades out just as it seats, then the lid springs open.
+                withAnimation(.easeOut(duration: 0.22).delay(0.38)) { cartOpacity = 0 }
+                withAnimation(.spring(response: 0.55, dampingFraction: 0.8).delay(0.55)) {
                     lidOpen = true
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                    cartVisible = false
+                    cartOffset = -240
                 }
             }
         }
@@ -257,9 +279,28 @@ struct BrightnessOverlay: View {
     @Environment(\.theme) private var theme
     var body: some View {
         HStack(spacing: 10) {
+            // Sun follows the room via screen brightness (needs iOS auto-brightness).
+            Button {
+                ButtonHaptics.shared.tap()
+                model.settings.autoSunEnabled.toggle()
+                if model.settings.autoSunEnabled {
+                    session.syncAutoSun()
+                    model.showToast("Sun follows your surroundings (best with auto-brightness on)")
+                }
+            } label: {
+                Text("Auto")
+                    .font(Typography.chip)
+                    .foregroundColor(model.settings.autoSunEnabled ? theme.accentText : Palette.textSecondary)
+                    .padding(.horizontal, 8).padding(.vertical, 4)
+                    .background(model.settings.autoSunEnabled ? theme.tint : Color.clear)
+                    .overlay(Capsule().stroke(model.settings.autoSunEnabled ? theme.tintBorder : Palette.hairline12, lineWidth: 1))
+                    .clipShape(Capsule())
+            }
+            .buttonStyle(FadePressStyle())
             Image(systemName: "sun.min").foregroundColor(Palette.textSecondary)
             Slider(value: Binding(get: { Double(session.luminanceLevel) },
-                                  set: { session.luminanceLevel = Int($0.rounded()) }),
+                                  set: { session.luminanceLevel = Int($0.rounded())
+                                         model.settings.autoSunEnabled = false }),
                    in: 0...10, step: 1)
                 .tint(theme.accent)
             Image(systemName: "sun.max.fill").foregroundColor(Palette.textSecondary)

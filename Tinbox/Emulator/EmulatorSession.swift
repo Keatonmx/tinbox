@@ -312,7 +312,23 @@ final class EmulatorSession: ObservableObject {
             guard let self, self.settings.sensorsEnabled else { return }
             self.runner.withCore { $0.setTilt(x: x, y: y, gyroZ: z) }
         }
+
+        // Auto sun: iOS has no public lux API, but with auto-brightness on the
+        // screen brightness tracks the ambient light sensor, and this fires
+        // whenever it moves.
+        NotificationCenter.default.addObserver(forName: UIScreen.brightnessDidChangeNotification,
+                                               object: nil, queue: .main) { [weak self] _ in
+            self?.syncAutoSun()
+        }
         applySettings()
+    }
+
+    /// Maps the screen brightness (ambient light when auto-brightness is on)
+    /// to the 0…10 solar-sensor level.
+    func syncAutoSun() {
+        guard settings.autoSunEnabled, cartridgeHardware.contains(.solar) else { return }
+        let level = Int((Double(UIScreen.main.brightness) * 10).rounded())
+        if level != luminanceLevel { luminanceLevel = level }
     }
 
     // MARK: Lifecycle
@@ -341,6 +357,7 @@ final class EmulatorSession: ObservableObject {
         self.platform = platform
         frameStore.resize(width: width, height: height)
         videoAspect = CGFloat(width) / CGFloat(height)
+        syncAutoSun()
         applyCheats(cheats)
         applySettings()
         runner.resetTiming()
@@ -573,6 +590,7 @@ final class EmulatorSession: ObservableObject {
             }
         }
         if !settings.sensorsEnabled { sensors.stop() }
+        syncAutoSun()
         audio.setMixWithOthers(settings.backgroundAudioMixing)
         audio.volume = Float(settings.volume) / 100
     }

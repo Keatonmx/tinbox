@@ -141,6 +141,9 @@ struct AppSettings: Codable, Equatable {
     /// 0.30…1.00 — landscape overlay opacity.
     var controlOpacity: Double = 0.65
     var sensorsEnabled: Bool = true
+    /// Solar games: the sun level follows the screen brightness (which tracks
+    /// the ambient light sensor when iOS auto-brightness is on).
+    var autoSunEnabled: Bool = false
 
     // Sync & extras
     var cloudProvider: CloudProvider = .off
@@ -202,6 +205,7 @@ struct AppSettings: Codable, Equatable {
         pressGlow = try c.decodeIfPresent(PressGlow.self, forKey: .pressGlow) ?? d.pressGlow
         controlOpacity = try c.decodeIfPresent(Double.self, forKey: .controlOpacity) ?? d.controlOpacity
         sensorsEnabled = try c.decodeIfPresent(Bool.self, forKey: .sensorsEnabled) ?? d.sensorsEnabled
+        autoSunEnabled = try c.decodeIfPresent(Bool.self, forKey: .autoSunEnabled) ?? d.autoSunEnabled
         cloudProvider = try c.decodeIfPresent(CloudProvider.self, forKey: .cloudProvider) ?? d.cloudProvider
         lastCloudSync = try c.decodeIfPresent(Date.self, forKey: .lastCloudSync)
         raHardcore = try c.decodeIfPresent(Bool.self, forKey: .raHardcore) ?? d.raHardcore
