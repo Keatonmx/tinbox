@@ -46,8 +46,11 @@ struct LibraryView: View {
                     }
                     if !model.searchText.isEmpty, model.visibleGames.isEmpty {
                         VStack(spacing: 8) {
-                            GlitchTexture(lShape: true)
-                                .frame(width: 120, height: 96)
+                            Image("MissingNo")
+                                .resizable()
+                                .interpolation(.none)
+                                .scaledToFit()
+                                .frame(height: 110)
                             if !EggText.glitchCaption.isEmpty {
                                 Text(EggText.glitchCaption)
                                     .font(Typography.mono8Bold).tracking(1)
@@ -329,12 +332,16 @@ struct CoverArt: View {
                 Image(uiImage: image).resizable().scaledToFit()
                     .id(coverVersion)
             } else {
-                // MissingNo. homage: coverless games glitch in their own hue.
-                GlitchTexture(palette: GlitchTexture.tinted(hue: game.coverHue),
-                              seed: UInt64(max(0, game.coverHue) * 997) &+ 0x9E37)
-                Text(initials)
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
-                    .foregroundColor(.black.opacity(0.42))
+                // The old hue-striped placeholder, haunted by a little MissingNo.
+                theme.chip
+                StripedPlaceholder(stripe: Color(hue: game.coverHue / 360, saturation: 0.4, brightness: 0.65).opacity(0.13),
+                                   period: 20, width: 8)
+                Image("MissingNo")
+                    .resizable()
+                    .interpolation(.none)
+                    .scaledToFit()
+                    .frame(height: 62)
+                    .opacity(0.85)
             }
         }
     }
