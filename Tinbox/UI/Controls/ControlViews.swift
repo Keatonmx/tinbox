@@ -162,13 +162,14 @@ struct FaceButtonView: View {
 }
 
 struct ShoulderPillView: View {
+    @Environment(\.skin) private var skin
     let label: String
     let metrics: ControlMetrics
     let pressed: Bool
 
     var body: some View {
         Capsule()
-            .fill(LinearGradient(colors: [Palette.shoulderTop, Palette.shoulderBottom], startPoint: .top, endPoint: .bottom))
+            .fill(skin.padGradient)
             .overlay(Capsule().stroke(Palette.hairline10, lineWidth: 0.5))
             .overlay(alignment: .top) { Rectangle().fill(Color.white.opacity(0.12)).frame(height: 1).padding(.horizontal, 14) }
             .shadow(color: .black.opacity(0.35), radius: 2.5, y: 2)
@@ -229,6 +230,7 @@ struct BottomPillView: View {
 
 struct FastForwardButtonView: View {
     @Environment(\.theme) private var theme
+    @Environment(\.skin) private var skin
     let active: Bool
     let pressed: Bool
     /// Shown above the button while it is held (hint or current scrub speed).
@@ -236,8 +238,7 @@ struct FastForwardButtonView: View {
 
     var body: some View {
         Circle()
-            .fill(active ? AnyShapeStyle(theme.accent)
-                         : AnyShapeStyle(LinearGradient(colors: [Palette.shoulderTop, Palette.shoulderBottom], startPoint: .top, endPoint: .bottom)))
+            .fill(active ? AnyShapeStyle(theme.accent) : AnyShapeStyle(skin.buttonGradient))
             .overlay(Circle().stroke(Palette.hairline12, lineWidth: 0.5))
             .shadow(color: .black.opacity(0.35), radius: 3, y: 2)
             .overlay(Text("»").font(.system(size: 17, weight: .heavy)).foregroundColor(active ? .white : Palette.textSecondary))

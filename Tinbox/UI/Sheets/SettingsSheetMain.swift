@@ -163,7 +163,7 @@ struct SettingsSheet: View {
             NavRow(title: "Layout profiles", detail: model.currentGame?.layoutProfile ?? LayoutProfile.defaultName) {
                 model.openSheet(.layoutProfiles)
             }
-            SettingsRow(title: "Extra buttons", subtitle: "»: hold and slide to rewind or fast-forward · rotate: for when orientation lock is on", gap: 14) {
+            SettingsRow(title: "Extra buttons", subtitle: "The » speed scrubber and a rotate button", gap: 14) {
                 HStack(spacing: 14) {
                     HStack(spacing: 6) {
                         Text("»").font(Typography.segment).foregroundColor(Palette.textSecondary)
@@ -199,7 +199,7 @@ struct SettingsSheet: View {
             SettingsRow(title: "Motion & rumble cartridges", subtitle: "Tilt, solar and rumble games use the phone's sensors") {
                 TinboxToggle(isOn: settings.sensorsEnabled)
             }
-            SettingsRow(title: "Haptic feedback", showsSeparator: false) {
+            SettingsRow(title: "Button haptics", subtitle: "A light tap from the on-screen controls (game rumble is the row above)", showsSeparator: false) {
                 TinboxToggle(isOn: settings.hapticsEnabled)
             }
         }
