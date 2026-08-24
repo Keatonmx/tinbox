@@ -69,6 +69,7 @@ struct QuickMenuSheet: View {
             // Navigation
             Card {
                 NavRow(title: "All save states", detail: "\(model.gameData.slots.filter(\.isFilled).count) of \(SaveSlot.count) used") { model.openSheet(.saveStates) }
+                NavRow(title: "Time Capsule", detail: capsuleDetail) { model.openSheet(.timeCapsule) }
                 NavRow(title: "Cheats", detail: "\(model.activeCheatCount) active") { model.openSheet(.cheats) }
                 NavRow(title: "Settings", showsSeparator: false) { model.openSheet(.settings) }
             }
@@ -90,6 +91,12 @@ struct QuickMenuSheet: View {
 
             } }
         }
+    }
+
+    private var capsuleDetail: String {
+        guard let id = model.currentGame?.id else { return "" }
+        let n = TimeCapsuleStore.shared.count(for: id)
+        return n == 1 ? "1 moment" : "\(n) moments"
     }
 
     private var fastForwardSubtitle: String {

@@ -254,6 +254,15 @@ struct SettingsSheet: View {
                     model.removeBIOSFile()
                 }
             }
+            SettingsRow(title: "Time Capsule", subtitle: model.settings.timeCapsuleEnabled ? "Automatic snapshots while you play" : "No automatic snapshots · capture manually in game", gap: 10) {
+                HStack(spacing: 10) {
+                    if model.settings.timeCapsuleEnabled {
+                        SegmentedPill(options: CapsuleInterval.options, label: { "\($0) m" }, selection: settings.timeCapsuleMinutes,
+                                      fontSize: 12, horizontalPadding: 9)
+                    }
+                    TinboxToggle(isOn: settings.timeCapsuleEnabled)
+                }
+            }
             SettingsRow(title: "Motion & rumble cartridges", subtitle: "Tilt, solar and rumble games use the phone's sensors") {
                 TinboxToggle(isOn: settings.sensorsEnabled)
             }

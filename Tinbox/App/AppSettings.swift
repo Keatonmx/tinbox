@@ -37,6 +37,11 @@ enum RewindLength {
     static let options = [30, 60, 120]
 }
 
+/// Time Capsule snapshot cadences offered in Settings (minutes of play).
+enum CapsuleInterval {
+    static let options = [2, 5, 10]
+}
+
 enum ScreenFilter: String, CaseIterable, Codable, Identifiable {
     case none = "None"
     case crt = "CRT"
@@ -111,6 +116,9 @@ struct AppSettings: Codable, Equatable {
     var showRotateButton: Bool = false
     var rewindEnabled: Bool = true
     var rewindSeconds: Int = 30
+    /// Time Capsule: automatic playthrough snapshots while you play.
+    var timeCapsuleEnabled: Bool = true
+    var timeCapsuleMinutes: Int = 5
     var autoSuspendSave: Bool = true
     var backgroundAudioMixing: Bool = false
 
@@ -175,6 +183,8 @@ struct AppSettings: Codable, Equatable {
         showRotateButton = try c.decodeIfPresent(Bool.self, forKey: .showRotateButton) ?? d.showRotateButton
         rewindEnabled = try c.decodeIfPresent(Bool.self, forKey: .rewindEnabled) ?? d.rewindEnabled
         rewindSeconds = try c.decodeIfPresent(Int.self, forKey: .rewindSeconds) ?? d.rewindSeconds
+        timeCapsuleEnabled = try c.decodeIfPresent(Bool.self, forKey: .timeCapsuleEnabled) ?? d.timeCapsuleEnabled
+        timeCapsuleMinutes = try c.decodeIfPresent(Int.self, forKey: .timeCapsuleMinutes) ?? d.timeCapsuleMinutes
         autoSuspendSave = true
         backgroundAudioMixing = try c.decodeIfPresent(Bool.self, forKey: .backgroundAudioMixing) ?? d.backgroundAudioMixing
         scaling = try c.decodeIfPresent(DisplayScaling.self, forKey: .scaling) ?? d.scaling

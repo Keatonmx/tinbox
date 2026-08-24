@@ -320,6 +320,7 @@ final class EmulatorSession: ObservableObject {
     func load(_ game: Game, cheats: [Cheat]) throws {
         stop()
         lidShown = false
+        startCapsuleTimer()
         try runner.withCore { core in
             try core.loadROM(at: game.romURL)
         }
@@ -378,6 +379,7 @@ final class EmulatorSession: ObservableObject {
 
     /// Stops emulation and unloads the ROM (the core flushes the battery save).
     func stop() {
+        stopCapsuleTimer()
         runner.running = false
         runner.paused = false
         isRunning = false
@@ -460,6 +462,61 @@ final class EmulatorSession: ObservableObject {
         guard FileManager.default.fileExists(atPath: url.path) else { return false }
         let ok = runner.withCore { $0.loadState(from: url) }
         if ok { audio.reset() }
+        return ok
+    }
+
+    // MARK: Time Capsule
+
+    private var capsuleTimer: Timer?
+    private var lastCapsuleCapture: Date?
+    private var capsuleBootedAt = Date()
+
+    /// Started on every game load; checks twice a minute whether the next
+    /// automatic snapshot is due.
+    private func startCapsuleTimer() {
+        capsuleTimer?.invalidate()
+        lastCapsuleCapture = nil
+        capsuleBootedAt = Date()
+        let t = Timer(timeInterval: 30, repeats: true) { [weak self] _ in self?.capsuleTick() }
+        t.tolerance = 5
+        RunLoop.main.add(t, forMode: .common)
+        capsuleTimer = t
+    }
+
+    private func stopCapsuleTimer() {
+        capsuleTimer?.invalidate()
+        capsuleTimer = nil
+    }
+
+    private func capsuleTick() {
+        guard isRunning, !isPaused, game != nil,
+              settings.timeCapsuleEnabled, !settings.raHardcore else { return }
+        let interval = Double(max(1, settings.timeCapsuleMinutes)) * 60
+        if let last = lastCapsuleCapture {
+            if Date().timeIntervalSince(last) >= interval { captureCapsuleMoment() }
+        } else if Date().timeIntervalSince(capsuleBootedAt) >= 20 {
+            // First snapshot of a session lands shortly after boot.
+            captureCapsuleMoment()
+        }
+    }
+
+    /// Writes one timeline snapshot (state + frame PNG). Also used by the
+    /// sheet's Capture button and on game exit.
+    @discardableResult
+    func captureCapsuleMoment() -> Bool {
+        guard let game, isRunning, !settings.raHardcore else { return false }
+        let moment = CapsuleMoment(id: Int64(Date().timeIntervalSince1970 * 1000), gameID: game.id)
+        let (ok, pixels) = runner.withCore { core -> (Bool, Data) in
+            (core.saveState(to: moment.stateURL), core.copyFramebuffer())
+        }
+        if ok {
+            lastCapsuleCapture = Date()
+            let w = frameStore.width, h = frameStore.height, id = game.id
+            DispatchQueue.global(qos: .utility).async {
+                TimeCapsuleStore.shared.writeThumbnail(pixels, width: w, height: h, to: moment.imageURL)
+                TimeCapsuleStore.shared.thinIfNeeded(gameID: id)
+            }
+        }
         return ok
     }
 

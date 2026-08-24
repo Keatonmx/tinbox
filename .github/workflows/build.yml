@@ -142,6 +142,7 @@ jobs:
           SHOT_DELAY=6 shot 24-library-outpost -tinbox-theme Outpost
           SHOT_DELAY=6 shot 25-library-tin -tinbox-theme Tin
           shot 26-ingame-tin -tinbox-theme Tin -tinbox-skin Surplus -tinbox-autoplay
+          SHOT_DELAY=10 shot 27-time-capsule -tinbox-autoplay -tinbox-sheet timeCapsule
 
           xcrun simctl spawn "$UDID" log show --last 120s --predicate 'process == "Tinbox"' > screenshots/device.log 2>/dev/null || true
           xcrun simctl terminate "$UDID" "$BUNDLE_ID" || true

@@ -49,6 +49,19 @@ enum FileLocations {
         stateDirectory(for: gameID).appendingPathComponent("suspend.ss")
     }
 
+    // MARK: Time Capsule
+
+    /// Automatic playthrough snapshots: Timeline/cap-<unix-ms>.ss + .png.
+    static func timelineDirectory(for gameID: String) -> URL {
+        let url = stateDirectory(for: gameID).appendingPathComponent("Timeline", isDirectory: true)
+        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
+    }
+
+    static func timelineFile(gameID: String, timestamp: Int64) -> URL {
+        timelineDirectory(for: gameID).appendingPathComponent("cap-\(timestamp).ss")
+    }
+
     static func gameDataFile(gameID: String) -> URL {
         stateDirectory(for: gameID).appendingPathComponent("game.json")
     }

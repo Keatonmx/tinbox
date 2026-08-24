@@ -34,6 +34,7 @@ enum ActiveSheet: Equatable, Identifiable {
     case about
     /// Per-game overrides (from Settings › This game).
     case gameOverrides
+    case timeCapsule
     var id: Self { self }
 }
 
@@ -155,6 +156,15 @@ final class AppModel: ObservableObject {
                 case "gameOverrides":
                     self.updateOverrides { $0.enabled = true; $0.filter = .xbr }
                     self.openSheet(.gameOverrides)
+                case "timeCapsule":
+                    self.session.captureCapsuleMoment()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
+                        self?.session.captureCapsuleMoment()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
+                            self?.session.captureCapsuleMoment()
+                            self?.openSheet(.timeCapsule)
+                        }
+                    }
                 case "editLayout":
                     self.isLayoutEditing = true
                 default: break
@@ -335,6 +345,8 @@ final class AppModel: ObservableObject {
         guard let game = currentGame else { return }
         var autosaved = false
         if session.isRunning {
+            // The session's final frame belongs in the timeline too.
+            session.captureCapsuleMoment()
             autosaved = session.saveState(slot: 0)
             if autosaved {
                 gameData.slots[0].savedAt = Date()
@@ -428,6 +440,24 @@ final class AppModel: ObservableObject {
             showToast("Saved to \(gameData.slots[index].name)")
         } else {
             showToast("Couldn't save state")
+        }
+    }
+
+    // MARK: Time Capsule
+
+    /// Loads a timeline moment — after stashing the current spot in the Auto
+    /// slot so jumping into the past never loses the present.
+    func jumpToCapsule(_ moment: CapsuleMoment) {
+        guard !settings.raHardcore else { showToast("Save states are off in Hardcore mode"); return }
+        if session.saveState(slot: 0) {
+            gameData.slots[0].savedAt = Date()
+            persistGameData()
+        }
+        if session.loadState(from: moment.stateURL) {
+            closeSheet()
+            showToast("Jumped back · your spot was saved to Auto")
+        } else {
+            showToast("Couldn't open that moment")
         }
     }
 
