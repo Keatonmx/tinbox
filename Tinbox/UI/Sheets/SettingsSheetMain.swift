@@ -215,7 +215,7 @@ struct SettingsSheet: View {
             SettingsRow(title: "Box art", subtitle: "Downloads covers for games without one") {
                 TinboxToggle(isOn: settings.fetchBoxArt)
             }
-            NavRow(title: "Back up saves & states", subtitle: "Deleting the app deletes its saves — keep a copy") {
+            NavRow(title: "Back up saves & states", subtitle: "Deleting the app deletes its saves, so keep a copy") {
                 model.exportBackup()
             }
             NavRow(title: "Restore a backup…", showsSeparator: false) {

@@ -106,7 +106,7 @@ final class AppModel: ObservableObject {
         session.onCapsuleCapture = { [weak self] in
             guard let self, !self.settings.hasSeenCapsuleHint else { return }
             self.settings.hasSeenCapsuleHint = true
-            self.showToast("Time Capsule started — your playthrough is being snapshotted. See Quick Menu")
+            self.showToast("Time Capsule is on · find it in the Quick Menu")
         }
         session.$controllerConnected
             .removeDuplicates()

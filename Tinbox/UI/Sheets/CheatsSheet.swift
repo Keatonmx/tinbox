@@ -60,7 +60,7 @@ struct CheatsSheet: View {
         VStack(alignment: .leading, spacing: 10) {
             SegmentedPill(options: CheatType.allCases, label: { $0.label }, selection: $type, fontSize: 12, horizontalPadding: 11)
             field(text: $name, placeholder: "Cheat name", font: .system(size: 15), fieldID: .name)
-            field(text: $code, placeholder: "Code — e.g. 3E2A19C4 77F0210B", font: Typography.mono14, fieldID: .code, mono: true)
+            field(text: $code, placeholder: "Code (e.g. 3E2A19C4 77F0210B)", font: Typography.mono14, fieldID: .code, mono: true)
             HStack(spacing: 10) {
                 Spacer()
                 SecondaryPill(title: "Cancel") { cancel() }

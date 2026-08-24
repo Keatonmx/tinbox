@@ -85,7 +85,7 @@ struct TimeCapsuleSheet: View {
                 Text("Your playthrough, remembered")
                     .font(Typography.rowSemibold).foregroundColor(.white)
             }
-            introPoint("⏱", "While you play, Tinbox quietly keeps a snapshot every \(model.settings.timeCapsuleMinutes) minutes — plus one when you leave a game, and whenever you tap Capture. Each one is a real save state with a picture.")
+            introPoint("⏱", "While you play, Tinbox quietly keeps a snapshot every \(model.settings.timeCapsuleMinutes) minutes, plus one when you leave a game and whenever you tap Capture. Each one is a real save state with a picture.")
             introPoint("↩", "Scrub the filmstrip to any moment of any day and jump back to it. Your current spot is saved to the Auto slot first, so exploring the past never loses the present.")
             introPoint("📦", "The tin looks after its own space: very old stretches thin out to every other snapshot instead of being deleted, so the start of your adventure stays in the capsule. Cadence and on/off live in Settings › Advanced.")
             Button {
@@ -126,8 +126,8 @@ struct TimeCapsuleSheet: View {
                 .opacity(0.9)
             Text("The capsule is still empty").font(Typography.cardTitle).foregroundColor(Palette.text55)
             Text(model.settings.timeCapsuleEnabled
-                 ? "Snapshots land here as you play — every \(model.settings.timeCapsuleMinutes) minutes, and when you leave a game."
-                 : "Automatic snapshots are off (Settings › Advanced) — Capture still works.")
+                 ? "Snapshots land here as you play: every \(model.settings.timeCapsuleMinutes) minutes, and when you leave a game."
+                 : "Automatic snapshots are off (Settings › Advanced). Capture still works.")
                 .font(Typography.meta13).foregroundColor(Palette.textTertiary)
                 .multilineTextAlignment(.center)
         }
