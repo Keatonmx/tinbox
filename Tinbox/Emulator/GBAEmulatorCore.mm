@@ -75,6 +75,17 @@ static int32_t _rotationGyroZ(struct mRotationSource* s) { return ((struct Tinbo
 static void _luxSample(struct GBALuminanceSource* s) { (void) s; }
 static uint8_t _luxRead(struct GBALuminanceSource* s) { return ((struct TinboxLuminance*) s)->value; }
 
+// Real-time clock fed to the cores; `offset` shifts it forward ("time travel"
+// for berry growth and day/night events). 0 == the phone's real clock.
+struct TinboxRTC {
+    struct mRTCSource source;    // must be first
+    int64_t offset;
+};
+static void _rtcSample(struct mRTCSource* s) { (void) s; }
+static time_t _rtcUnixTime(struct mRTCSource* s) {
+    return time(0) + (time_t) ((struct TinboxRTC*) s)->offset;
+}
+
 static const int kSaveFlags = SAVESTATE_SCREENSHOT | SAVESTATE_SAVEDATA | SAVESTATE_RTC | SAVESTATE_METADATA;
 static const int kLoadFlags = SAVESTATE_SCREENSHOT | SAVESTATE_SAVEDATA | SAVESTATE_RTC;
 
@@ -120,6 +131,8 @@ static enum mPlatform _platformForPath(const char* path) {
     struct TinboxRumble _rumble;
     struct TinboxRotation _rotation;
     struct TinboxLuminance _lux;
+    struct TinboxRTC _rtc;
+    int64_t _rtcOffset;
 
     struct mCoreRewindContext _rewind;
     BOOL _rewindEnabled;
@@ -250,6 +263,12 @@ static void _rumbleSet(struct mRumbleIntegrator* integrator, float value) {
     _rotation.source.readTiltY = _rotationTiltY;
     _rotation.source.readGyroZ = _rotationGyroZ;
     _core->setPeripheral(_core, mPERIPH_ROTATION, &_rotation.source);
+
+    memset(&_rtc, 0, sizeof(_rtc));
+    _rtc.source.sample = _rtcSample;
+    _rtc.source.unixTime = _rtcUnixTime;
+    _rtc.offset = _rtcOffset;
+    _core->setPeripheral(_core, mPERIPH_RTC, &_rtc.source);
 
     if (_platform == TinboxPlatformGBA) {
         memset(&_lux, 0, sizeof(_lux));
@@ -822,6 +841,11 @@ static float _clamp1(float v) { return v < -1.f ? -1.f : (v > 1.f ? 1.f : v); }
     _rotation.tiltX = (int32_t) (_clamp1(tiltX) * kTiltFullScale);
     _rotation.tiltY = (int32_t) (_clamp1(tiltY) * kTiltFullScale);
     _rotation.gyroZ = (int32_t) (_clamp1(gyroZ) * kGyroFullScale);
+}
+
+- (void)setRTCOffsetSeconds:(int64_t)seconds {
+    _rtcOffset = seconds;
+    _rtc.offset = seconds;
 }
 
 - (NSInteger)luminanceLevel {

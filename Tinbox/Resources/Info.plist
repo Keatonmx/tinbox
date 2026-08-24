@@ -24,6 +24,10 @@
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 
+	<!-- ProMotion: let UI animations and scrolling run at 120 Hz. -->
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
+
 	<!-- Documents/ROMs, Saves, States … visible and editable in the Files app. -->
 	<key>UIFileSharingEnabled</key>
 	<true/>

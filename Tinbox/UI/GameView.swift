@@ -191,6 +191,7 @@ struct PortraitGameView: View {
                 if model.showBrightnessOverlay {
                     BrightnessOverlay().padding(.top, 44)
                 }
+                DarkRoomCue().padding(.top, 6)
             }
         }
         .padding(.top, 14)
@@ -310,7 +311,10 @@ struct BrightnessOverlay: View {
             .buttonStyle(FadePressStyle())
             Image(systemName: "sun.min").foregroundColor(Palette.textSecondary)
             Slider(value: Binding(get: { Double(session.luminanceLevel) },
-                                  set: { session.luminanceLevel = Int($0.rounded())
+                                  set: { let level = Int($0.rounded())
+                                         // Detent click per sun level.
+                                         if level != session.luminanceLevel { ButtonHaptics.shared.tick() }
+                                         session.luminanceLevel = level
                                          model.settings.autoSunEnabled = false }),
                    in: 0...10, step: 1)
                 .tint(theme.accent)

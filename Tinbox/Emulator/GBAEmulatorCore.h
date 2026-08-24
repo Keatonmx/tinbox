@@ -182,6 +182,8 @@ typedef NS_ENUM(NSInteger, TinboxPlatform) {
 - (void)setTiltX:(float)tiltX tiltY:(float)tiltY gyroZ:(float)gyroZ NS_SWIFT_NAME(setTilt(x:y:gyroZ:));
 /// Solar sensor brightness level 0 (dark) … 10 (direct sun).
 - (void)applyLuminanceLevel:(NSInteger)level NS_SWIFT_NAME(applyLuminanceLevel(_:));
+/// Shifts the emulated real-time clock forward (0 == the phone's clock).
+- (void)setRTCOffsetSeconds:(int64_t)seconds NS_SWIFT_NAME(setRTCOffset(seconds:));
 @property (nonatomic, readonly) NSInteger luminanceLevel;
 
 #pragma mark - Archives

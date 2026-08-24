@@ -30,6 +30,9 @@ struct TimeCapsuleSheet: View {
                         Text("?").font(.system(size: 15, weight: .bold))
                             .foregroundColor(showIntro ? theme.accentText : Palette.text70)
                     }
+                    if !showIntro, selected != nil {
+                        TintPill(title: "Share") { sharePostcard() }
+                    }
                     TintPill(title: "Capture") { captureNow() }
                 }
             }
@@ -266,6 +269,18 @@ struct TimeCapsuleSheet: View {
     }
 
     // MARK: Actions
+
+    /// Renders the selected moment as a shareable postcard (Revision X).
+    private func sharePostcard() {
+        guard let moment = selected, let game = model.currentGame else { return }
+        let hours = Double(allMoments.count * model.settings.timeCapsuleMinutes) / 60
+        if let url = Postcard.make(from: moment.imageURL, game: game, date: moment.date,
+                                   playHours: model.settings.timeCapsuleEnabled ? hours : nil) {
+            model.shareURL = url
+        } else {
+            model.showToast("Couldn't render the postcard")
+        }
+    }
 
     private func captureNow() {
         guard session.captureCapsuleMoment() else {

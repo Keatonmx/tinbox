@@ -582,6 +582,7 @@ final class EmulatorSession: ObservableObject {
         if turboB != settings.turboB { turboB = settings.turboB }
         runner.haptics.enabled = settings.hapticsEnabled
         runner.withCore { core in
+            core.setRTCOffset(seconds: Int64(settings.rtcOffsetSeconds))
             core.setRewind(enabled: settings.rewindEnabled, seconds: UInt(settings.rewindSeconds), frameInterval: 2)
             if settings.bootMode == .biosFile, let name = settings.biosFileName {
                 _ = core.setBIOSFile(FileLocations.bios.appendingPathComponent(name))

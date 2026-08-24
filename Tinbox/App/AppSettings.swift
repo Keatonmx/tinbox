@@ -42,6 +42,20 @@ enum CapsuleInterval {
     static let options = [2, 5, 10]
 }
 
+/// Game-clock (RTC) forward shifts offered in Settings, in seconds.
+enum RTCOffset {
+    static let options = [0, 21_600, 86_400, 259_200, 604_800]
+    static func label(_ seconds: Int) -> String {
+        switch seconds {
+        case 0: return "Off"
+        case 21_600: return "+6 h"
+        case 86_400: return "+1 d"
+        case 259_200: return "+3 d"
+        default: return "+7 d"
+        }
+    }
+}
+
 enum ScreenFilter: String, CaseIterable, Codable, Identifiable {
     case none = "None"
     case crt = "CRT"
@@ -102,9 +116,9 @@ enum SpeedSteps {
 }
 
 struct AppSettings: Codable, Equatable {
-    // Appearance
-    var theme: ThemeName = .modern
-    var skin: ControllerSkinName = .modern
+    // Appearance (fresh installs boot in the icon's own look)
+    var theme: ThemeName = .tin
+    var skin: ControllerSkinName = .surplus
 
     // Playback
     /// Speed used while fast-forward is engaged (0.25…100). 3× by default.
@@ -121,6 +135,8 @@ struct AppSettings: Codable, Equatable {
     var timeCapsuleMinutes: Int = 5
     /// The cartridge-insert + lid-open flourish when a game boots.
     var bootAnimationEnabled: Bool = true
+    /// Seconds added to the in-game real-time clock (berry farming etc.).
+    var rtcOffsetSeconds: Int = 0
     var autoSuspendSave: Bool = true
     var backgroundAudioMixing: Bool = false
 
@@ -139,7 +155,7 @@ struct AppSettings: Codable, Equatable {
     var turboA: Bool = false
     var turboB: Bool = false
     var hapticsEnabled: Bool = true
-    var pressGlow: PressGlow = .white
+    var pressGlow: PressGlow = .accent
     /// 0.30…1.00 — landscape overlay opacity.
     var controlOpacity: Double = 0.65
     var sensorsEnabled: Bool = true
@@ -195,6 +211,7 @@ struct AppSettings: Codable, Equatable {
         timeCapsuleEnabled = try c.decodeIfPresent(Bool.self, forKey: .timeCapsuleEnabled) ?? d.timeCapsuleEnabled
         timeCapsuleMinutes = try c.decodeIfPresent(Int.self, forKey: .timeCapsuleMinutes) ?? d.timeCapsuleMinutes
         bootAnimationEnabled = try c.decodeIfPresent(Bool.self, forKey: .bootAnimationEnabled) ?? d.bootAnimationEnabled
+        rtcOffsetSeconds = try c.decodeIfPresent(Int.self, forKey: .rtcOffsetSeconds) ?? d.rtcOffsetSeconds
         autoSuspendSave = true
         backgroundAudioMixing = try c.decodeIfPresent(Bool.self, forKey: .backgroundAudioMixing) ?? d.backgroundAudioMixing
         scaling = try c.decodeIfPresent(DisplayScaling.self, forKey: .scaling) ?? d.scaling
