@@ -161,8 +161,9 @@ struct LibraryView: View {
     }
 }
 
-/// The "TINBOX" eyebrow as the stamped badge from the app icon: uppercase,
-/// thin rounded outline, slight skew, pressed-into-metal shading.
+/// The "TINBOX" eyebrow as a stamped brand lozenge: uppercase inside a full
+/// stadium (pill) outline, a tiny ® off the shoulder, slight skew,
+/// pressed-into-metal shading.
 struct TinStamp: View {
     var body: some View {
         Text("TINBOX")
@@ -171,11 +172,15 @@ struct TinStamp: View {
             .foregroundColor(Palette.textTertiary)
             // Debossed: a hair of light catching the stamp's lower edge.
             .shadow(color: .white.opacity(0.18), radius: 0, y: 0.7)
-            .padding(.horizontal, 7)
-            .padding(.vertical, 2.5)
-            .overlay(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .stroke(Palette.textQuaternary, lineWidth: 1.2))
+            .padding(.horizontal, 11)
+            .padding(.vertical, 3.5)
+            .overlay(Capsule().stroke(Palette.textQuaternary, lineWidth: 1.5))
+            .overlay(alignment: .topTrailing) {
+                Text("®")
+                    .font(.system(size: 7, weight: .semibold))
+                    .foregroundColor(Palette.textQuaternary)
+                    .offset(x: 9, y: -3)
+            }
             .rotationEffect(.degrees(-3), anchor: .bottomLeading)
     }
 }
