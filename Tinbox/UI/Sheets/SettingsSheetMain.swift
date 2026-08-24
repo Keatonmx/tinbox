@@ -163,11 +163,17 @@ struct SettingsSheet: View {
             NavRow(title: "Layout profiles", detail: model.currentGame?.layoutProfile ?? LayoutProfile.defaultName) {
                 model.openSheet(.layoutProfiles)
             }
-            SettingsRow(title: "» fast-forward button", subtitle: "Hold and slide to rewind or fast-forward · double-tap to lock. Also in the Quick Menu.") {
-                TinboxToggle(isOn: settings.showFastForwardButton)
-            }
-            SettingsRow(title: "Rotate button", subtitle: "The screen already follows your phone · turn this on if orientation lock is on") {
-                TinboxToggle(isOn: settings.showRotateButton)
+            SettingsRow(title: "Extra buttons", subtitle: "»: hold and slide to rewind or fast-forward · rotate: for when orientation lock is on", gap: 14) {
+                HStack(spacing: 14) {
+                    HStack(spacing: 6) {
+                        Text("»").font(Typography.segment).foregroundColor(Palette.textSecondary)
+                        TinboxToggle(isOn: settings.showFastForwardButton)
+                    }
+                    HStack(spacing: 6) {
+                        RotateGlyph(primary: Palette.textSecondary, secondary: Palette.textSecondary)
+                        TinboxToggle(isOn: settings.showRotateButton)
+                    }
+                }
             }
             NavRow(title: "Bluetooth controller", detail: session.controllerConnected ? ControllerManager.shared.controllerName : "None") {
                 model.openSheet(.controllers)

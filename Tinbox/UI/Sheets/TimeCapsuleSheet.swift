@@ -126,8 +126,8 @@ struct TimeCapsuleSheet: View {
                 .opacity(0.9)
             Text("The capsule is still empty").font(Typography.cardTitle).foregroundColor(Palette.text55)
             Text(model.settings.timeCapsuleEnabled
-                 ? "While you play, Tinbox keeps a snapshot every \(model.settings.timeCapsuleMinutes) minutes. Come back after a session — or tap Capture to keep this exact moment."
-                 : "The Time Capsule is turned off in Settings › Advanced. Tap Capture to keep this exact moment anyway.")
+                 ? "Snapshots land here as you play — every \(model.settings.timeCapsuleMinutes) minutes, and when you leave a game."
+                 : "Automatic snapshots are off (Settings › Advanced) — Capture still works.")
                 .font(Typography.meta13).foregroundColor(Palette.textTertiary)
                 .multilineTextAlignment(.center)
         }

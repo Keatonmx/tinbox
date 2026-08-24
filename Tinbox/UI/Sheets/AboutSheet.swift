@@ -52,7 +52,7 @@ struct AboutSheet: View {
                         }
                         SettingsRow(title: "Emulation core", subtitle: GBAEmulatorCore.coreVersion, showsSeparator: true) { EmptyView() }
                         SettingsRow(title: "Saving",
-                                    subtitle: "In-game saves are written automatically, leaving a game fills the Auto slot, and an emergency snapshot is taken if you're interrupted. Always on. The Time Capsule additionally snapshots your playthrough every few minutes while you play — browse it from the Quick Menu, adjust it in Settings › Advanced.",
+                                    subtitle: "In-game saves are written automatically, leaving a game fills the Auto slot, and an emergency snapshot is taken if you're interrupted. Always on — and the Time Capsule (Quick Menu) keeps a timeline of your playthrough.",
                                     showsSeparator: true) { EmptyView() }
                         link("Source code", url: AppInfo.sourceURL, showsSeparator: true)
                         link("Privacy policy", url: AppInfo.privacyURL, showsSeparator: false)
