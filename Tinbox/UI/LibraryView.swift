@@ -46,11 +46,15 @@ struct LibraryView: View {
                     }
                     if !model.searchText.isEmpty, model.visibleGames.isEmpty {
                         VStack(spacing: 8) {
-                            Image("MissingNo")
-                                .resizable()
-                                .interpolation(.none)
-                                .scaledToFit()
-                                .frame(height: 110)
+                            if EggText.sanitized {
+                                GlitchTexture(lShape: true).frame(width: 54, height: 110)
+                            } else {
+                                Image("MissingNo")
+                                    .resizable()
+                                    .interpolation(.none)
+                                    .scaledToFit()
+                                    .frame(height: 110)
+                            }
                             if !EggText.glitchCaption.isEmpty {
                                 Text(EggText.glitchCaption)
                                     .font(Typography.mono8Bold).tracking(1)
@@ -336,12 +340,16 @@ struct CoverArt: View {
                 theme.chip
                 StripedPlaceholder(stripe: Color(hue: game.coverHue / 360, saturation: 0.4, brightness: 0.65).opacity(0.13),
                                    period: 20, width: 8)
-                Image("MissingNo")
-                    .resizable()
-                    .interpolation(.none)
-                    .scaledToFit()
-                    .frame(height: 62)
-                    .opacity(0.85)
+                if EggText.sanitized {
+                    GlitchTexture(lShape: true).frame(width: 30, height: 62).opacity(0.85)
+                } else {
+                    Image("MissingNo")
+                        .resizable()
+                        .interpolation(.none)
+                        .scaledToFit()
+                        .frame(height: 62)
+                        .opacity(0.85)
+                }
             }
         }
     }
