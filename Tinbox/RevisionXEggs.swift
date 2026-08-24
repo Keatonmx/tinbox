@@ -28,18 +28,25 @@ enum EggText {
 
 // MARK: - Synthesized retro chirp (no bundled assets)
 
-/// Generates a tiny square-wave arpeggio WAV once and plays it. Used only by
-/// easter eggs; the rest of the UI stays silent on purpose.
+/// Plays the bundled unlock sound (EasterEggClick5.mp3); falls back to a
+/// synthesized square-wave arpeggio. Used only by easter eggs; the rest of
+/// the UI stays silent on purpose.
 enum RetroChirp {
     private static var player: AVAudioPlayer?
 
     static func play() {
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("tinbox-chirp.wav")
-        if !FileManager.default.fileExists(atPath: url.path) {
-            try? makeWAV().write(to: url)
+        let url: URL
+        if let bundled = Bundle.main.url(forResource: "EasterEggClick5", withExtension: "mp3") {
+            url = bundled
+        } else {
+            let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("tinbox-chirp.wav")
+            if !FileManager.default.fileExists(atPath: tmp.path) {
+                try? makeWAV().write(to: tmp)
+            }
+            url = tmp
         }
         player = try? AVAudioPlayer(contentsOf: url)
-        player?.volume = 0.5
+        player?.volume = 0.7
         player?.play()
     }
 

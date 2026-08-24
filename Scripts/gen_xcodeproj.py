@@ -30,9 +30,10 @@ FILE_TYPES = {
     '.xcframework': 'wrapper.xcframework',
     '.txt': 'text',
     '.md': 'net.daringfireball.markdown',
+    '.mp3': 'audio.mp3',
 }
 SOURCE_EXTS = {'.swift', '.mm', '.m', '.metal'}
-RESOURCE_EXTS = {'.xcassets', '.txt'}
+RESOURCE_EXTS = {'.xcassets', '.txt', '.mp3'}
 
 
 def uid(key):
