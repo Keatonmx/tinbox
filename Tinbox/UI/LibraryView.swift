@@ -166,22 +166,23 @@ struct LibraryView: View {
 /// pressed-into-metal shading.
 struct TinStamp: View {
     var body: some View {
-        Text("TINBOX")
-            .font(Typography.eyebrow)
-            .tracking(2)
-            .foregroundColor(Palette.textTertiary)
-            // Debossed: a hair of light catching the stamp's lower edge.
-            .shadow(color: .white.opacity(0.18), radius: 0, y: 0.7)
-            .padding(.horizontal, 11)
-            .padding(.vertical, 3.5)
-            .overlay(Capsule().stroke(Palette.textQuaternary, lineWidth: 1.5))
-            .overlay(alignment: .topTrailing) {
-                Text("®")
-                    .font(.system(size: 7, weight: .semibold))
-                    .foregroundColor(Palette.textQuaternary)
-                    .offset(x: 9, y: -3)
-            }
-            .rotationEffect(.degrees(-3), anchor: .bottomLeading)
+        HStack(alignment: .top, spacing: 1.5) {
+            Text("TINBOX")
+                .font(Typography.eyebrow)
+                .tracking(2)
+            // Superscript ® tucked inside the pill, top-right of the word.
+            Text("®")
+                .font(.system(size: 6.5, weight: .semibold))
+                .padding(.top, -0.5)
+        }
+        .foregroundColor(Palette.textTertiary)
+        // Debossed: a hair of light catching the stamp's lower edge.
+        .shadow(color: .white.opacity(0.18), radius: 0, y: 0.7)
+        .padding(.leading, 11)
+        .padding(.trailing, 8)
+        .padding(.vertical, 3.5)
+        .overlay(Capsule().stroke(Palette.textQuaternary, lineWidth: 1.5))
+        .rotationEffect(.degrees(-3), anchor: .bottomLeading)
     }
 }
 

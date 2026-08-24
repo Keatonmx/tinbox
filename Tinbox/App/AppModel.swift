@@ -647,16 +647,15 @@ final class AppModel: ObservableObject {
 
     private func importROMs(_ urls: [URL]) {
         var imported = 0
-        var movedCount = 0
         for url in urls {
             do {
-                let result = try GameLibraryStore.shared.importROM(from: url, move: settings.importMode == .move)
+                // Imports always copy — the original stays where the user keeps it.
+                let result = try GameLibraryStore.shared.importROM(from: url, move: false)
                 settings.hiddenGameIDs.removeAll { $0 == result.game.id }
                 if !games.contains(where: { $0.id == result.game.id }) {
                     games.insert(result.game, at: 0)
                 }
                 imported += 1
-                if result.movedOriginal { movedCount += 1 }
             } catch {
                 showToast(error.localizedDescription)
             }
@@ -664,15 +663,7 @@ final class AppModel: ObservableObject {
         guard imported > 0 else { return }
         GameLibraryStore.shared.saveGames(games)
         let where_ = ROMFolderAccess.shared.displayName
-        if settings.importMode == .move {
-            if movedCount == imported {
-                showToast(imported == 1 ? "Moved to \(where_)" : "Moved \(imported) ROMs to \(where_)")
-            } else {
-                showToast("Copied to \(where_) · original couldn't be removed")
-            }
-        } else {
-            showToast(imported == 1 ? "Copied to \(where_)" : "Copied \(imported) ROMs to \(where_)")
-        }
+        showToast(imported == 1 ? "Copied to \(where_)" : "Copied \(imported) ROMs to \(where_)")
     }
 
     /// Imports .sav (battery) / .sst (state) files for `game`. Returns what was

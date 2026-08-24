@@ -88,7 +88,7 @@ Written against the real headers, not from memory:
 ## Using the app
 
 * **Library** — tap a game for Play / Continue (newest save) / Load a save file / Make a patched copy / Delete. Long-press for a quick Play.
-* **Import ROM** — opens the Files picker; by default the file is *moved* into the ROM folder (Settings › Library lets you switch to Copy, or choose any folder in Files/iCloud Drive as the library).
+* **Import ROM** — opens the Files picker; the file is *copied* into the ROM folder (the original stays where it was; Settings › Library lets you choose any folder in Files/iCloud Drive as the library).
 * **» button** (optional, Settings › Controls) — hold and slide right to fast-forward (up to the speed in Quick Menu), slide left to rewind live; release to return to normal. The Quick Menu toggle is the permanent fast-forward. The rotate button is optional too — the screen follows the phone's orientation by default.
 * **Quick Menu** — Save (Auto slot), Load (newest state), Rewind 10 s, fast-forward speed, all save states (Auto + 9 slots, each with a screenshot), Time Capsule, cheats, settings, exit. Leaving a game always writes the Auto slot.
 * **Time Capsule** — while you play, a snapshot (save state + frame) lands in `States/<game>/Timeline/` every few minutes (2/5/10 min, Settings › Advanced; also on exit, plus a Capture button). The Quick Menu's Time Capsule opens a day-grouped filmstrip of the whole playthrough; jumping to a moment first stashes the current spot in the Auto slot. Over ~240 snapshots the oldest 60% is thinned to every other one, so early history gets sparser instead of vanishing.

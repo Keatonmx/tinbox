@@ -27,6 +27,7 @@ struct SettingsSheet: View {
         case library = "Library"
         case connections = "Connections"
         case advanced = "Advanced"
+        case about = "About"
     }
 
     var body: some View {
@@ -44,6 +45,7 @@ struct SettingsSheet: View {
                     section(.library) { library }
                     section(.connections) { connections }
                     section(.advanced) { advanced }
+                    section(.about) { about }
                 }
             }
         }
@@ -188,6 +190,9 @@ struct SettingsSheet: View {
             SettingsRow(title: "Button opacity", subtitle: "Landscape · \(Int((model.settings.controlOpacity * 100).rounded()))%") {
                 Slider(value: settings.controlOpacity, in: 0.3...1.0, step: 0.05).tint(theme.accent).frame(width: 150)
             }
+            SettingsRow(title: "Motion & rumble cartridges", subtitle: "Tilt, solar and rumble games use the phone's sensors") {
+                TinboxToggle(isOn: settings.sensorsEnabled)
+            }
             SettingsRow(title: "Haptic feedback", showsSeparator: false) {
                 TinboxToggle(isOn: settings.hapticsEnabled)
             }
@@ -201,13 +206,10 @@ struct SettingsSheet: View {
             NavRow(title: "ROM folder", subtitle: "Shown in the Files app", detail: ROMFolderAccess.shared.displayName) {
                 model.openSheet(.romFolder)
             }
-            SettingsRow(title: "When importing a ROM", subtitle: model.settings.importMode == .move ? "The file moves into the ROM folder" : "The file is copied; the original stays") {
-                SegmentedPill(options: ImportMode.allCases, label: { $0.rawValue }, selection: settings.importMode)
-            }
             SettingsRow(title: "Box art", subtitle: "Downloads covers for games without one") {
                 TinboxToggle(isOn: settings.fetchBoxArt)
             }
-            NavRow(title: "Back up saves & states…", subtitle: "Deleting the app deletes its saves — keep a copy") {
+            NavRow(title: "Back up saves & states", subtitle: "Deleting the app deletes its saves — keep a copy") {
                 model.exportBackup()
             }
             NavRow(title: "Restore a backup…", showsSeparator: false) {
@@ -234,7 +236,7 @@ struct SettingsSheet: View {
     // MARK: Advanced (one-time choices)
 
     private var advanced: some View {
-        Card(bottomSpacing: 0) {
+        Card(bottomSpacing: 8) {
             SettingsRow(title: "Volume", subtitle: "\(model.settings.volume)%") {
                 Slider(value: Binding(get: { Double(model.settings.volume) }, set: { model.settings.volume = Int($0.rounded()) }),
                        in: 0...100, step: 5).tint(theme.accent).frame(width: 150)
@@ -254,7 +256,7 @@ struct SettingsSheet: View {
                     model.removeBIOSFile()
                 }
             }
-            SettingsRow(title: "Time Capsule", subtitle: model.settings.timeCapsuleEnabled ? "Automatic snapshots while you play" : "No automatic snapshots · capture manually in game", gap: 10) {
+            SettingsRow(title: "Time Capsule", subtitle: model.settings.timeCapsuleEnabled ? "Automatic snapshots while you play" : "No automatic snapshots · capture manually in game", showsSeparator: false, gap: 10) {
                 HStack(spacing: 10) {
                     if model.settings.timeCapsuleEnabled {
                         SegmentedPill(options: CapsuleInterval.options, label: { "\($0) m" }, selection: settings.timeCapsuleMinutes,
@@ -263,10 +265,14 @@ struct SettingsSheet: View {
                     TinboxToggle(isOn: settings.timeCapsuleEnabled)
                 }
             }
-            SettingsRow(title: "Motion & rumble cartridges", subtitle: "Tilt, solar and rumble games use the phone's sensors") {
-                TinboxToggle(isOn: settings.sensorsEnabled)
-            }
-            NavRow(title: "About", subtitle: "Version, licences, privacy", detail: "Tinbox \(AppInfo.versionString)", showsSeparator: false) {
+        }
+    }
+
+    // MARK: About (very bottom)
+
+    private var about: some View {
+        Card(bottomSpacing: 0) {
+            NavRow(title: "About Tinbox", subtitle: "Version, licences, privacy", detail: "Tinbox \(AppInfo.versionString)", showsSeparator: false) {
                 model.openSheet(.about)
             }
         }
