@@ -139,13 +139,25 @@ struct EggScreenOverlays: View {
         }
         .onChange(of: session.isPaused) { paused in
             withAnimation(.easeInOut(duration: 0.3)) { zzz = paused && session.isRunning }
+            // FF was toggled inside a menu: launch the streaks on resume,
+            // when the screen is actually visible.
+            if !paused, streakPending {
+                streakPending = false
+                fireStreaks()
+            }
         }
         .onChange(of: session.isFastForward) { on in
-            guard on else { return }
-            withAnimation(.easeOut(duration: 0.12)) { streaks = true }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
-                withAnimation(.easeIn(duration: 0.25)) { streaks = false }
-            }
+            guard on else { streakPending = false; return }
+            if session.isPaused { streakPending = true } else { fireStreaks() }
+        }
+    }
+
+    @State private var streakPending = false
+
+    private func fireStreaks() {
+        withAnimation(.easeOut(duration: 0.12)) { streaks = true }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.85) {
+            withAnimation(.easeIn(duration: 0.3)) { streaks = false }
         }
     }
 }
@@ -169,7 +181,7 @@ private struct BoostStreaks: View {
         }
         .onAppear {
             offset = -0.6
-            withAnimation(.easeOut(duration: 0.55)) { offset = 1.4 }
+            withAnimation(.easeOut(duration: 0.8)) { offset = 1.4 }
         }
     }
 }
@@ -318,6 +330,7 @@ struct ResettiLetter: View {
 struct SystemBubble: View {
     let text: String
     let onDismiss: () -> Void
+    @State private var arrowBob = false
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -338,13 +351,20 @@ struct SystemBubble: View {
                 .padding(.horizontal, 26)
                 .padding(.top, 30)
                 .padding(.bottom, 30)
-            // Continue triangle.
+            // Continue triangle, floating in and out like AC's prompt.
             Triangle()
                 .fill(Color(hex: 0xF2DCAF))
                 .frame(width: 14, height: 10)
                 .rotationEffect(.degrees(180))
+                .offset(y: arrowBob ? 3 : -2)
+                .opacity(arrowBob ? 1 : 0.45)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                 .padding(22)
+                .onAppear {
+                    withAnimation(.easeInOut(duration: 0.65).repeatForever(autoreverses: true)) {
+                        arrowBob = true
+                    }
+                }
         }
         .frame(maxWidth: 380)
         .fixedSize(horizontal: false, vertical: true)

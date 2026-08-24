@@ -398,7 +398,8 @@ struct LandscapeGameView: View {
                     .position(x: size.width * 0.5 - 110, y: max(24, safeArea.top + 6) + 12)
             }
 
-            // Round buttons top-right.
+            // Round buttons sit beside the top-centre MENU pill (the corner
+            // would overlap the R shoulder).
             HStack(spacing: 8) {
                 if session.cartridgeHardware.contains(.solar) {
                     landscapeCircle(action: { model.showBrightnessOverlay.toggle() }) {
@@ -412,7 +413,8 @@ struct LandscapeGameView: View {
                     }
                 }
             }
-            .frame(width: size.width - max(20, safeArea.trailing + 8), alignment: .trailing)
+            .frame(width: size.width, alignment: .center)
+            .offset(x: 98)
             .padding(.top, max(14, safeArea.top + 4))
 
             if model.showBrightnessOverlay {
