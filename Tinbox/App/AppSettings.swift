@@ -168,6 +168,8 @@ struct AppSettings: Codable, Equatable {
     /// default (Library and Advanced start collapsed, the rest open).
     var toggledSections: [String] = []
     var hasSeenFastForwardHint: Bool = false
+    /// One-time toast when the very first Time Capsule snapshot is captured.
+    var hasSeenCapsuleHint: Bool = false
 
     init() {}
 
@@ -212,6 +214,7 @@ struct AppSettings: Codable, Equatable {
         lastPlayedGameID = try c.decodeIfPresent(String.self, forKey: .lastPlayedGameID)
         toggledSections = try c.decodeIfPresent([String].self, forKey: .toggledSections) ?? d.toggledSections
         hasSeenFastForwardHint = try c.decodeIfPresent(Bool.self, forKey: .hasSeenFastForwardHint) ?? d.hasSeenFastForwardHint
+        hasSeenCapsuleHint = try c.decodeIfPresent(Bool.self, forKey: .hasSeenCapsuleHint) ?? d.hasSeenCapsuleHint
     }
 }
 

@@ -102,6 +102,12 @@ final class AppModel: ObservableObject {
                 if self.activeSheet == nil { self.openSheet(.quickMenu) }
             }
         }
+        // Feature discovery: the first snapshot ever captured announces itself.
+        session.onCapsuleCapture = { [weak self] in
+            guard let self, !self.settings.hasSeenCapsuleHint else { return }
+            self.settings.hasSeenCapsuleHint = true
+            self.showToast("Time Capsule started — your playthrough is being snapshotted. See Quick Menu")
+        }
         session.$controllerConnected
             .removeDuplicates()
             .dropFirst()

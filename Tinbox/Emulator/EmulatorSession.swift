@@ -470,6 +470,9 @@ final class EmulatorSession: ObservableObject {
     private var capsuleTimer: Timer?
     private var lastCapsuleCapture: Date?
     private var capsuleBootedAt = Date()
+    /// Fired on the main thread after every successful capture (AppModel uses
+    /// it for the one-time discovery toast).
+    var onCapsuleCapture: (() -> Void)?
 
     /// Started on every game load; checks twice a minute whether the next
     /// automatic snapshot is due.
@@ -516,6 +519,7 @@ final class EmulatorSession: ObservableObject {
                 TimeCapsuleStore.shared.writeThumbnail(pixels, width: w, height: h, to: moment.imageURL)
                 TimeCapsuleStore.shared.thinIfNeeded(gameID: id)
             }
+            onCapsuleCapture?()
         }
         return ok
     }
