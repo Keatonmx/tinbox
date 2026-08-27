@@ -463,6 +463,22 @@ static void _rumbleSet(struct mRumbleIntegrator* integrator, float value) {
 
     [self applyBIOSConfiguration];
     _core->reset(_core);
+
+    // baseVideoSize is the largest canvas the core can need (256x224 for the
+    // GB core, the Super Game Boy frame). With SGB borders off it actually
+    // renders 160x144 into the top-left of that buffer, which showed up as a
+    // small top-left image with dead space. Shrink to what is really drawn.
+    unsigned currentW = 0;
+    unsigned currentH = 0;
+    _core->currentVideoSize(_core, &currentW, &currentH);
+    if (currentW && currentH && (currentW != _width || currentH != _height)) {
+        _width = currentW;
+        _height = currentH;
+        free(_videoBuffer);
+        _videoBuffer = (mColor*) calloc((size_t) _width * _height, sizeof(mColor));
+        _core->setVideoBuffer(_core, _videoBuffer, _width);
+        _core->reset(_core);
+    }
     return YES;
 }
 

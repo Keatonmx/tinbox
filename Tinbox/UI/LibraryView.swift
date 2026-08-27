@@ -331,6 +331,8 @@ struct CoverArt: View {
                 Color.black
                 Image(uiImage: image).resizable().scaledToFit()
                     .id(coverVersion)
+                // Factory sealed: every real cover ships shrink-wrapped.
+                PlasticWrap(seed: UInt64(max(0, game.coverHue) * 131) &+ 7)
             } else {
                 // The old hue-striped placeholder, haunted by a little MissingNo.
                 theme.chip

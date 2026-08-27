@@ -57,7 +57,11 @@ struct AboutSheet: View {
                                     subtitle: "In-game saves are written automatically, leaving a game fills the Auto slot, and an emergency snapshot is taken if you're interrupted. Always on. The Time Capsule (Quick Menu) keeps a timeline of your playthrough.",
                                     showsSeparator: true) { EmptyView() }
                         link("Source code", url: AppInfo.sourceURL, showsSeparator: true)
-                        link("Report a problem or suggest a change", url: AppInfo.feedbackURL, showsSeparator: true)
+                        NavRow(title: "Report a problem or suggest a change",
+                               subtitle: "Bug reports and ideas land straight with the developer",
+                               titleColor: theme.accentText, showsSeparator: true) {
+                            if let u = URL(string: AppInfo.feedbackURL) { UIApplication.shared.open(u) }
+                        }
                         link("Privacy policy", url: AppInfo.privacyURL, showsSeparator: false)
                     }
 

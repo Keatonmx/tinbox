@@ -24,6 +24,10 @@ enum ROMDuplicates {
     /// or nil. Size is compared first so hashing only happens on candidates;
     /// hacks and other revisions differ in content and never match.
     static func existingCopy(of url: URL, in games: [Game]) -> String? {
+        // ROMs are picked "open in place": without claiming access every read
+        // fails silently and no file ever looks like a duplicate.
+        let accessed = url.startAccessingSecurityScopedResource()
+        defer { if accessed { url.stopAccessingSecurityScopedResource() } }
         guard let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize else { return nil }
         let sameSize = games.filter { $0.fileSize == Int64(size) }
         guard !sameSize.isEmpty, let incoming = hash(url) else { return nil }
@@ -128,6 +132,60 @@ enum Postcard {
         ("®" as NSString).draw(at: CGPoint(x: box.maxX - 16, y: box.minY + 2),
                                withAttributes: [.font: UIFont.systemFont(ofSize: 12, weight: .semibold),
                                                 .foregroundColor: UIColor(white: 0.92, alpha: 0.35)])
+    }
+}
+
+// MARK: - Shrink-wrap sheen for cover art
+
+/// The factory-sealed look: a soft diagonal gloss band, a couple of crease
+/// highlights and a corner specular, laid over real covers only. Deterministic
+/// per seed so a game's wrap never shimmers between renders.
+struct PlasticWrap: View {
+    var seed: UInt64 = 9
+
+    var body: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            let h = geo.size.height
+            var s = seed
+            func rand() -> CGFloat {
+                s = s &* 6364136223846793005 &+ 1442695040888963407
+                return CGFloat((s >> 33) & 0xFFFF) / 65_535
+            }
+            let bandX = 0.2 + rand() * 0.35
+            let crease1 = 0.15 + rand() * 0.3
+            let crease2 = 0.55 + rand() * 0.3
+            ZStack {
+                // Broad diagonal gloss band.
+                LinearGradient(stops: [
+                    .init(color: .clear, location: max(0, bandX - 0.18)),
+                    .init(color: .white.opacity(0.16), location: bandX),
+                    .init(color: .white.opacity(0.05), location: bandX + 0.10),
+                    .init(color: .clear, location: min(1, bandX + 0.22)),
+                ], startPoint: .topLeading, endPoint: .bottomTrailing)
+                // Two thin crease highlights.
+                Path { p in
+                    p.move(to: CGPoint(x: w * crease1, y: 0))
+                    p.addQuadCurve(to: CGPoint(x: w * (crease1 + 0.16), y: h),
+                                   control: CGPoint(x: w * (crease1 + 0.30), y: h * 0.45))
+                }
+                .stroke(Color.white.opacity(0.10), lineWidth: 1.2)
+                Path { p in
+                    p.move(to: CGPoint(x: w * crease2, y: 0))
+                    p.addQuadCurve(to: CGPoint(x: w * (crease2 - 0.10), y: h),
+                                   control: CGPoint(x: w * (crease2 + 0.14), y: h * 0.6))
+                }
+                .stroke(Color.white.opacity(0.07), lineWidth: 1)
+                // Corner specular.
+                RadialGradient(colors: [.white.opacity(0.22), .clear],
+                               center: .topLeading, startRadius: 0, endRadius: max(w, h) * 0.35)
+                // Tight bright edge all round, like taut film catching light.
+                RoundedRectangle(cornerRadius: 3)
+                    .stroke(Color.white.opacity(0.10), lineWidth: 1)
+                    .padding(1)
+            }
+        }
+        .allowsHitTesting(false)
     }
 }
 

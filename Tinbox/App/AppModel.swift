@@ -814,6 +814,8 @@ final class AppModel: ObservableObject {
         }
         let dest = FileManager.default.temporaryDirectory.appendingPathComponent(name)
         try? FileManager.default.removeItem(at: dest)
+        let accessed = url.startAccessingSecurityScopedResource()
+        defer { if accessed { url.stopAccessingSecurityScopedResource() } }
         do {
             try FileManager.default.copyItem(at: url, to: dest)
             return dest

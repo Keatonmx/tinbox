@@ -13,6 +13,7 @@ struct GameActionsSheet: View {
     @EnvironmentObject private var model: AppModel
     @Environment(\.theme) private var theme
     @State private var confirmRemove = false
+    @State private var coverOptionsShown = false
 
     var body: some View {
         BottomSheet(onDismiss: { model.closeSheet() }) {
@@ -85,8 +86,8 @@ struct GameActionsSheet: View {
                     NavRow(title: "Make a patched copy…", subtitle: "IPS / UPS / BPS · saves a new ROM, keeps this one") {
                         model.importKind = .patchForGame
                     }
-                    NavRow(title: "Choose cover image…", subtitle: "Or long-press the cover for more options", showsSeparator: false) {
-                        model.importKind = .coverForGame
+                    NavRow(title: "Choose a cover…", subtitle: "Photos, Files or an online box art search", showsSeparator: false) {
+                        coverOptionsShown = true
                     }
                 }
 
@@ -107,6 +108,13 @@ struct GameActionsSheet: View {
                                                     : "Delete \(game.title)? The ROM file and its save states are removed.",
                                     isPresented: $confirmRemove, titleVisibility: .visible) {
                     Button(game.isExternal ? "Remove" : "Delete", role: .destructive) { model.deleteGame(game) }
+                    Button("Cancel", role: .cancel) {}
+                }
+                .confirmationDialog("Choose a cover for \(game.title)",
+                                    isPresented: $coverOptionsShown, titleVisibility: .visible) {
+                    Button("From Photos") { model.coverPhotoTarget = game }
+                    Button("From Files") { model.importKind = .coverForGame }
+                    Button("Find box art online") { model.retryCover(for: game) }
                     Button("Cancel", role: .cancel) {}
                 }
             }
