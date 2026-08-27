@@ -24,16 +24,38 @@ final class CoverArtService {
     private var inFlight: Set<String> = []
     private let lock = NSLock()
 
-    /// Marker written when every candidate 404s so we don't retry each launch.
+    /// Failed lookups retry after a week (the thumbnails repo grows, and the
+    /// name index may not have been cached yet on the first try).
     private func missMarker(for id: String) -> URL {
-        FileLocations.covers.appendingPathComponent("\(id).none")
+        FileLocations.covers.appendingPathComponent("\(id).miss")
+    }
+    /// Written by "Remove cover": a permanent opt-out, never auto-retried.
+    private func pinMarker(for id: String) -> URL {
+        FileLocations.covers.appendingPathComponent("\(id).nocover")
+    }
+
+    private func missIsFresh(for id: String) -> Bool {
+        let url = missMarker(for: id)
+        guard let modified = try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate else {
+            return false
+        }
+        if Date().timeIntervalSince(modified) > 7 * 24 * 3600 {
+            try? FileManager.default.removeItem(at: url)
+            return false
+        }
+        return true
     }
 
     /// Kicks off a download if no cover exists yet. `completion` is called on
     /// the main thread only when a new image was stored.
     func fetchIfNeeded(for game: Game, completion: @escaping () -> Void) {
+        // Legacy permanent miss markers from before index matching: clear so
+        // existing libraries resolve again.
+        try? FileManager.default.removeItem(at: FileLocations.covers.appendingPathComponent("\(game.id).none"))
+
         if FileLocations.coverImage(gameID: game.id) != nil { return }
-        if FileManager.default.fileExists(atPath: missMarker(for: game.id).path) { return }
+        if FileManager.default.fileExists(atPath: pinMarker(for: game.id).path) { return }
+        if missIsFresh(for: game.id) { return }
         lock.lock()
         if inFlight.contains(game.id) { lock.unlock(); return }
         inFlight.insert(game.id)
@@ -45,8 +67,9 @@ final class CoverArtService {
 
     private func tryNext(_ urls: [URL], index: Int, game: Game, completion: @escaping () -> Void) {
         guard index < urls.count else {
-            try? Data().write(to: missMarker(for: game.id))
-            finish(game.id)
+            // Exact-name guesses all missed: consult the repo's name index and
+            // fuzzy-match before giving up.
+            fetchViaIndex(for: game, completion: completion)
             return
         }
         session.dataTask(with: urls[index]) { [weak self] data, response, _ in
@@ -69,6 +92,125 @@ final class CoverArtService {
     /// Forget a cached miss so the next refresh retries (e.g. after a rename).
     func clearMiss(for game: Game) {
         try? FileManager.default.removeItem(at: missMarker(for: game.id))
+        try? FileManager.default.removeItem(at: pinMarker(for: game.id))
+    }
+
+    // MARK: Index-based matching
+
+    /// The repo's Named_Boxarts file list, cached for a week in Covers/.
+    /// Lets "Kingdom Hearts Chain Of Memories" find
+    /// "Kingdom Hearts - Chain of Memories (USA).png" despite the punctuation.
+    private func fetchViaIndex(for game: Game, completion: @escaping () -> Void) {
+        let ext = (game.fileName as NSString).pathExtension.lowercased()
+        let repos = Self.systems[ext] ?? Self.systems["gba"]!
+        loadIndexes(repos) { [weak self] indexes in
+            guard let self else { return }
+            for repo in repos {
+                guard let names = indexes[repo],
+                      let match = Self.bestMatch(for: game, in: names) else { continue }
+                let file = match + ".png"
+                if let encoded = file.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
+                   let url = URL(string: "https://raw.githubusercontent.com/libretro-thumbnails/\(repo)/master/Named_Boxarts/\(encoded)") {
+                    self.download(url, game: game, completion: completion)
+                    return
+                }
+            }
+            try? Data().write(to: self.missMarker(for: game.id))
+            self.finish(game.id)
+        }
+    }
+
+    private func download(_ url: URL, game: Game, completion: @escaping () -> Void) {
+        session.dataTask(with: url) { [weak self] data, response, _ in
+            guard let self else { return }
+            if let data, (response as? HTTPURLResponse)?.statusCode == 200, UIImage(data: data) != nil {
+                try? data.write(to: FileLocations.covers.appendingPathComponent("\(game.id).png"), options: .atomic)
+                DispatchQueue.main.async(execute: completion)
+            } else {
+                try? Data().write(to: self.missMarker(for: game.id))
+            }
+            self.finish(game.id)
+        }.resume()
+    }
+
+    /// Loads (from cache or GitHub) the boxart name lists for `repos`.
+    private func loadIndexes(_ repos: [String], completion: @escaping ([String: [String]]) -> Void) {
+        var result: [String: [String]] = [:]
+        let group = DispatchGroup()
+        for repo in repos {
+            group.enter()
+            loadIndex(repo) { names in
+                if let names { result[repo] = names }
+                group.leave()
+            }
+        }
+        group.notify(queue: .global(qos: .utility)) { completion(result) }
+    }
+
+    private func indexCache(for repo: String) -> URL {
+        FileLocations.covers.appendingPathComponent("_index_\(repo).json")
+    }
+
+    private func loadIndex(_ repo: String, completion: @escaping ([String]?) -> Void) {
+        let cache = indexCache(for: repo)
+        if let modified = try? cache.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate,
+           Date().timeIntervalSince(modified) < 7 * 24 * 3600,
+           let data = try? Data(contentsOf: cache),
+           let names = try? JSONDecoder().decode([String].self, from: data) {
+            completion(names)
+            return
+        }
+        // Two-step GitHub tree walk: repo root -> Named_Boxarts subtree.
+        struct Tree: Decodable { let tree: [Entry] }
+        struct Entry: Decodable { let path: String; let sha: String }
+        guard let rootURL = URL(string: "https://api.github.com/repos/libretro-thumbnails/\(repo)/git/trees/master") else {
+            completion(nil)
+            return
+        }
+        session.dataTask(with: rootURL) { [weak self] data, _, _ in
+            guard let self, let data, let root = try? JSONDecoder().decode(Tree.self, from: data),
+                  let boxarts = root.tree.first(where: { $0.path == "Named_Boxarts" }),
+                  let subURL = URL(string: "https://api.github.com/repos/libretro-thumbnails/\(repo)/git/trees/\(boxarts.sha)") else {
+                // Fall back to a stale cache if the network is out.
+                let stale = (try? Data(contentsOf: cache)).flatMap { try? JSONDecoder().decode([String].self, from: $0) }
+                completion(stale)
+                return
+            }
+            self.session.dataTask(with: subURL) { data, _, _ in
+                guard let data, let sub = try? JSONDecoder().decode(Tree.self, from: data) else {
+                    let stale = (try? Data(contentsOf: cache)).flatMap { try? JSONDecoder().decode([String].self, from: $0) }
+                    completion(stale)
+                    return
+                }
+                let names = sub.tree.map { $0.path }
+                    .filter { $0.lowercased().hasSuffix(".png") }
+                    .map { String($0.dropLast(4)) }
+                if let out = try? JSONEncoder().encode(names) {
+                    try? out.write(to: cache, options: .atomic)
+                }
+                completion(names)
+            }.resume()
+        }.resume()
+    }
+
+    /// Exact match after normalisation (case, punctuation, region tags all
+    /// ignored). Deliberately no partial matching: a hack should get no art
+    /// rather than the wrong art.
+    static func bestMatch(for game: Game, in names: [String]) -> String? {
+        let keys = Set([normalize(game.title), normalize((game.fileName as NSString).deletingPathExtension)])
+        let hits = names.filter { keys.contains(normalize($0)) }
+        guard !hits.isEmpty else { return nil }
+        for region in ["(USA)", "(USA, Europe)", "(World)", "(Europe)", "(Japan)"] {
+            if let hit = hits.first(where: { $0.contains(region) }) { return hit }
+        }
+        return hits[0]
+    }
+
+    /// Lowercased alphanumerics with parenthesised/bracketed tags removed.
+    static func normalize(_ name: String) -> String {
+        var s = name
+        s = s.replacingOccurrences(of: #"[\(\[][^\)\]]*[\)\]]"#, with: "", options: .regularExpression)
+        return s.lowercased().unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) }.map(String.init).joined()
     }
 
     // MARK: Name matching
@@ -133,6 +275,7 @@ final class CoverArtService {
             try? FileManager.default.removeItem(at: FileLocations.covers.appendingPathComponent("\(game.id).\(ext)"))
         }
         try? FileManager.default.removeItem(at: missMarker(for: game.id))
+        try? FileManager.default.removeItem(at: pinMarker(for: game.id))
         return (try? png.write(to: FileLocations.covers.appendingPathComponent("\(game.id).png"), options: .atomic)) != nil
     }
 
@@ -140,7 +283,7 @@ final class CoverArtService {
         for ext in ["png", "jpg", "jpeg"] {
             try? FileManager.default.removeItem(at: FileLocations.covers.appendingPathComponent("\(game.id).\(ext)"))
         }
-        // Remember not to re-download automatically.
-        try? Data().write(to: missMarker(for: game.id))
+        // Remember not to re-download automatically (permanent opt-out).
+        try? Data().write(to: pinMarker(for: game.id))
     }
 }
