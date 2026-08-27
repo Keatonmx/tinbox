@@ -1,0 +1,17 @@
+name: Suggest a change
+description: An idea, improvement, or feature request for Tinbox
+title: "[Idea] "
+labels: ["idea"]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What should change, and why?
+      description: What would this make better for you?
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Anything else? (optional)
+      description: Screenshots, examples from other apps, details.

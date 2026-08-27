@@ -57,6 +57,7 @@ struct AboutSheet: View {
                                     subtitle: "In-game saves are written automatically, leaving a game fills the Auto slot, and an emergency snapshot is taken if you're interrupted. Always on. The Time Capsule (Quick Menu) keeps a timeline of your playthrough.",
                                     showsSeparator: true) { EmptyView() }
                         link("Source code", url: AppInfo.sourceURL, showsSeparator: true)
+                        link("Report a problem or suggest a change", url: AppInfo.feedbackURL, showsSeparator: true)
                         link("Privacy policy", url: AppInfo.privacyURL, showsSeparator: false)
                     }
 
@@ -127,6 +128,8 @@ struct AboutSheet: View {
 enum AppInfo {
     static let sourceURL = "https://github.com/Keatonmx/tinbox"
     static let privacyURL = "https://github.com/Keatonmx/tinbox/blob/main/PRIVACY.md"
+    /// New issues notify the repo owner (email + GitHub) automatically.
+    static let feedbackURL = "https://github.com/Keatonmx/tinbox/issues/new/choose"
 
     static var versionString: String {
         let v = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"

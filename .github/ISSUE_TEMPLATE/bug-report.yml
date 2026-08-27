@@ -1,0 +1,33 @@
+name: Report a problem
+description: Something in Tinbox is broken or behaving oddly
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What went wrong, and what did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How can it be reproduced?
+      placeholder: |
+        1. Open a game
+        2. ...
+  - type: input
+    id: game
+    attributes:
+      label: Which game were you playing? (optional)
+  - type: input
+    id: device
+    attributes:
+      label: iPhone model and iOS version
+      placeholder: iPhone 15 Pro, iOS 19.2
+  - type: input
+    id: version
+    attributes:
+      label: Tinbox version (Settings, About)
+      placeholder: "1.0 (1)"
