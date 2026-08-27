@@ -79,6 +79,19 @@ final class AppModel: ObservableObject {
     @Published var systemBubbleText: String?
     /// Game whose cover is being picked from the Photos library.
     @Published var coverPhotoTarget: Game?
+
+    // Duplicate-ROM imports awaiting the user's decision.
+    struct PendingROMImport: Identifiable {
+        let id = UUID()
+        let url: URL
+        let duplicateOf: String
+    }
+    @Published var pendingDuplicate: PendingROMImport?
+    @Published var duplicateDialogShown = false
+    @Published var renamingDuplicate = false
+    @Published var duplicateRenameText = ""
+    private var duplicateQueue: [PendingROMImport] = []
+    private var duplicateActionTaken = false
     /// Bumped whenever a cover image changes so tiles reload from disk.
     @Published var coverVersion = 0
     /// Library search text.
@@ -702,22 +715,111 @@ final class AppModel: ObservableObject {
     private func importROMs(_ urls: [URL]) {
         var imported = 0
         for url in urls {
-            do {
-                // Imports always copy — the original stays where the user keeps it.
-                let result = try GameLibraryStore.shared.importROM(from: url, move: false)
-                settings.hiddenGameIDs.removeAll { $0 == result.game.id }
-                if !games.contains(where: { $0.id == result.game.id }) {
-                    games.insert(result.game, at: 0)
-                }
-                imported += 1
-            } catch {
-                showToast(error.localizedDescription)
+            // Byte-identical to a library game? Ask before adding.
+            if let duplicateOf = ROMDuplicates.existingCopy(of: url, in: games) {
+                duplicateQueue.append(PendingROMImport(url: url, duplicateOf: duplicateOf))
+                continue
+            }
+            if importSingleROM(url) { imported += 1 }
+        }
+        if imported > 0 {
+            GameLibraryStore.shared.saveGames(games)
+            let where_ = ROMFolderAccess.shared.displayName
+            showToast(imported == 1 ? "Copied to \(where_)" : "Copied \(imported) ROMs to \(where_)")
+        }
+        presentNextDuplicate()
+    }
+
+    @discardableResult
+    private func importSingleROM(_ url: URL) -> Bool {
+        do {
+            // Imports always copy; the original stays where the user keeps it.
+            let result = try GameLibraryStore.shared.importROM(from: url, move: false)
+            settings.hiddenGameIDs.removeAll { $0 == result.game.id }
+            if !games.contains(where: { $0.id == result.game.id }) {
+                games.insert(result.game, at: 0)
+            }
+            return true
+        } catch {
+            showToast(error.localizedDescription)
+            return false
+        }
+    }
+
+    // MARK: Duplicate ROM decisions
+
+    enum DuplicateResolution { case add, rename, skip }
+
+    func resolveDuplicate(_ action: DuplicateResolution) {
+        duplicateActionTaken = true
+        guard let pending = pendingDuplicate else { return }
+        switch action {
+        case .skip:
+            break
+        case .add:
+            if importSingleROM(pending.url) {
+                GameLibraryStore.shared.saveGames(games)
+                showToast("Added the duplicate")
+            }
+        case .rename:
+            if let renamed = renamedCopy(of: pending.url, to: duplicateRenameText),
+               importSingleROM(renamed) {
+                GameLibraryStore.shared.saveGames(games)
+                showToast("Added as \(renamed.lastPathComponent)")
+            } else {
+                showToast("Couldn't use that name")
             }
         }
-        guard imported > 0 else { return }
-        GameLibraryStore.shared.saveGames(games)
-        let where_ = ROMFolderAccess.shared.displayName
-        showToast(imported == 1 ? "Copied to \(where_)" : "Copied \(imported) ROMs to \(where_)")
+        pendingDuplicate = nil
+        renamingDuplicate = false
+        // Let one dialog finish dismissing before the next queued file asks.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
+            self?.presentNextDuplicate()
+        }
+    }
+
+    /// "Rename and add" from the dialog: prefill and open the name alert.
+    func beginDuplicateRename() {
+        duplicateActionTaken = true
+        guard let pending = pendingDuplicate else { return }
+        duplicateRenameText = pending.url.deletingPathExtension().lastPathComponent + " copy"
+        renamingDuplicate = true
+    }
+
+    /// Backdrop/swipe dismissal of the dialog counts as "don't add".
+    func duplicateDialogDismissed() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self, !self.duplicateActionTaken, self.pendingDuplicate != nil else { return }
+            self.resolveDuplicate(.skip)
+        }
+    }
+
+    private func presentNextDuplicate() {
+        guard pendingDuplicate == nil, !duplicateQueue.isEmpty else { return }
+        duplicateActionTaken = false
+        pendingDuplicate = duplicateQueue.removeFirst()
+        duplicateDialogShown = true
+    }
+
+    /// Copies the picked file into tmp under the user's chosen name (the
+    /// original extension is kept) so the import lands as a separate game.
+    private func renamedCopy(of url: URL, to rawName: String) -> URL? {
+        var name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "/", with: "-")
+            .replacingOccurrences(of: ":", with: "-")
+        guard !name.isEmpty else { return nil }
+        let ext = url.pathExtension
+        if (name as NSString).pathExtension.lowercased() != ext.lowercased() {
+            name += ".\(ext)"
+        }
+        let dest = FileManager.default.temporaryDirectory.appendingPathComponent(name)
+        try? FileManager.default.removeItem(at: dest)
+        do {
+            try FileManager.default.copyItem(at: url, to: dest)
+            return dest
+        } catch {
+            return nil
+        }
     }
 
     /// Imports .sav (battery) / .sst (state) files for `game`. Returns what was

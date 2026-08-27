@@ -15,6 +15,29 @@ import SwiftUI
 import UIKit
 import AVFoundation
 import PhotosUI
+import CryptoKit
+
+// MARK: - Duplicate ROM detection
+
+enum ROMDuplicates {
+    /// Title of the library game whose ROM file is byte-identical to `url`,
+    /// or nil. Size is compared first so hashing only happens on candidates;
+    /// hacks and other revisions differ in content and never match.
+    static func existingCopy(of url: URL, in games: [Game]) -> String? {
+        guard let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize else { return nil }
+        let sameSize = games.filter { $0.fileSize == Int64(size) }
+        guard !sameSize.isEmpty, let incoming = hash(url) else { return nil }
+        for game in sameSize where hash(game.romURL) == incoming {
+            return game.title
+        }
+        return nil
+    }
+
+    private static func hash(_ url: URL) -> SHA256Digest? {
+        guard let data = try? Data(contentsOf: url, options: .mappedIfSafe) else { return nil }
+        return SHA256.hash(data: data)
+    }
+}
 
 // MARK: - 1. Postcards
 

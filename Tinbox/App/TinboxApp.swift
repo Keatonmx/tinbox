@@ -111,6 +111,26 @@ struct RootView: View {
             }
             .ignoresSafeArea()
         }
+        .confirmationDialog("An exact copy is already in the tin",
+                            isPresented: $model.duplicateDialogShown,
+                            titleVisibility: .visible,
+                            presenting: model.pendingDuplicate) { _ in
+            Button("Add anyway") { model.resolveDuplicate(.add) }
+            Button("Rename and add") { model.beginDuplicateRename() }
+            Button("Don't add", role: .cancel) { model.resolveDuplicate(.skip) }
+        } message: { pending in
+            Text("\(pending.url.lastPathComponent) matches \(pending.duplicateOf) byte for byte. Hacks and different versions import normally; renaming is handy for patching projects.")
+        }
+        .onChange(of: model.duplicateDialogShown) { shown in
+            if !shown { model.duplicateDialogDismissed() }
+        }
+        .alert("Name the copy", isPresented: $model.renamingDuplicate) {
+            TextField("File name", text: $model.duplicateRenameText)
+            Button("Add") { model.resolveDuplicate(.rename) }
+            Button("Cancel", role: .cancel) { model.resolveDuplicate(.skip) }
+        } message: {
+            Text("The file type stays the same.")
+        }
         .onChange(of: model.screen) { screen in
             if screen == .game {
                 OrientationLock.set(mask: .allButUpsideDown)
