@@ -141,20 +141,25 @@ enum Postcard {
 /// highlights and a corner specular, laid over real covers only. Deterministic
 /// per seed so a game's wrap never shimmers between renders.
 struct PlasticWrap: View {
-    var seed: UInt64 = 9
+    private let bandX: CGFloat
+    private let crease1: CGFloat
+    private let crease2: CGFloat
+
+    init(seed: UInt64 = 9) {
+        var s = seed
+        func rand() -> CGFloat {
+            s = s &* 6364136223846793005 &+ 1442695040888963407
+            return CGFloat((s >> 33) & 0xFFFF) / 65_535
+        }
+        bandX = 0.2 + rand() * 0.35
+        crease1 = 0.15 + rand() * 0.3
+        crease2 = 0.55 + rand() * 0.3
+    }
 
     var body: some View {
         GeometryReader { geo in
             let w = geo.size.width
             let h = geo.size.height
-            var s = seed
-            func rand() -> CGFloat {
-                s = s &* 6364136223846793005 &+ 1442695040888963407
-                return CGFloat((s >> 33) & 0xFFFF) / 65_535
-            }
-            let bandX = 0.2 + rand() * 0.35
-            let crease1 = 0.15 + rand() * 0.3
-            let crease2 = 0.55 + rand() * 0.3
             ZStack {
                 // Broad diagonal gloss band.
                 LinearGradient(stops: [
