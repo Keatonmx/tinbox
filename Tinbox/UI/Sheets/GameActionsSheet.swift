@@ -23,7 +23,8 @@ struct GameActionsSheet: View {
                         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                         .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Palette.hairline07, lineWidth: 0.5))
                         .contextMenu {
-                            Button { model.importKind = .coverForGame } label: { Label("Choose cover image…", systemImage: "photo") }
+                            Button { model.coverPhotoTarget = game } label: { Label("Cover from Photos…", systemImage: "photo.on.rectangle") }
+                            Button { model.importKind = .coverForGame } label: { Label("Cover from Files…", systemImage: "folder") }
                             Button { model.retryCover(for: game) } label: { Label("Find box art online", systemImage: "arrow.clockwise") }
                             Button(role: .destructive) { model.removeCover(for: game) } label: { Label("Remove cover", systemImage: "trash") }
                         }

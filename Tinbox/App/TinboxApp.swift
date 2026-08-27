@@ -104,6 +104,13 @@ struct RootView: View {
         .sheet(item: Binding(get: { model.shareURL.map(ShareItem.init) }, set: { if $0 == nil { model.shareURL = nil } })) { item in
             ShareSheet(items: [item.url]).ignoresSafeArea()
         }
+        .sheet(item: $model.coverPhotoTarget) { game in
+            CoverPhotoPicker { image in
+                if let image { model.setCover(image, for: game) }
+                model.coverPhotoTarget = nil
+            }
+            .ignoresSafeArea()
+        }
         .onChange(of: model.screen) { screen in
             if screen == .game {
                 OrientationLock.set(mask: .allButUpsideDown)

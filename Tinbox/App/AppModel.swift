@@ -77,6 +77,8 @@ final class AppModel: ObservableObject {
     @Published var shareURL: URL?
     /// Animal Crossing style system bubble (easter eggs).
     @Published var systemBubbleText: String?
+    /// Game whose cover is being picked from the Photos library.
+    @Published var coverPhotoTarget: Game?
     /// Bumped whenever a cover image changes so tiles reload from disk.
     @Published var coverVersion = 0
     /// Library search text.
@@ -253,6 +255,21 @@ final class AppModel: ObservableObject {
         } else {
             showToast("Couldn't read that image")
         }
+    }
+
+    /// Cover picked from the Photos library (Revision X).
+    func setCover(_ image: UIImage, for game: Game) {
+        let scaled = image.scaledDown(maxSide: 1024)
+        guard let data = scaled.jpegData(compressionQuality: 0.9) ?? scaled.pngData() else {
+            showToast("Couldn't read that image")
+            return
+        }
+        for ext in ["png", "jpg", "jpeg"] {
+            try? FileManager.default.removeItem(at: FileLocations.covers.appendingPathComponent("\(game.id).\(ext)"))
+        }
+        try? data.write(to: FileLocations.covers.appendingPathComponent("\(game.id).jpg"), options: .atomic)
+        coverVersion += 1
+        showToast("Cover updated")
     }
 
     func removeCover(for game: Game) {

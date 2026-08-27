@@ -14,6 +14,7 @@
 import SwiftUI
 import UIKit
 import AVFoundation
+import PhotosUI
 
 // MARK: - 1. Postcards
 
@@ -104,6 +105,58 @@ enum Postcard {
         ("®" as NSString).draw(at: CGPoint(x: box.maxX - 16, y: box.minY + 2),
                                withAttributes: [.font: UIFont.systemFont(ofSize: 12, weight: .semibold),
                                                 .foregroundColor: UIColor(white: 0.92, alpha: 0.35)])
+    }
+}
+
+// MARK: - Cover art from Photos
+
+/// Out-of-process Photos picker for cover art. No permission prompt: the
+/// picker runs in its own process and only the chosen image reaches the app.
+struct CoverPhotoPicker: UIViewControllerRepresentable {
+    let onPick: (UIImage?) -> Void
+
+    func makeUIViewController(context: Context) -> PHPickerViewController {
+        var config = PHPickerConfiguration()
+        config.filter = .images
+        config.selectionLimit = 1
+        let picker = PHPickerViewController(configuration: config)
+        picker.delegate = context.coordinator
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: PHPickerViewController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator { Coordinator(onPick: onPick) }
+
+    final class Coordinator: NSObject, PHPickerViewControllerDelegate {
+        let onPick: (UIImage?) -> Void
+        init(onPick: @escaping (UIImage?) -> Void) { self.onPick = onPick }
+
+        func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+            guard let provider = results.first?.itemProvider,
+                  provider.canLoadObject(ofClass: UIImage.self) else {
+                onPick(nil)
+                return
+            }
+            provider.loadObject(ofClass: UIImage.self) { [onPick] object, _ in
+                DispatchQueue.main.async { onPick(object as? UIImage) }
+            }
+        }
+    }
+}
+
+extension UIImage {
+    /// Caps the long edge (covers never need more than ~1024 px).
+    func scaledDown(maxSide: CGFloat) -> UIImage {
+        let side = max(size.width, size.height)
+        guard side > maxSide, side > 0 else { return self }
+        let scale = maxSide / side
+        let newSize = CGSize(width: size.width * scale, height: size.height * scale)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        return UIGraphicsImageRenderer(size: newSize, format: format).image { _ in
+            draw(in: CGRect(origin: .zero, size: newSize))
+        }
     }
 }
 
