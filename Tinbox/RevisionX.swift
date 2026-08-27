@@ -156,39 +156,88 @@ struct PlasticWrap: View {
         crease2 = 0.55 + rand() * 0.3
     }
 
+    @ViewBuilder
     var body: some View {
-        GeometryReader { geo in
-            let w = geo.size.width
-            let h = geo.size.height
-            ZStack {
-                // Broad diagonal gloss band.
-                LinearGradient(stops: [
-                    .init(color: .clear, location: max(0, bandX - 0.18)),
-                    .init(color: .white.opacity(0.16), location: bandX),
-                    .init(color: .white.opacity(0.05), location: bandX + 0.10),
-                    .init(color: .clear, location: min(1, bandX + 0.22)),
-                ], startPoint: .topLeading, endPoint: .bottomTrailing)
-                // Two thin crease highlights.
-                Path { p in
-                    p.move(to: CGPoint(x: w * crease1, y: 0))
-                    p.addQuadCurve(to: CGPoint(x: w * (crease1 + 0.16), y: h),
-                                   control: CGPoint(x: w * (crease1 + 0.30), y: h * 0.45))
-                }
-                .stroke(Color.white.opacity(0.10), lineWidth: 1.2)
-                Path { p in
-                    p.move(to: CGPoint(x: w * crease2, y: 0))
-                    p.addQuadCurve(to: CGPoint(x: w * (crease2 - 0.10), y: h),
-                                   control: CGPoint(x: w * (crease2 + 0.14), y: h * 0.6))
-                }
-                .stroke(Color.white.opacity(0.07), lineWidth: 1)
-                // Corner specular.
-                RadialGradient(colors: [.white.opacity(0.22), .clear],
-                               center: .topLeading, startRadius: 0, endRadius: max(w, h) * 0.35)
-                // Tight bright edge all round, like taut film catching light.
-                RoundedRectangle(cornerRadius: 3)
-                    .stroke(Color.white.opacity(0.10), lineWidth: 1)
-                    .padding(1)
+        // A bundled texture wins outright (add PlasticWrapTexture to the asset
+        // catalog and this picks it up); the Canvas below is the fallback.
+        if UIImage(named: "PlasticWrapTexture") != nil {
+            Image("PlasticWrapTexture")
+                .resizable()
+                .scaledToFill()
+                .opacity(0.8)
+                .blendMode(.screen)
+                .clipped()
+                .allowsHitTesting(false)
+        } else {
+            drawnWrap
+        }
+    }
+
+    private var drawnWrap: some View {
+        // Anatomy from the reference texture: a dense crinkle fringe hugging
+        // every edge, a handful of long thin streaks radiating inward, and
+        // almost nothing in the middle.
+        Canvas { ctx, size in
+            let w = size.width
+            let h = size.height
+            var s = UInt64(bandX * 100_000) &+ UInt64(crease1 * 10_000) &+ UInt64(crease2 * 1_000)
+            func rand() -> CGFloat {
+                s = s &* 6364136223846793005 &+ 1442695040888963407
+                return CGFloat((s >> 33) & 0xFFFF) / 65_535
             }
+            func stroke(_ path: Path, _ opacity: CGFloat, _ width: CGFloat) {
+                ctx.stroke(path, with: .color(.white.opacity(opacity)),
+                           style: StrokeStyle(lineWidth: width, lineCap: .round))
+            }
+
+            // Edge fringe: short angled crinkles along all four borders.
+            let perEdge = 14
+            for edge in 0..<4 {
+                for _ in 0..<perEdge {
+                    let t = rand()
+                    let len = 4 + rand() * (min(w, h) * 0.10)
+                    let jitter = (rand() - 0.5) * 10
+                    var start: CGPoint
+                    var end: CGPoint
+                    switch edge {
+                    case 0:  start = CGPoint(x: t * w, y: 1 + rand() * 3)
+                             end = CGPoint(x: start.x + jitter, y: start.y + len)
+                    case 1:  start = CGPoint(x: t * w, y: h - 1 - rand() * 3)
+                             end = CGPoint(x: start.x + jitter, y: start.y - len)
+                    case 2:  start = CGPoint(x: 1 + rand() * 3, y: t * h)
+                             end = CGPoint(x: start.x + len, y: start.y + jitter)
+                    default: start = CGPoint(x: w - 1 - rand() * 3, y: t * h)
+                             end = CGPoint(x: start.x - len, y: start.y + jitter)
+                    }
+                    var p = Path()
+                    p.move(to: start)
+                    p.addLine(to: end)
+                    stroke(p, 0.10 + rand() * 0.22, 0.8 + rand() * 0.7)
+                }
+            }
+
+            // Long radiating streaks from corners and edge midpoints.
+            let anchors: [CGPoint] = [
+                CGPoint(x: 0, y: 0), CGPoint(x: w, y: 0),
+                CGPoint(x: 0, y: h), CGPoint(x: w, y: h),
+                CGPoint(x: w / 2, y: 0), CGPoint(x: w, y: h / 2),
+            ]
+            for anchor in anchors {
+                let reach = 0.25 + rand() * 0.35
+                let target = CGPoint(x: anchor.x + (w / 2 - anchor.x) * reach * 2,
+                                     y: anchor.y + (h / 2 - anchor.y) * reach * 2)
+                let bow = CGPoint(x: (anchor.x + target.x) / 2 + (rand() - 0.5) * 18,
+                                  y: (anchor.y + target.y) / 2 + (rand() - 0.5) * 18)
+                var p = Path()
+                p.move(to: anchor)
+                p.addQuadCurve(to: target, control: bow)
+                // Soft halo under a thin bright core, like taut film catching light.
+                stroke(p, 0.05, 3)
+                stroke(p, 0.10 + rand() * 0.10, 1)
+            }
+
+            // The faintest overall sheen so the film reads as present.
+            ctx.fill(Path(CGRect(origin: .zero, size: size)), with: .color(.white.opacity(0.025)))
         }
         .allowsHitTesting(false)
     }
