@@ -164,7 +164,6 @@ struct PlasticWrap: View {
             Image("PlasticWrapTexture")
                 .resizable()
                 .scaledToFill()
-                .opacity(0.8)
                 .blendMode(.screen)
                 .clipped()
                 .allowsHitTesting(false)
