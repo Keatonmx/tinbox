@@ -18,7 +18,6 @@ enum EggText {
     static let sanitized = false
 
     static var saving: String { "SAVING… DON'T TURN OFF THE POWER" }
-    static var hurryUp: String { "HURRY UP!" }
     static var secretTheme: String { sanitized ? "X" : "SA-X" }
     static var secretToast: String { sanitized ? "Hidden theme unlocked" : "SA-X has found you · new theme unlocked" }
     static var glitchCaption: String { sanitized ? "" : "MISSINGNO." }
@@ -188,10 +187,10 @@ private struct BoostStreaks: View {
 
 // MARK: - Ambient eggs (battery warning, midnight mode)
 
-/// Lives at the root: watches the battery and the clock.
+/// Lives at the root: the midnight mode. (The low-battery warning became the
+/// GBA-style red power LED plus an automatic capsule snapshot instead of a
+/// WarioWare flash nobody could decode.)
 struct EggAmbient: View {
-    @State private var hurryVisible = false
-    @State private var hurryShown = false
     @State private var midnight = false
     @State private var batFlying = false
 
@@ -203,37 +202,13 @@ struct EggAmbient: View {
                     .allowsHitTesting(false)
                 if batFlying { PixelBat() }
             }
-            if hurryVisible {
-                Text(EggText.hurryUp)
-                    .font(.system(size: 30, weight: .black, design: .monospaced))
-                    .foregroundColor(Color(hex: 0xFFD23F))
-                    .shadow(color: .black, radius: 0, x: 3, y: 3)
-                    .rotationEffect(.degrees(-4))
-                    .transition(.scale(scale: 2.2).combined(with: .opacity))
-                    .allowsHitTesting(false)
-            }
         }
         .onAppear {
-            UIDevice.current.isBatteryMonitoringEnabled = true
-            checkBattery()
             let hour = Calendar.current.component(.hour, from: Date())
             if hour == 0 {
                 midnight = true
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { batFlying = true }
             }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: UIDevice.batteryLevelDidChangeNotification)) { _ in
-            checkBattery()
-        }
-    }
-
-    private func checkBattery() {
-        let level = UIDevice.current.batteryLevel
-        guard !hurryShown, level > 0, level <= 0.10, UIDevice.current.batteryState == .unplugged else { return }
-        hurryShown = true
-        withAnimation(.spring(response: 0.25, dampingFraction: 0.65)) { hurryVisible = true }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
-            withAnimation(.easeOut(duration: 0.3)) { hurryVisible = false }
         }
     }
 }

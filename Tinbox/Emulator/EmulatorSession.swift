@@ -288,6 +288,9 @@ final class EmulatorSession: ObservableObject {
     var lidShown = false
     /// Bumped whenever the game writes its battery save (easter-egg flash).
     @Published private(set) var saveFlash = 0
+    /// Phone battery at 10% or less while unplugged: the MENU pill's power
+    /// LED turns red, like a real GBA's battery light.
+    @Published private(set) var batteryLow = false
 
     /// Effective speed (1 when fast-forward is off).
     var currentSpeed: Double { isFastForward ? ffSpeed : 1 }
@@ -351,6 +354,21 @@ final class EmulatorSession: ObservableObject {
                 self.cameraFeed.stop()
             }
         }
+
+        // The GBA battery light: red LED when the phone runs low.
+        UIDevice.current.isBatteryMonitoringEnabled = true
+        let updateBattery: () -> Void = { [weak self] in
+            let level = UIDevice.current.batteryLevel
+            let low = level > 0 && level <= 0.10 && UIDevice.current.batteryState == .unplugged
+            DispatchQueue.main.async {
+                guard let self, self.batteryLow != low else { return }
+                self.batteryLow = low
+            }
+        }
+        for name in [UIDevice.batteryLevelDidChangeNotification, UIDevice.batteryStateDidChangeNotification] {
+            NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { _ in updateBattery() }
+        }
+        updateBattery()
 
         // Auto sun: iOS has no public lux API, but with auto-brightness on the
         // screen brightness tracks the ambient light sensor, and this fires

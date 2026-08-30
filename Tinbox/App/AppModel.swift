@@ -127,6 +127,18 @@ final class AppModel: ObservableObject {
             self.settings.hasSeenCapsuleHint = true
             self.showToast("Time Capsule is on · find it in the Quick Menu")
         }
+        // Low battery mid-game: stash a capsule snapshot (battery deaths are
+        // exactly when progress gets lost) and explain the red LED once.
+        session.$batteryLow
+            .removeDuplicates()
+            .filter { $0 }
+            .sink { [weak self] _ in
+                guard let self, self.screen == .game, self.session.isRunning else { return }
+                self.session.captureCapsuleMoment()
+                self.showToast("Battery low: snapshot saved. The LED turns red, like a real GBA.")
+            }
+            .store(in: &cancellables)
+
         session.$controllerConnected
             .removeDuplicates()
             .dropFirst()

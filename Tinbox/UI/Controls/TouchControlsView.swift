@@ -128,8 +128,11 @@ private struct ControlSlot: View {
             case .start:
                 BottomPillView(label: "START", metrics: metrics, pressed: pressed.contains(.start))
             case .menu:
+                // LED like the hardware: green running, amber paused, red when
+                // the phone battery is nearly gone (the GBA battery light).
                 BottomPillView(label: "MENU", metrics: metrics, pressed: pressed.contains(.menu), accent: true,
-                               led: session.isRunning && !session.isPaused ? Color(hex: 0x58CC52) : Color(hex: 0xE0A835))
+                               led: session.batteryLow ? Color(hex: 0xE04335)
+                                    : session.isRunning && !session.isPaused ? Color(hex: 0x58CC52) : Color(hex: 0xE0A835))
             case .fastForward:
                 FastForwardButtonView(active: session.isFastForward,
                                       pressed: pressed.contains(.fastForward),
