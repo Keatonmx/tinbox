@@ -55,7 +55,8 @@ struct PortraitGameView: View {
             screenBand
             controlsArea
         }
-        .background(theme.bg.ignoresSafeArea())
+        // Glass: the cover glow shows through around the screen and controls.
+        .background { if !theme.isGlass { theme.bg.ignoresSafeArea() } }
         .onChange(of: model.isLayoutEditing) { editing in
             if editing { editingLayout = model.currentProfile.portrait }
         }
@@ -98,6 +99,16 @@ struct PortraitGameView: View {
         .padding(.horizontal, 14)
         .padding(.top, 8)
         .padding(.bottom, 8)
+        // Glass: the top bar is a frosted strip over the glow.
+        .background {
+            if theme.isGlass {
+                Rectangle().fill(.ultraThinMaterial)
+                    .ignoresSafeArea(edges: .top)
+                    .overlay(alignment: .bottom) {
+                        Rectangle().fill(Color.white.opacity(0.08)).frame(height: 0.5)
+                    }
+            }
+        }
     }
 
     private var screenBand: some View {

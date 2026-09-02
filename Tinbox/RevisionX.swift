@@ -19,22 +19,27 @@ import CryptoKit
 
 // MARK: - Glass theme backdrop
 
-/// Behind the library when the Glass theme is active: the most recent game's
-/// cover, blown up and heavily blurred, so the frosted panels have something
-/// to refract. Falls back to soft colour blobs when no art exists.
+/// Behind the UI when the Glass theme is active: a mosaic of the most recent
+/// covers (current game first), blown up and heavily blurred, so the frosted
+/// panels have something to refract. Falls back to drifting colour blobs.
 struct GlassBackdrop: View {
     @EnvironmentObject private var model: AppModel
+    @State private var covers: [UIImage] = []
+
+    private func reload() {
+        var games = model.games
+        if let current = model.currentGame {
+            games.removeAll { $0.id == current.id }
+            games.insert(current, at: 0)
+        }
+        covers = Array(games.compactMap { GameLibraryStore.shared.coverImage(for: $0) }.prefix(4))
+    }
 
     var body: some View {
         Group {
-            if let game = model.currentGame ?? model.recentGame,
-               let cover = GameLibraryStore.shared.coverImage(for: game) {
+            if !covers.isEmpty {
                 GeometryReader { geo in
-                    Image(uiImage: cover)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: geo.size.width, height: geo.size.height)
-                        .clipped()
+                    mosaic(size: geo.size)
                         .blur(radius: 55, opaque: true)
                         .saturation(1.35)
                         .overlay(Color.black.opacity(0.28))
@@ -61,6 +66,45 @@ struct GlassBackdrop: View {
         }
         .ignoresSafeArea()
         .allowsHitTesting(false)
+        .onAppear { reload() }
+        .onChange(of: model.coverVersion) { _ in reload() }
+        .onChange(of: model.currentGame?.id) { _ in reload() }
+    }
+
+    /// One cover fills; two split vertically; three or four tile in quadrants.
+    /// It all melts together under the blur anyway.
+    @ViewBuilder
+    private func mosaic(size: CGSize) -> some View {
+        let w = size.width
+        let h = size.height
+        switch covers.count {
+        case 1:
+            tile(covers[0], w: w, h: h)
+        case 2:
+            HStack(spacing: 0) {
+                tile(covers[0], w: w / 2, h: h)
+                tile(covers[1], w: w / 2, h: h)
+            }
+        default:
+            VStack(spacing: 0) {
+                HStack(spacing: 0) {
+                    tile(covers[0], w: w / 2, h: h / 2)
+                    tile(covers[1], w: w / 2, h: h / 2)
+                }
+                HStack(spacing: 0) {
+                    tile(covers[covers.count > 2 ? 2 : 0], w: w / 2, h: h / 2)
+                    tile(covers[covers.count > 3 ? 3 : 1], w: w / 2, h: h / 2)
+                }
+            }
+        }
+    }
+
+    private func tile(_ image: UIImage, w: CGFloat, h: CGFloat) -> some View {
+        Image(uiImage: image)
+            .resizable()
+            .scaledToFill()
+            .frame(width: w, height: h)
+            .clipped()
     }
 }
 

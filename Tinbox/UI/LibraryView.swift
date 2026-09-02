@@ -363,12 +363,23 @@ struct CoverArt: View {
                 theme.chip
                 StripedPlaceholder(stripe: Color(hue: game.coverHue / 360, saturation: 0.4, brightness: 0.65).opacity(0.13),
                                    period: 20, width: 8)
-                Image("MissingNo")
-                    .resizable()
-                    .interpolation(.none)
-                    .scaledToFit()
-                    .frame(height: 62)
-                    .opacity(0.85)
+                GeometryReader { geo in
+                    VStack(spacing: 7) {
+                        Image("MissingNo")
+                            .resizable()
+                            .interpolation(.none)
+                            .scaledToFit()
+                            .frame(height: geo.size.width >= 110 ? 62 : geo.size.height * 0.55)
+                            .opacity(0.85)
+                        // Caption only where it can actually be read.
+                        if geo.size.width >= 110, !EggText.glitchCaption.isEmpty {
+                            Text(EggText.glitchCaption)
+                                .font(Typography.mono8Bold).tracking(1)
+                                .foregroundColor(Palette.textQuaternary)
+                        }
+                    }
+                    .frame(width: geo.size.width, height: geo.size.height)
+                }
             }
         }
     }
