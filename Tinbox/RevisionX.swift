@@ -37,17 +37,25 @@ struct GlassBackdrop: View {
                         .clipped()
                         .blur(radius: 55, opaque: true)
                         .saturation(1.35)
-                        .overlay(Color.black.opacity(0.45))
+                        .overlay(Color.black.opacity(0.28))
                 }
             } else {
-                ZStack {
-                    Color(hex: 0x0B0E14)
-                    RadialGradient(colors: [Color(hex: 0x2E5C8A).opacity(0.55), .clear],
-                                   center: .topLeading, startRadius: 0, endRadius: 480)
-                    RadialGradient(colors: [Color(hex: 0x5A3E8A).opacity(0.45), .clear],
-                                   center: .bottomTrailing, startRadius: 0, endRadius: 520)
-                    RadialGradient(colors: [Color(hex: 0x1F7A6A).opacity(0.35), .clear],
-                                   center: .bottom, startRadius: 0, endRadius: 420)
+                // No art anywhere: colour blobs drifting on a slow cycle so the
+                // glass always has something alive behind it.
+                TimelineView(.animation(minimumInterval: 1 / 20)) { timeline in
+                    let t = timeline.date.timeIntervalSinceReferenceDate / 14
+                    ZStack {
+                        Color(hex: 0x0B0E14)
+                        RadialGradient(colors: [Color(hex: 0x2E5C8A).opacity(0.6), .clear],
+                                       center: .topLeading, startRadius: 0, endRadius: 500)
+                            .offset(x: sin(t) * 70, y: cos(t * 0.7) * 50)
+                        RadialGradient(colors: [Color(hex: 0x5A3E8A).opacity(0.5), .clear],
+                                       center: .bottomTrailing, startRadius: 0, endRadius: 540)
+                            .offset(x: cos(t * 0.9) * 60, y: sin(t * 0.6) * 70)
+                        RadialGradient(colors: [Color(hex: 0x1F7A6A).opacity(0.4), .clear],
+                                       center: .bottom, startRadius: 0, endRadius: 440)
+                            .offset(x: sin(t * 1.2) * 80, y: cos(t) * 30)
+                    }
                 }
             }
         }

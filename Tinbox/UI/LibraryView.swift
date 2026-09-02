@@ -18,8 +18,10 @@ struct LibraryView: View {
     @FocusState private var searchFocused: Bool
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
+        // Content scrolls under the header; in Glass the header is a floating
+        // frosted bar, in every other theme its opaque background makes this
+        // read exactly like the old stacked layout.
+        ZStack(alignment: .top) {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 16) {
                     if model.games.count > 4 || !model.searchText.isEmpty {
@@ -85,12 +87,25 @@ struct LibraryView: View {
                     }
                 }
                 .padding(.horizontal, 20)
-                .padding(.top, 8)
+                .padding(.top, 112)
                 .padding(.bottom, 60)
             }
             .scrollDismissesKeyboard(.interactively)
+
+            header
+                .background {
+                    if theme.isGlass {
+                        Rectangle().fill(.ultraThinMaterial)
+                            .ignoresSafeArea(edges: .top)
+                            .overlay(alignment: .bottom) {
+                                Rectangle().fill(Color.white.opacity(0.08)).frame(height: 0.5)
+                            }
+                    } else {
+                        theme.bg.ignoresSafeArea(edges: .top)
+                    }
+                }
         }
-        .background(theme.bg.ignoresSafeArea())
+        .background { if !theme.isGlass { theme.bg.ignoresSafeArea() } }
     }
 
     private var searchBar: some View {
@@ -262,6 +277,16 @@ struct GameTile: View {
                     .foregroundColor(Palette.textTertiary)
             }
             .padding(.horizontal, 2)
+        }
+        // Glass: every tile sits on its own frosted shelf.
+        .padding(theme.isGlass ? 9 : 0)
+        .background {
+            if theme.isGlass {
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .stroke(Color.white.opacity(0.12), lineWidth: 1))
+            }
         }
         .contentShape(Rectangle())
     }
