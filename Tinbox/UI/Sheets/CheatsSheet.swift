@@ -50,7 +50,7 @@ struct CheatsSheet: View {
                         }
                     }
                 }
-                .background(theme.card)
+                .background(theme.cardStyle)
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             }
         }
@@ -69,7 +69,7 @@ struct CheatsSheet: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
-        .background(theme.card)
+        .background(theme.cardStyle)
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .padding(.bottom, 12)
         .transition(.opacity.combined(with: .move(edge: .top)))
@@ -87,7 +87,7 @@ struct CheatsSheet: View {
             .onSubmit { if fieldID == .name { focus = .code } else { submit() } }
             .padding(.horizontal, 14)
             .padding(.vertical, 11)
-            .background(theme.well)
+            .background(theme.wellStyle)
             .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(Palette.hairline10, lineWidth: 0.5))
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }

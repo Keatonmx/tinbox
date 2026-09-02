@@ -108,7 +108,7 @@ struct TimeCapsuleSheet: View {
             .buttonStyle(FadePressStyle())
         }
         .padding(16)
-        .background(theme.card)
+        .background(theme.cardStyle)
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
@@ -137,7 +137,7 @@ struct TimeCapsuleSheet: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 26)
         .padding(.horizontal, 18)
-        .background(theme.card)
+        .background(theme.cardStyle)
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
@@ -198,7 +198,7 @@ struct TimeCapsuleSheet: View {
         }
         .frame(height: 86)
         .padding(.vertical, 4)
-        .background(theme.well)
+        .background(theme.wellStyle)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Palette.hairline08, lineWidth: 0.5))
     }

@@ -89,7 +89,7 @@ struct QuickMenuSheet: View {
                     .foregroundColor(Palette.destructive)
                     .frame(maxWidth: .infinity)
                     .frame(minHeight: 54)
-                    .background(theme.card)
+                    .background(theme.cardStyle)
                     .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             }
             .buttonStyle(ExitPressStyle())
@@ -121,7 +121,7 @@ struct QuickMenuSheet: View {
             }
             .frame(maxWidth: .infinity)
             .frame(height: 64)
-            .background(theme.card)
+            .background(theme.cardStyle)
             .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Palette.hairline08, lineWidth: 0.5))
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
@@ -184,7 +184,7 @@ struct LandscapeQuickMenu: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 18)
             .frame(width: 480)
-            .background(theme.sheet)
+            .background(theme.sheetStyle)
             .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous).stroke(Palette.hairline10, lineWidth: 0.5))
             .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
             .shadow(color: .black.opacity(0.6), radius: 30, y: 20)

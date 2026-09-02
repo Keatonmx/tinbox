@@ -17,6 +17,45 @@ import AVFoundation
 import PhotosUI
 import CryptoKit
 
+// MARK: - Glass theme backdrop
+
+/// Behind the library when the Glass theme is active: the most recent game's
+/// cover, blown up and heavily blurred, so the frosted panels have something
+/// to refract. Falls back to soft colour blobs when no art exists.
+struct GlassBackdrop: View {
+    @EnvironmentObject private var model: AppModel
+
+    var body: some View {
+        Group {
+            if let game = model.currentGame ?? model.recentGame,
+               let cover = GameLibraryStore.shared.coverImage(for: game) {
+                GeometryReader { geo in
+                    Image(uiImage: cover)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: geo.size.width, height: geo.size.height)
+                        .clipped()
+                        .blur(radius: 55, opaque: true)
+                        .saturation(1.35)
+                        .overlay(Color.black.opacity(0.45))
+                }
+            } else {
+                ZStack {
+                    Color(hex: 0x0B0E14)
+                    RadialGradient(colors: [Color(hex: 0x2E5C8A).opacity(0.55), .clear],
+                                   center: .topLeading, startRadius: 0, endRadius: 480)
+                    RadialGradient(colors: [Color(hex: 0x5A3E8A).opacity(0.45), .clear],
+                                   center: .bottomTrailing, startRadius: 0, endRadius: 520)
+                    RadialGradient(colors: [Color(hex: 0x1F7A6A).opacity(0.35), .clear],
+                                   center: .bottom, startRadius: 0, endRadius: 420)
+                }
+            }
+        }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+    }
+}
+
 // MARK: - Duplicate ROM detection
 
 enum ROMDuplicates {
@@ -567,7 +606,7 @@ struct SaveInsightRows: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 7)
-                        .background(theme.well)
+                        .background(theme.wellStyle)
                         .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
                     }
                 }

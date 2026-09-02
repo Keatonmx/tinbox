@@ -92,7 +92,7 @@ struct SecondaryPill: View {
                 .foregroundColor(Palette.text85)
                 .padding(.horizontal, 18)
                 .padding(.vertical, 8)
-                .background(theme.secondaryButton)
+                .background(theme.secondaryStyle)
                 .clipShape(Capsule())
         }
         .buttonStyle(FadePressStyle())
@@ -105,7 +105,7 @@ struct BackCircleButton: View {
     var body: some View {
         Button(action: action) {
             ZStack {
-                Circle().fill(theme.card).frame(width: 34, height: 34)
+                Circle().fill(theme.cardStyle).frame(width: 34, height: 34)
                 ChevronShape(direction: .left)
                     .stroke(Palette.text80, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
                     .frame(width: 8, height: 14)
@@ -243,8 +243,11 @@ struct Card<Content: View>: View {
     @ViewBuilder let content: Content
     var body: some View {
         VStack(spacing: 0) { content }
-            .background(theme.card)
+            .background(theme.cardStyle)
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            // Glass panels get the light-catching edge.
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(theme.isGlass ? Color.white.opacity(0.14) : .clear, lineWidth: 1))
             .padding(.bottom, bottomSpacing)
     }
 }
@@ -452,7 +455,7 @@ struct BottomSheet<Content: View>: View {
                 // the cap); sizing from the content makes the sheet hug short
                 // content and only reach the cap — and scroll — when it must.
                 .fixedSize(horizontal: false, vertical: true)
-                .background(theme.sheet)
+                .background(theme.sheetStyle)
                 .clipShape(TopRoundedRectangle(radius: 34))
                 .shadow(color: .black.opacity(0.5), radius: 20, y: -10)
                 .offset(y: dragOffset)
@@ -550,7 +553,7 @@ struct CircleIconButton<Icon: View>: View {
             action()
         } label: {
             ZStack {
-                Circle().fill(theme.chip)
+                Circle().fill(theme.chipStyle)
                 Circle().stroke(Palette.hairline08, lineWidth: 0.5)
                 icon
             }

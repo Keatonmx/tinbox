@@ -43,7 +43,7 @@ struct SkinsSheet: View {
                                 .padding(.horizontal, 14)
                                 .frame(height: 92)
                                 .frame(maxWidth: .infinity)
-                                .background(theme.well)
+                                .background(theme.wellStyle)
                                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                                 .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
                                     .stroke(selected ? theme.accent : Palette.hairline10, lineWidth: selected ? 2 : 0.5))
@@ -217,7 +217,7 @@ struct RetroAchievementsSheet: View {
                             Task { await ra.logout() }
                         }
                     }
-                    .background(theme.card)
+                    .background(theme.cardStyle)
                     .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 }
             }
@@ -269,7 +269,7 @@ struct RALoginSheet: View {
                 }
             }
             .padding(16)
-            .background(theme.card)
+            .background(theme.cardStyle)
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
     }
@@ -282,7 +282,7 @@ struct WellField: ViewModifier {
             .font(.system(size: 15))
             .foregroundColor(.white)
             .padding(.horizontal, 14).padding(.vertical, 11)
-            .background(theme.well)
+            .background(theme.wellStyle)
             .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(Palette.hairline10, lineWidth: 0.5))
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
@@ -316,7 +316,7 @@ struct LayoutProfilesSheet: View {
                         }
                     }
                 }
-                .background(theme.card)
+                .background(theme.cardStyle)
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 .padding(.bottom, 12)
                 HStack(spacing: 10) {

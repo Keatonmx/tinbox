@@ -112,7 +112,7 @@ struct LibraryView: View {
             }
             .padding(.horizontal, 12)
             .frame(height: 40)
-            .background(theme.chip)
+            .background(theme.chipStyle)
             .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Palette.hairline08, lineWidth: 0.5))
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
@@ -128,7 +128,7 @@ struct LibraryView: View {
                 .foregroundColor(Palette.text70)
                 .padding(.horizontal, 12)
                 .frame(height: 40)
-                .background(theme.chip)
+                .background(theme.chipStyle)
                 .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Palette.hairline08, lineWidth: 0.5))
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
@@ -305,7 +305,7 @@ struct ContinueCard: View {
                 .frame(width: 40, height: 40)
             }
             .padding(12)
-            .background(theme.card)
+            .background(theme.cardStyle)
             .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(theme.tintBorder.opacity(0.6), lineWidth: 1))
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             .contentShape(Rectangle())

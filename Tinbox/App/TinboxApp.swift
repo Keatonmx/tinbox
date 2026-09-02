@@ -55,6 +55,9 @@ struct RootView: View {
             let landscape = geo.size.width > geo.size.height
             ZStack {
                 theme.bg.ignoresSafeArea()
+                if theme.isGlass {
+                    GlassBackdrop()
+                }
 
                 switch model.screen {
                 case .library:

@@ -65,7 +65,7 @@ built on the mGBA core. No accounts, no ads, no analytics.
 
 ## Identity & extras
 
-- 10 themes — **Tin** (the icon's olive & LED green) is the default; one is hidden
+- 11 themes — **Tin** (the icon's olive & LED green) is the default, **Glass** renders frosted material panels over a glow from your game's cover; one is hidden
 - 7 controller skins (Surplus pairs with Tin)
 - Stamped TINBOX® branding; the tin's clamshell boot; a handful of affectionate easter eggs
 - RetroAchievements sign-in for progress viewing

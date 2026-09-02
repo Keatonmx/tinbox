@@ -18,6 +18,8 @@ enum ThemeName: String, CaseIterable, Codable, Identifiable {
     case ember = "Ember"
     case sakura = "Sakura"
     case mint = "Mint"
+    /// Frosted material surfaces over a glow from the current game's cover.
+    case glass = "Glass"
     /// Hidden until unlocked by tapping the version number in About 5 times.
     case saX = "SA-X"
     var id: String { rawValue }
@@ -33,6 +35,7 @@ enum ThemeName: String, CaseIterable, Codable, Identifiable {
         case .ember: return "Coal and glowing orange"
         case .sakura: return "Pink on charcoal"
         case .mint: return "Teal on slate"
+        case .glass: return "Frosted glass lit by your game"
         case .saX: return "It knows you found it"
         }
     }
@@ -155,12 +158,25 @@ struct ThemeTokens: Equatable {
     static let sakura = make(name: .sakura, accent: 0xF07AA0, accentText: 0xFFA3C1, accentText2: 0xFFB5CD,
                              badge: (210, 96, 140), bg: 0x140C10, sheet: 0x1E1218, card: 0x2A1A22, well: 0x170D12,
                              chip: 0x211419, button: 0x44303A)
+    static let glass = make(name: .glass, accent: 0x7CC7FF, accentText: 0xAEDCFF, accentText2: 0xC2E6FF,
+                            badge: (86, 150, 220), bg: 0x0B0E14, sheet: 0x151A24, card: 0x1B2230, well: 0x0E1119,
+                            chip: 0x161C28, button: 0x2E3A4E)
     static let saX = make(name: .saX, accent: 0x9FD8FF, accentText: 0xC6E8FF, accentText2: 0xD6EFFF,
                           badge: (110, 170, 220), bg: 0x090D12, sheet: 0x10161D, card: 0x161F28, well: 0x0B1016,
                           chip: 0x121A22, button: 0x2B3948)
     static let mint = make(name: .mint, accent: 0x3FD6B0, accentText: 0x7FE6CC, accentText2: 0x97EDD6,
                            badge: (44, 170, 140), bg: 0x0B1211, sheet: 0x121C1A, card: 0x1A2624, well: 0x0E1515,
                            chip: 0x152020, button: 0x304542)
+
+    /// Glass renders shared surfaces as frosted materials; every other theme
+    /// uses its solid colours. The colour tokens remain the fallback anywhere
+    /// a material is not applied.
+    var isGlass: Bool { name == .glass }
+    var cardStyle: AnyShapeStyle { isGlass ? AnyShapeStyle(.ultraThinMaterial) : AnyShapeStyle(card) }
+    var sheetStyle: AnyShapeStyle { isGlass ? AnyShapeStyle(.regularMaterial) : AnyShapeStyle(sheet) }
+    var wellStyle: AnyShapeStyle { isGlass ? AnyShapeStyle(.ultraThinMaterial) : AnyShapeStyle(well) }
+    var chipStyle: AnyShapeStyle { isGlass ? AnyShapeStyle(.ultraThinMaterial) : AnyShapeStyle(chip) }
+    var secondaryStyle: AnyShapeStyle { isGlass ? AnyShapeStyle(.thinMaterial) : AnyShapeStyle(secondaryButton) }
 
     static func tokens(for name: ThemeName) -> ThemeTokens {
         switch name {
@@ -173,6 +189,7 @@ struct ThemeTokens: Equatable {
         case .ember: return .ember
         case .sakura: return .sakura
         case .mint: return .mint
+        case .glass: return .glass
         case .saX: return .saX
         }
     }

@@ -38,7 +38,7 @@ struct SaveStatesSheet: View {
                         }
                     }
                 }
-                .background(theme.card)
+                .background(theme.cardStyle)
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 Text("Tap to load · hold a slot to overwrite or delete it")
                     .font(Typography.meta)

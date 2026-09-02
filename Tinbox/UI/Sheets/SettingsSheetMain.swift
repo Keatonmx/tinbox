@@ -382,7 +382,7 @@ struct GameOverridesSheet: View {
                                 .foregroundColor(Palette.destructive)
                                 .frame(maxWidth: .infinity)
                                 .frame(minHeight: 54)
-                                .background(theme.card)
+                                .background(theme.cardStyle)
                                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                         }
                         .buttonStyle(ExitPressStyle())
