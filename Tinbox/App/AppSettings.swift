@@ -142,6 +142,8 @@ struct AppSettings: Codable, Equatable {
     var controllerBindings: [String: String] = [:]
     /// The hidden theme, unlocked by tapping the version in About 5 times.
     var secretThemeUnlocked: Bool = false
+    /// Accent colour for the Glass theme.
+    var glassAccent: GlassAccent = .blue
     var autoSuspendSave: Bool = true
     var backgroundAudioMixing: Bool = false
 
@@ -219,6 +221,7 @@ struct AppSettings: Codable, Equatable {
         rtcOffsetSeconds = try c.decodeIfPresent(Int.self, forKey: .rtcOffsetSeconds) ?? d.rtcOffsetSeconds
         controllerBindings = try c.decodeIfPresent([String: String].self, forKey: .controllerBindings) ?? d.controllerBindings
         secretThemeUnlocked = try c.decodeIfPresent(Bool.self, forKey: .secretThemeUnlocked) ?? d.secretThemeUnlocked
+        glassAccent = ((try? c.decodeIfPresent(GlassAccent.self, forKey: .glassAccent)) ?? nil) ?? d.glassAccent
         autoSuspendSave = true
         backgroundAudioMixing = try c.decodeIfPresent(Bool.self, forKey: .backgroundAudioMixing) ?? d.backgroundAudioMixing
         scaling = try c.decodeIfPresent(DisplayScaling.self, forKey: .scaling) ?? d.scaling

@@ -24,23 +24,61 @@ import CryptoKit
 /// panels have something to refract. Falls back to drifting colour blobs.
 struct GlassBackdrop: View {
     @EnvironmentObject private var model: AppModel
-    @State private var covers: [UIImage] = []
+    @State private var composed: UIImage?
 
+    /// Pre-composes up to 4 recent covers into a tiny bitmap; the bilinear
+    /// upscale to screen size plus a light blur melts them into one seamless
+    /// glow. Live-stacking full-size tiles left hard seams the GPU blur
+    /// would not cross.
     private func reload() {
-        var games = model.games
+        var games = model.games.sorted { ($0.lastPlayed ?? $0.addedAt) > ($1.lastPlayed ?? $1.addedAt) }
         if let current = model.currentGame {
             games.removeAll { $0.id == current.id }
             games.insert(current, at: 0)
         }
-        covers = Array(games.compactMap { GameLibraryStore.shared.coverImage(for: $0) }.prefix(4))
+        let covers = Array(games.compactMap { GameLibraryStore.shared.coverImage(for: $0) }.prefix(4))
+        guard !covers.isEmpty else {
+            composed = nil
+            return
+        }
+        let canvas = CGSize(width: 24, height: 48)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        composed = UIGraphicsImageRenderer(size: canvas, format: format).image { ctx in
+            let rects: [CGRect]
+            switch covers.count {
+            case 1: rects = [CGRect(origin: .zero, size: canvas)]
+            case 2: rects = [CGRect(x: 0, y: 0, width: 24, height: 24),
+                             CGRect(x: 0, y: 24, width: 24, height: 24)]
+            case 3: rects = [CGRect(x: 0, y: 0, width: 24, height: 20),
+                             CGRect(x: 0, y: 20, width: 12, height: 28),
+                             CGRect(x: 12, y: 20, width: 12, height: 28)]
+            default: rects = [CGRect(x: 0, y: 0, width: 12, height: 24),
+                              CGRect(x: 12, y: 0, width: 12, height: 24),
+                              CGRect(x: 0, y: 24, width: 12, height: 24),
+                              CGRect(x: 12, y: 24, width: 12, height: 24)]
+            }
+            for (cover, rect) in zip(covers, rects) {
+                ctx.cgContext.saveGState()
+                ctx.cgContext.clip(to: rect)
+                // Aspect-fill the tile.
+                let scale = max(rect.width / cover.size.width, rect.height / cover.size.height)
+                let drawSize = CGSize(width: cover.size.width * scale, height: cover.size.height * scale)
+                cover.draw(in: CGRect(x: rect.midX - drawSize.width / 2, y: rect.midY - drawSize.height / 2,
+                                      width: drawSize.width, height: drawSize.height))
+                ctx.cgContext.restoreGState()
+            }
+        }
     }
 
     var body: some View {
         Group {
-            if !covers.isEmpty {
+            if let composed {
                 GeometryReader { geo in
-                    mosaic(size: geo.size)
-                        .blur(radius: 55, opaque: true)
+                    Image(uiImage: composed)
+                        .resizable()
+                        .frame(width: geo.size.width, height: geo.size.height)
+                        .blur(radius: 28, opaque: true)
                         .saturation(1.35)
                         .overlay(Color.black.opacity(0.28))
                 }
@@ -69,42 +107,6 @@ struct GlassBackdrop: View {
         .onAppear { reload() }
         .onChange(of: model.coverVersion) { _ in reload() }
         .onChange(of: model.currentGame?.id) { _ in reload() }
-    }
-
-    /// One cover fills; two split vertically; three or four tile in quadrants.
-    /// It all melts together under the blur anyway.
-    @ViewBuilder
-    private func mosaic(size: CGSize) -> some View {
-        let w = size.width
-        let h = size.height
-        switch covers.count {
-        case 1:
-            tile(covers[0], w: w, h: h)
-        case 2:
-            HStack(spacing: 0) {
-                tile(covers[0], w: w / 2, h: h)
-                tile(covers[1], w: w / 2, h: h)
-            }
-        default:
-            VStack(spacing: 0) {
-                HStack(spacing: 0) {
-                    tile(covers[0], w: w / 2, h: h / 2)
-                    tile(covers[1], w: w / 2, h: h / 2)
-                }
-                HStack(spacing: 0) {
-                    tile(covers[covers.count > 2 ? 2 : 0], w: w / 2, h: h / 2)
-                    tile(covers[covers.count > 3 ? 3 : 1], w: w / 2, h: h / 2)
-                }
-            }
-        }
-    }
-
-    private func tile(_ image: UIImage, w: CGFloat, h: CGFloat) -> some View {
-        Image(uiImage: image)
-            .resizable()
-            .scaledToFill()
-            .frame(width: w, height: h)
-            .clipped()
     }
 }
 

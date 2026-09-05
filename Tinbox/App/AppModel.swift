@@ -98,7 +98,10 @@ final class AppModel: ObservableObject {
     @Published var searchText = ""
     @Published private(set) var lastSyncText: String = "Never"
 
-    var theme: ThemeTokens { ThemeTokens.tokens(for: settings.theme) }
+    var theme: ThemeTokens {
+        settings.theme == .glass ? ThemeTokens.glassTokens(settings.glassAccent)
+                                 : ThemeTokens.tokens(for: settings.theme)
+    }
     var skin: ControllerSkin { ControllerSkin.skin(named: settings.skin) }
 
     private var toastWork: DispatchWorkItem?

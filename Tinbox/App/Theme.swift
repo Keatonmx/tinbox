@@ -41,6 +41,53 @@ enum ThemeName: String, CaseIterable, Codable, Identifiable {
     }
 }
 
+/// Accent choices for the Glass theme (picked in the Themes sheet).
+enum GlassAccent: String, CaseIterable, Codable, Identifiable {
+    case blue, violet, teal, pink, amber, silver
+    var id: String { rawValue }
+
+    var accentHex: UInt32 {
+        switch self {
+        case .blue: return 0x7CC7FF
+        case .violet: return 0xA78BFA
+        case .teal: return 0x4FD8C2
+        case .pink: return 0xF08AB8
+        case .amber: return 0xF0C060
+        case .silver: return 0xC9D2DC
+        }
+    }
+    var textHex: UInt32 {
+        switch self {
+        case .blue: return 0xAEDCFF
+        case .violet: return 0xC4B0FF
+        case .teal: return 0x8AE8D9
+        case .pink: return 0xFFB0D0
+        case .amber: return 0xFFD98A
+        case .silver: return 0xDEE5EC
+        }
+    }
+    var text2Hex: UInt32 {
+        switch self {
+        case .blue: return 0xC2E6FF
+        case .violet: return 0xD2C4FF
+        case .teal: return 0xA0EFE2
+        case .pink: return 0xFFC2DA
+        case .amber: return 0xFFE2A4
+        case .silver: return 0xE8EEF3
+        }
+    }
+    var badge: (Int, Int, Int) {
+        switch self {
+        case .blue: return (86, 150, 220)
+        case .violet: return (130, 105, 220)
+        case .teal: return (52, 168, 150)
+        case .pink: return (210, 110, 160)
+        case .amber: return (208, 160, 70)
+        case .silver: return (150, 160, 175)
+        }
+    }
+}
+
 struct ThemeTokens: Equatable {
     let name: ThemeName
 
@@ -172,6 +219,13 @@ struct ThemeTokens: Equatable {
     /// uses its solid colours. The colour tokens remain the fallback anywhere
     /// a material is not applied.
     var isGlass: Bool { name == .glass }
+
+    /// Glass builds its tokens from a user-chosen accent.
+    static func glassTokens(_ accent: GlassAccent) -> ThemeTokens {
+        make(name: .glass, accent: accent.accentHex, accentText: accent.textHex, accentText2: accent.text2Hex,
+             badge: accent.badge, bg: 0x0B0E14, sheet: 0x151A24, card: 0x1B2230, well: 0x0E1119,
+             chip: 0x161C28, button: 0x2E3A4E)
+    }
     var cardStyle: AnyShapeStyle { isGlass ? AnyShapeStyle(.ultraThinMaterial) : AnyShapeStyle(card) }
     var sheetStyle: AnyShapeStyle { isGlass ? AnyShapeStyle(.regularMaterial) : AnyShapeStyle(sheet) }
     var wellStyle: AnyShapeStyle { isGlass ? AnyShapeStyle(.ultraThinMaterial) : AnyShapeStyle(well) }

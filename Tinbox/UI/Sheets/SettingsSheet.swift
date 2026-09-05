@@ -79,16 +79,51 @@ struct ThemesSheet: View {
         BottomSheet(maxHeightFraction: 0.84, onDismiss: { model.openSheet(.settings) }) {
             SheetHeader(title: "Theme", onBack: { model.openSheet(.settings) }, bottomSpacing: 14) { EmptyView() }
             HuggingScrollView {
-                LazyVGrid(columns: columns, spacing: 14) {
-                    ForEach(ThemeName.allCases.filter { $0 != .saX || model.settings.secretThemeUnlocked }) { name in
-                        ThemeSwatch(name: name, tokens: ThemeTokens.tokens(for: name), selected: name == model.settings.theme) {
-                            ButtonHaptics.shared.tap()
-                            model.settings.theme = name
-                            model.showToast("\(name.rawValue) theme")
+                VStack(spacing: 0) {
+                    LazyVGrid(columns: columns, spacing: 14) {
+                        ForEach(ThemeName.allCases.filter { $0 != .saX || model.settings.secretThemeUnlocked }) { name in
+                            ThemeSwatch(name: name, tokens: ThemeTokens.tokens(for: name), selected: name == model.settings.theme) {
+                                ButtonHaptics.shared.tap()
+                                withAnimation(.easeInOut(duration: 0.2)) { model.settings.theme = name }
+                                model.showToast("\(name.rawValue) theme")
+                            }
                         }
                     }
+                    .padding(.bottom, 4)
+
+                    // Picking Glass reveals its accent choices.
+                    if model.settings.theme == .glass {
+                        SectionHeader(title: "Glass accent")
+                        Card(bottomSpacing: 0) {
+                            HStack(spacing: 0) {
+                                ForEach(GlassAccent.allCases) { accent in
+                                    Button {
+                                        ButtonHaptics.shared.tick()
+                                        model.settings.glassAccent = accent
+                                    } label: {
+                                        ZStack {
+                                            Circle()
+                                                .fill(Color(hex: accent.accentHex))
+                                                .frame(width: 32, height: 32)
+                                                .shadow(color: Color(hex: accent.accentHex).opacity(0.5), radius: 5)
+                                            if accent == model.settings.glassAccent {
+                                                Circle().stroke(Color.white, lineWidth: 2.5)
+                                                    .frame(width: 40, height: 40)
+                                            }
+                                        }
+                                        .frame(maxWidth: .infinity)
+                                        .frame(height: 56)
+                                        .contentShape(Rectangle())
+                                    }
+                                    .buttonStyle(FadePressStyle())
+                                }
+                            }
+                            .padding(.vertical, 6)
+                            .padding(.horizontal, 8)
+                        }
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
                 }
-                .padding(.bottom, 4)
             }
         }
     }
