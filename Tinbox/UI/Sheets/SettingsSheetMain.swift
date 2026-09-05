@@ -43,7 +43,7 @@ struct SettingsSheet: View {
                     section(.controls) { controls }
                     section(.appearance) { appearance }
                     section(.library) { library }
-                    section(.connections) { connections }
+                    if Edition.retroAchievements { section(.connections) { connections } }
                     section(.advanced) { advanced }
                     section(.about) { about }
                 }
@@ -262,9 +262,11 @@ struct SettingsSheet: View {
                     model.removeBIOSFile()
                 }
             }
+            if Edition.gameClock {
             SettingsRow(title: "Game clock", subtitle: model.settings.rtcOffsetSeconds == 0 ? "Games with a clock use real time" : "Shifted forward (berries grow sooner, day/night moves)") {
                 SegmentedPill(options: RTCOffset.options, label: { RTCOffset.label($0) }, selection: settings.rtcOffsetSeconds,
                               fontSize: 12, horizontalPadding: 8)
+            }
             }
             SettingsRow(title: "Time Capsule", subtitle: model.settings.timeCapsuleEnabled ? "Automatic snapshots while you play" : "No automatic snapshots · capture manually in game", gap: 10) {
                 HStack(spacing: 10) {

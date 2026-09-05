@@ -515,6 +515,7 @@ final class AppModel: ObservableObject {
 
     /// Tapping the version number in About 5 times quickly unlocks SA-X.
     func registerVersionTap() {
+        guard Edition.secretTheme else { return }
         let now = Date()
         versionTaps = now.timeIntervalSince(lastVersionTap) < 2 ? versionTaps + 1 : 1
         lastVersionTap = now

@@ -30,7 +30,7 @@ struct TimeCapsuleSheet: View {
                         Text("?").font(.system(size: 15, weight: .bold))
                             .foregroundColor(showIntro ? theme.accentText : Palette.text70)
                     }
-                    if !showIntro, selected != nil {
+                    if Edition.postcards, !showIntro, selected != nil {
                         TintPill(title: "Share") { sharePostcard() }
                     }
                     TintPill(title: "Capture") { captureNow() }

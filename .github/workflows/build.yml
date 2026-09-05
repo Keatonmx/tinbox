@@ -174,6 +174,35 @@ jobs:
           path: Tinbox-unsigned.ipa
           retention-days: 30
 
+      # The App Store edition: same code with Edition.store flipped on, which
+      # holds back the update-roadmap features and sanitizes egg text. The
+      # camera permission string is stripped since GB Camera is gated off.
+      - name: Build store edition (unsigned)
+        run: |
+          set -o pipefail
+          sed -i '' 's/static let store = false/static let store = true/' Tinbox/Edition.swift
+          plutil -remove NSCameraUsageDescription Tinbox/Resources/Info.plist || true
+          xcodebuild build \
+            -project Tinbox.xcodeproj -scheme "$SCHEME" -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$DERIVED-store" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            2>&1 | tee xcodebuild-store.log | (grep -E "error:|BUILD " || true)
+          APP="$DERIVED-store/Build/Products/Release-iphoneos/Tinbox.app"
+          test -x "$APP/Tinbox"
+          rm -rf ipa-store && mkdir -p ipa-store/Payload
+          cp -R "$APP" ipa-store/Payload/
+          (cd ipa-store && zip -qry ../Tinbox-store-unsigned.ipa Payload)
+          git checkout -- Tinbox/Edition.swift Tinbox/Resources/Info.plist
+          ls -la Tinbox-store-unsigned.ipa
+
+      - name: Upload store IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tinbox-store-ipa
+          path: Tinbox-store-unsigned.ipa
+          retention-days: 30
+
       - name: Publish rolling "latest" release
         if: github.ref == 'refs/heads/main'
         env:

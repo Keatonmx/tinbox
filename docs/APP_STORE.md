@@ -67,3 +67,16 @@ Attach `Tests/tinbox-test.gba` as the demo file so reviewers can run something w
 - "Download games" wording anywhere → remove.
 - Missing licence texts for MPL code → already in About.
 - Crash on first launch with no games → CI's library screenshot covers this case.
+
+## Editions
+
+CI builds two IPAs per push. `Tinbox-unsigned.ipa` is the full sideload build.
+`Tinbox-store-unsigned.ipa` flips `Edition.store` (Tinbox/Edition.swift): egg text
+ships sanitized, the camera permission string is stripped, and these features are
+held back as the update roadmap (each is a one-line gate to lift):
+
+- 1.1: Speedrun timer
+- 1.2: Postcards
+- 1.3: Game Boy Camera (restores NSCameraUsageDescription)
+- 1.4: Inside the save (Gen-3 party)
+- Later: RetroAchievements, Game clock shift, the hidden theme unlock

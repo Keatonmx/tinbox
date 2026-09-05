@@ -345,7 +345,7 @@ final class EmulatorSession: ObservableObject {
 
         // Game Boy Camera: start/stop the phone camera when the cart asks.
         runner.onCameraRequest = { [weak self] size in
-            guard let self else { return }
+            guard let self, Edition.gbCamera else { return }
             if let size {
                 self.cameraFeed.start(width: Int(size.width), height: Int(size.height)) { [weak self] buffer, w, h in
                     self?.runner.withCore { $0.submitCameraFrame(buffer, width: UInt(w), height: UInt(h)) }

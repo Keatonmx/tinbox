@@ -14,8 +14,8 @@ import AVFoundation
 // MARK: - Flavour text (single kill-switch)
 
 enum EggText {
-    /// Flip to true for a reference-free App Store submission build.
-    static let sanitized = false
+    /// The store edition ships reference-free automatically.
+    static let sanitized = Edition.store
 
     static var saving: String { "SAVING… DON'T TURN OFF THE POWER" }
     static var secretTheme: String { sanitized ? "X" : "SA-X" }

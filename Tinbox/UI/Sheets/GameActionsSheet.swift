@@ -54,7 +54,7 @@ struct GameActionsSheet: View {
                 .padding(.bottom, 12)
 
                 // Revision X: what the battery save says (Gen-3 Pokemon only).
-                if let insight = Gen3Save.read(for: game) {
+                if Edition.saveInsight, let insight = Gen3Save.read(for: game) {
                     Card { SaveInsightRows(insight: insight) }
                 }
 
