@@ -162,21 +162,21 @@ struct LandscapeQuickMenu: View {
                 HStack(spacing: 10) {
                     tile(glyph: "»", label: "FF \(SpeedSteps.label(session.ffSpeed))",
                          color: session.isFastForward ? theme.accentText2 : Palette.text85,
-                         background: session.isFastForward ? theme.tint2 : theme.card,
+                         background: session.isFastForward ? AnyShapeStyle(theme.tint2) : theme.cardStyle,
                          glyphSize: 18, glyphWeight: .heavy) {
                         model.toggleFastForward()
                     }
-                    tile(glyph: "▼", label: "Save", color: Palette.text85, background: theme.card) {
+                    tile(glyph: "▼", label: "Save", color: Palette.text85, background: theme.cardStyle) {
                         model.saveToAutoSlot()
                     }
-                    tile(glyph: "▲", label: "Load", color: Palette.text85, background: theme.card) {
+                    tile(glyph: "▲", label: "Load", color: Palette.text85, background: theme.cardStyle) {
                         model.loadLatestState()
                     }
-                    tile(glyph: "⋯", label: "More", color: Palette.text85, background: theme.card) {
+                    tile(glyph: "⋯", label: "More", color: Palette.text85, background: theme.cardStyle) {
                         onMore()
                     }
                     tile(glyph: "×", label: "Exit", color: Palette.destructive,
-                         background: Palette.destructive.opacity(0.12), border: Palette.destructive.opacity(0.4)) {
+                         background: AnyShapeStyle(Palette.destructive.opacity(0.12)), border: Palette.destructive.opacity(0.4)) {
                         model.exitGame()
                     }
                 }
@@ -191,7 +191,7 @@ struct LandscapeQuickMenu: View {
         }
     }
 
-    private func tile(glyph: String, label: String, color: Color, background: Color, border: Color = Palette.hairline10,
+    private func tile(glyph: String, label: String, color: Color, background: AnyShapeStyle, border: Color = Palette.hairline10,
                       glyphSize: CGFloat = 16, glyphWeight: Font.Weight = .regular,
                       action: @escaping () -> Void) -> some View {
         Button {

@@ -457,6 +457,13 @@ struct BottomSheet<Content: View>: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .background(theme.sheetStyle)
                 .clipShape(TopRoundedRectangle(radius: 34))
+                // Glass sheets get a defining light edge along the top.
+                .overlay(alignment: .top) {
+                    if theme.isGlass {
+                        TopRoundedRectangle(radius: 34)
+                            .stroke(Color.white.opacity(0.16), lineWidth: 1)
+                    }
+                }
                 .shadow(color: .black.opacity(0.5), radius: 20, y: -10)
                 .offset(y: dragOffset)
                 .ignoresSafeArea(edges: .bottom)

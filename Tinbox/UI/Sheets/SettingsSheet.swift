@@ -16,8 +16,9 @@ struct SkinsSheet: View {
     @Environment(\.theme) private var theme
 
     var body: some View {
-        BottomSheet(onDismiss: { model.openSheet(.settings) }) {
+        BottomSheet(maxHeightFraction: 0.88, onDismiss: { model.openSheet(.settings) }) {
             SheetHeader(title: "Controller Skins", onBack: { model.openSheet(.settings) }, bottomSpacing: 14) { EmptyView() }
+            HuggingScrollView {
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 14) {
                 ForEach(ControllerSkin.all, id: \.name) { skin in
                     let selected = skin.name == model.settings.skin
@@ -63,6 +64,7 @@ struct SkinsSheet: View {
                 }
             }
             .padding(.bottom, 4)
+            }
         }
     }
 }
