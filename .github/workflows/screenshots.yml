@@ -1,0 +1,135 @@
+name: App Store screenshots
+
+# Produces ready-to-upload App Store screenshots from the iOS Simulator:
+# store edition, clean 9:41 status bar, normalized to exactly 1284x2778
+# (portrait) / 2778x1284 (landscape), the accepted 6.7-inch sizes.
+# Trigger manually from the Actions tab; download the artifact and upload
+# the shots you like to App Store Connect.
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: screenshots
+  cancel-in-progress: true
+
+jobs:
+  screenshots:
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      SCHEME: Tinbox
+      BUNDLE_ID: com.redfernsoutpost.tinbox
+      DERIVED: ${{ github.workspace }}/DerivedData
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          # Match the shipped build's iOS 26 look.
+          sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -n 1)"
+          xcodebuild -version
+
+      - name: Cache libmgba xcframework
+        id: mgba-cache
+        uses: actions/cache@v4
+        with:
+          path: Vendor/mgba-dist
+          key: mgba-dist-${{ runner.os }}-${{ hashFiles('Scripts/build-mgba.sh', 'Scripts/mgba-ios.patch') }}-v1
+
+      - name: Build libmgba
+        if: steps.mgba-cache.outputs.cache-hit != 'true'
+        run: |
+          chmod +x Scripts/build-mgba.sh
+          Scripts/build-mgba.sh 2>&1 | tail -n 20
+
+      - name: Configure store edition
+        run: |
+          # Screenshots must show the app reviewers get: store gates on,
+          # GPL/AGPL starter games gone.
+          sed -i '' 's/static let store = false/static let store = true/' Tinbox/Edition.swift
+          plutil -remove NSCameraUsageDescription Tinbox/Resources/Info.plist || true
+          rm "Tinbox/Resources/StarterGames/Apotris.gba" "Tinbox/Resources/StarterGames/BlindJump.gba"
+          rm Tinbox/Resources/Licenses/starter-apotris.txt Tinbox/Resources/Licenses/starter-blindjump.txt
+          python3 Scripts/gen_xcodeproj.py
+
+      - name: Build for iOS Simulator (Debug, for the screenshot launch args)
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project Tinbox.xcodeproj -scheme "$SCHEME" -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$DERIVED" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
+            2>&1 | tee xcodebuild-simulator.log | (grep -E "error:|BUILD " || true)
+          test -x "$DERIVED/Build/Products/Debug-iphonesimulator/Tinbox.app/Tinbox"
+
+      - name: Capture
+        run: |
+          APP="$DERIVED/Build/Products/Debug-iphonesimulator/Tinbox.app"
+          # Biggest current iPhone: its aspect ratio is a hair off the 6.7"
+          # slot, normalized in the next step.
+          UDID=$(xcrun simctl list devices available -j | jq -r '
+            .devices | to_entries[] | select(.key | contains("iOS")) | .value[]
+            | select(.name | test("^iPhone .*(Pro Max|Plus)$")) | .udid' | head -n 1)
+          if [ -z "$UDID" ]; then
+            UDID=$(xcrun simctl list devices available -j | jq -r '
+              .devices | to_entries[] | select(.key | contains("iOS")) | .value[]
+              | select(.name | test("^iPhone")) | .udid' | head -n 1)
+          fi
+          xcrun simctl list devices | grep -i "$UDID" || true
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl install "$UDID" "$APP"
+          # The marketing status bar: 9:41, full everything, no badges.
+          xcrun simctl status_bar "$UDID" override --time "9:41" \
+            --dataNetwork wifi --wifiMode active --wifiBars 3 \
+            --cellularMode active --cellularBars 4 \
+            --batteryState charged --batteryLevel 100
+          mkdir -p shots
+
+          shot() {
+            local name="$1"; shift
+            xcrun simctl terminate "$UDID" "$BUNDLE_ID" 2>/dev/null || true
+            xcrun simctl launch "$UDID" "$BUNDLE_ID" "$@" > /dev/null 2>&1
+            sleep "${SHOT_DELAY:-8}"
+            xcrun simctl io "$UDID" screenshot "shots/$name.png"
+          }
+
+          # First launch seeds the starter games; give it a beat extra.
+          SHOT_DELAY=9 shot 01-library
+          shot 02-game -tinbox-autoplay -tinbox-game Tobu
+          SHOT_DELAY=10 shot 03-landscape -tinbox-autoplay -tinbox-game Tobu -tinbox-landscape
+          shot 04-quickmenu -tinbox-autoplay -tinbox-game Tobu -tinbox-sheet quickMenu
+          shot 05-savestates -tinbox-autoplay -tinbox-game Tobu -tinbox-sheet saveStates
+          SHOT_DELAY=10 shot 06-timecapsule -tinbox-autoplay -tinbox-game Tobu -tinbox-sheet timeCapsule
+          SHOT_DELAY=6 shot 07-themes -tinbox-sheet themes
+          SHOT_DELAY=6 shot 08-glass -tinbox-theme Glass
+          SHOT_DELAY=6 shot 09-skins -tinbox-sheet skins
+          SHOT_DELAY=6 shot 10-settings -tinbox-sheet settings
+
+          xcrun simctl terminate "$UDID" "$BUNDLE_ID" || true
+
+      - name: Normalize to App Store sizes
+        run: |
+          # Scale the short edge to the 6.7-inch slot, center-crop the rest.
+          for f in shots/*.png; do
+            W=$(sips -g pixelWidth  "$f" | awk '/pixelWidth/{print $2}')
+            H=$(sips -g pixelHeight "$f" | awk '/pixelHeight/{print $2}')
+            if [ "$W" -lt "$H" ]; then
+              sips --resampleWidth 1284 "$f" > /dev/null
+              sips --cropToHeightWidth 2778 1284 "$f" > /dev/null
+            else
+              sips --resampleHeight 1284 "$f" > /dev/null
+              sips --cropToHeightWidth 1284 2778 "$f" > /dev/null
+            fi
+          done
+          sips -g pixelWidth -g pixelHeight shots/*.png | paste - - - | sed 's|shots/||'
+
+      - name: Upload screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: appstore-screenshots
+          path: shots/
+          retention-days: 30

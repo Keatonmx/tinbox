@@ -213,10 +213,16 @@ final class AppModel: ObservableObject {
             }
         }
         // CI smoke test: `-tinbox-autoplay` boots the first ROM in Documents/ROMs
-        // so a simulator screenshot shows real emulator output.
-        if CommandLine.arguments.contains("-tinbox-autoplay"), let first = games.first {
+        // so a simulator screenshot shows real emulator output. `-tinbox-game
+        // <substring>` picks a specific library game instead.
+        if CommandLine.arguments.contains("-tinbox-autoplay"), !games.isEmpty {
+            var target = games[0]
+            if let i = args.firstIndex(of: "-tinbox-game"), i + 1 < args.count,
+               let match = games.first(where: { $0.title.localizedCaseInsensitiveContains(args[i + 1]) }) {
+                target = match
+            }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-                self?.open(first)
+                self?.open(target)
                 if CommandLine.arguments.contains("-tinbox-landscape") {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                         self?.forceLandscape = true
