@@ -93,6 +93,7 @@ jobs:
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" CODE_SIGN_STYLE=Automatic \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
             2>&1 | tee xcodebuild-archive.log | (grep -E "error:|warning: no|BUILD |ARCHIVE " || true)
 
       - name: Upload to App Store Connect
