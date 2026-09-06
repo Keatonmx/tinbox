@@ -11,3 +11,4 @@ Vendor/mgba-dist/
 
 # macOS
 .DS_Store
+*.p8

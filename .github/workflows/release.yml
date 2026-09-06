@@ -1,0 +1,135 @@
+name: Release to App Store Connect
+
+# Signs and uploads Tinbox to App Store Connect (TestFlight + submission)
+# using Apple's cloud-managed signing — no Mac, no certificates to babysit.
+#
+# Needs repository secrets:
+#   ASC_API_KEY    the .p8 App Store Connect API key contents
+#   ASC_KEY_ID     the key's ID
+#   ASC_ISSUER_ID  the issuer UUID from the API keys page
+#   APPLE_TEAM_ID  the developer Team ID (Membership page)
+#
+# Run it manually from the Actions tab. "store" builds the lean store edition
+# (the default for App Store submissions); "full" uploads the everything build.
+
+on:
+  workflow_dispatch:
+    inputs:
+      edition:
+        description: Which edition to upload
+        type: choice
+        options: [store, full]
+        default: store
+      marketing_version:
+        description: Marketing version (what users see)
+        default: "1.0"
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: macos-14
+    timeout-minutes: 60
+    env:
+      SCHEME: Tinbox
+      BUNDLE_ID: com.redfernsoutpost.tinbox
+      DERIVED: ${{ github.workspace }}/DerivedData
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s /Applications/Xcode_15.4.app 2>/dev/null || sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -n 1)"
+          xcodebuild -version
+
+      - name: Cache libmgba xcframework
+        id: mgba-cache
+        uses: actions/cache@v4
+        with:
+          path: Vendor/mgba-dist
+          key: mgba-dist-${{ runner.os }}-${{ hashFiles('Scripts/build-mgba.sh', 'Scripts/mgba-ios.patch') }}-v1
+
+      - name: Build libmgba (ios-arm64 + simulator)
+        if: steps.mgba-cache.outputs.cache-hit != 'true'
+        run: |
+          chmod +x Scripts/build-mgba.sh
+          Scripts/build-mgba.sh 2>&1 | tee mgba-build.log
+
+      - name: Configure edition and version
+        run: |
+          if [ "${{ inputs.edition }}" = "store" ]; then
+            sed -i '' 's/static let store = false/static let store = true/' Tinbox/Edition.swift
+            plutil -remove NSCameraUsageDescription Tinbox/Resources/Info.plist || true
+          fi
+          # Build number must rise every upload; the run number does that.
+          plutil -replace CFBundleVersion -string "${{ github.run_number }}" Tinbox/Resources/Info.plist
+          plutil -replace CFBundleShortVersionString -string "${{ inputs.marketing_version }}" Tinbox/Resources/Info.plist
+          plutil -p Tinbox/Resources/Info.plist | grep -E "Version"
+
+      - name: Install App Store Connect API key
+        env:
+          ASC_API_KEY: ${{ secrets.ASC_API_KEY }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+        run: |
+          mkdir -p ~/private_keys
+          printf '%s' "$ASC_API_KEY" > ~/private_keys/AuthKey_${ASC_KEY_ID}.p8
+
+      - name: Archive (cloud-managed signing)
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -o pipefail
+          xcodebuild archive \
+            -project Tinbox.xcodeproj -scheme "$SCHEME" -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/Tinbox.xcarchive \
+            -derivedDataPath "$DERIVED" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/private_keys/AuthKey_${ASC_KEY_ID}.p8 \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" CODE_SIGN_STYLE=Automatic \
+            2>&1 | tee xcodebuild-archive.log | (grep -E "error:|warning: no|BUILD |ARCHIVE " || true)
+
+      - name: Upload to App Store Connect
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -o pipefail
+          cat > ExportOptions.plist << PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>teamID</key><string>${APPLE_TEAM_ID}</string>
+            <key>uploadSymbols</key><true/>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+          </dict>
+          </plist>
+          PLIST
+          xcodebuild -exportArchive \
+            -archivePath build/Tinbox.xcarchive \
+            -exportOptionsPlist ExportOptions.plist \
+            -exportPath build/export \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/private_keys/AuthKey_${ASC_KEY_ID}.p8 \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            2>&1 | tee xcodebuild-upload.log | (grep -E "error:|EXPORT |Upload" || true)
+          echo "Uploaded build ${{ github.run_number }} (${{ inputs.edition }} edition, v${{ inputs.marketing_version }})"
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-logs
+          path: xcodebuild-*.log
+          retention-days: 14
