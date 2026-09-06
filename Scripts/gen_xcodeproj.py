@@ -198,7 +198,10 @@ def main():
         'MTL_FAST_MATH': 'YES',
         'SDKROOT': 'iphoneos',
         'SWIFT_VERSION': '5.0',
-        'TARGETED_DEVICE_FAMILY': '1,2',
+        # iPhone only for 1.0 (iPad runs it in compatibility mode). Going
+        # back to '1,2' is allowed any time; removing iPad after shipping
+        # it is not, so it stays off until a real iPad layout pass.
+        'TARGETED_DEVICE_FAMILY': '1',
     }
     project_debug = dict(project_common, **{
         'DEBUG_INFORMATION_FORMAT': 'dwarf',
