@@ -119,6 +119,9 @@ jobs:
 
       - name: Normalize to App Store sizes
         run: |
+          # The simulator captures in the portrait pixel frame even when the
+          # app is in landscape; turn the landscape shot upright first.
+          sips --rotate 270 shots/03-landscape.png > /dev/null
           # Scale the short edge to the 6.7-inch slot, center-crop the rest.
           for f in shots/*.png; do
             W=$(sips -g pixelWidth  "$f" | awk '/pixelWidth/{print $2}')
