@@ -86,8 +86,14 @@ jobs:
           xcrun simctl status_bar "$UDID" override --time "9:41" \
             --dataNetwork wifi --wifiMode active --wifiBars 3 \
             --cellularMode active --cellularBars 4 \
-            --batteryState charged --batteryLevel 100
+            --batteryState discharging --batteryLevel 100
           mkdir -p shots
+
+          # Warm first launch: seeds the starter games and gets past the cold
+          # start so the first real shot is the rendered library.
+          xcrun simctl launch "$UDID" "$BUNDLE_ID" > /dev/null 2>&1
+          sleep 14
+          xcrun simctl terminate "$UDID" "$BUNDLE_ID" || true
 
           shot() {
             local name="$1"; shift
@@ -97,10 +103,10 @@ jobs:
             xcrun simctl io "$UDID" screenshot "shots/$name.png"
           }
 
-          # First launch seeds the starter games; give it a beat extra.
-          SHOT_DELAY=9 shot 01-library
-          shot 02-game -tinbox-autoplay -tinbox-game Tobu
-          SHOT_DELAY=10 shot 03-landscape -tinbox-autoplay -tinbox-game Tobu -tinbox-landscape
+          shot 01-library
+          # Long enough for Tobu Tobu Girl to reach its title screen.
+          SHOT_DELAY=17 shot 02-game -tinbox-autoplay -tinbox-game Tobu
+          SHOT_DELAY=19 shot 03-landscape -tinbox-autoplay -tinbox-game Tobu -tinbox-landscape
           shot 04-quickmenu -tinbox-autoplay -tinbox-game Tobu -tinbox-sheet quickMenu
           shot 05-savestates -tinbox-autoplay -tinbox-game Tobu -tinbox-sheet saveStates
           SHOT_DELAY=10 shot 06-timecapsule -tinbox-autoplay -tinbox-game Tobu -tinbox-sheet timeCapsule
