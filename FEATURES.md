@@ -54,6 +54,7 @@ built on the mGBA core. No accounts, no ads, no analytics.
 
 ## Library
 
+- **Starter games**: free homebrew preinstalled on first launch (Tobu Tobu Girl Deluxe, Pong Brew; sideload builds add Apotris and BlindJump) with full licence credits in About; delete them like any ROM
 - Cover art: automatic box-art download (libretro-thumbnails, fuzzy name matching), or set your own from **Photos** or Files
 - A shrink-wrap sheen over covers; games without art wear a MissingNo. placeholder in their own colour
 - Search, sort (recent / A–Z / size), a Continue card with the latest save, system badges

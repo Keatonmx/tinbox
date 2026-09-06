@@ -31,9 +31,11 @@ FILE_TYPES = {
     '.txt': 'text',
     '.md': 'net.daringfireball.markdown',
     '.mp3': 'audio.mp3',
+    '.gba': 'file',
+    '.gb': 'file',
 }
 SOURCE_EXTS = {'.swift', '.mm', '.m', '.metal'}
-RESOURCE_EXTS = {'.xcassets', '.txt', '.mp3'}
+RESOURCE_EXTS = {'.xcassets', '.txt', '.mp3', '.gba', '.gb'}
 
 
 def uid(key):

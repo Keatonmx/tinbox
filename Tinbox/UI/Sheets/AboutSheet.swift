@@ -72,52 +72,74 @@ struct AboutSheet: View {
                                     showsSeparator: false) { EmptyView() }
                     }
 
-                    SectionHeader(title: "Open source & credits")
-                    Card(bottomSpacing: 0) {
-                        ForEach(Array(components.enumerated()), id: \.element.id) { index, c in
-                            VStack(spacing: 0) {
-                                Button {
-                                    ButtonHaptics.shared.tap()
-                                    withAnimation(.easeInOut(duration: 0.2)) { expanded = expanded == c.id ? nil : c.id }
-                                } label: {
-                                    HStack(spacing: 8) {
-                                        VStack(alignment: .leading, spacing: 1) {
-                                            Text(c.name).font(Typography.row).foregroundColor(.white)
-                                            Text(c.note).font(Typography.rowSubtitle).foregroundColor(Palette.textTertiary)
-                                        }
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                        Text(c.licence).font(Typography.meta).foregroundColor(theme.accentText).multilineTextAlignment(.trailing)
-                                        if c.file != nil {
-                                            ChevronShape(direction: .right)
-                                                .stroke(Palette.textQuaternary, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
-                                                .frame(width: 7, height: 12)
-                                                .rotationEffect(.degrees(expanded == c.id ? 90 : 0))
-                                        }
-                                    }
-                                    .padding(.horizontal, 16)
-                                    .frame(minHeight: 54)
-                                    .contentShape(Rectangle())
-                                }
-                                .buttonStyle(RowPressStyle())
-                                if expanded == c.id {
-                                    VStack(alignment: .leading, spacing: 8) {
-                                        if let file = c.file, let text = AppInfo.licenceText(named: file) {
-                                            Text(text)
-                                                .font(Typography.mono10)
-                                                .foregroundColor(Palette.text70)
-                                                .textSelection(.enabled)
-                                        }
-                                        Link(c.url, destination: URL(string: c.url)!)
-                                            .font(Typography.meta13).foregroundColor(theme.accentText)
-                                    }
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .padding(.horizontal, 16).padding(.bottom, 12)
-                                }
-                                if index < components.count - 1 { RowSeparator() }
-                            }
+                    if !starterComponents.isEmpty {
+                        SectionHeader(title: "Included games")
+                        Card {
+                            SettingsRow(title: "Free homebrew, preinstalled",
+                                        subtitle: "So the tin isn't empty on day one. Delete them from the library like any ROM. Full licence texts and source links below.",
+                                        showsSeparator: true) { EmptyView() }
+                            componentRows(starterComponents)
                         }
                     }
+
+                    SectionHeader(title: "Open source & credits")
+                    Card(bottomSpacing: 0) {
+                        componentRows(components)
+                    }
                 }
+            }
+        }
+    }
+
+    /// The preinstalled homebrew games in this build, as credit rows.
+    private var starterComponents: [Component] {
+        StarterGames.bundled.map { game, _ in
+            Component(id: game.licenceFile, name: game.title, licence: game.licenceLabel,
+                      file: game.licenceFile, note: game.note, url: game.sourceURL)
+        }
+    }
+
+    private func componentRows(_ list: [Component]) -> some View {
+        ForEach(Array(list.enumerated()), id: \.element.id) { index, c in
+            VStack(spacing: 0) {
+                Button {
+                    ButtonHaptics.shared.tap()
+                    withAnimation(.easeInOut(duration: 0.2)) { expanded = expanded == c.id ? nil : c.id }
+                } label: {
+                    HStack(spacing: 8) {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(c.name).font(Typography.row).foregroundColor(.white)
+                            Text(c.note).font(Typography.rowSubtitle).foregroundColor(Palette.textTertiary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        Text(c.licence).font(Typography.meta).foregroundColor(theme.accentText).multilineTextAlignment(.trailing)
+                        if c.file != nil {
+                            ChevronShape(direction: .right)
+                                .stroke(Palette.textQuaternary, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+                                .frame(width: 7, height: 12)
+                                .rotationEffect(.degrees(expanded == c.id ? 90 : 0))
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .frame(minHeight: 54)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(RowPressStyle())
+                if expanded == c.id {
+                    VStack(alignment: .leading, spacing: 8) {
+                        if let file = c.file, let text = AppInfo.licenceText(named: file) {
+                            Text(text)
+                                .font(Typography.mono10)
+                                .foregroundColor(Palette.text70)
+                                .textSelection(.enabled)
+                        }
+                        Link(c.url, destination: URL(string: c.url)!)
+                            .font(Typography.meta13).foregroundColor(theme.accentText)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16).padding(.bottom, 12)
+                }
+                if index < list.count - 1 { RowSeparator() }
             }
         }
     }

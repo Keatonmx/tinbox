@@ -115,6 +115,7 @@ final class AppModel: ObservableObject {
         ButtonHaptics.shared.enabled = settings.hapticsEnabled
         ControllerManager.shared.bindings = settings.controllerBindings
         ROMFolderAccess.shared.activate(bookmark: settings.customROMFolderBookmark)
+        StarterGames.seedIfNeeded()
         refreshLibrary()
         updateSyncText()
 

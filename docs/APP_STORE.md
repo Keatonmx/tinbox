@@ -75,6 +75,14 @@ CI builds two IPAs per push. `Tinbox-unsigned.ipa` is the full sideload build.
 ships sanitized, the camera permission string is stripped, and these features are
 held back as the update roadmap (each is a one-line gate to lift):
 
+Starter games (Resources/StarterGames, seeded on first launch, credited in
+About › Included games): the store build keeps only the permissively licensed
+ones, Tobu Tobu Girl Deluxe (MIT / CC BY 4.0) and Pong Brew (MIT). CI deletes
+Apotris (AGPL-3.0, also a Tetris-style game The Tetris Company could object to)
+and BlindJump (GBA binary is GPL via libgba) before archiving; both stay in the
+sideload build. Verified against the upstream repos 2026-09-06; licence texts
+ship verbatim in Resources/Licenses/starter-*.txt.
+
 - 1.1: Speedrun timer
 - 1.2: Postcards
 - 1.3: Game Boy Camera (restores NSCameraUsageDescription)

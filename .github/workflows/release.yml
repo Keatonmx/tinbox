@@ -60,6 +60,13 @@ jobs:
           if [ "${{ inputs.edition }}" = "store" ]; then
             sed -i '' 's/static let store = false/static let store = true/' Tinbox/Edition.swift
             plutil -remove NSCameraUsageDescription Tinbox/Resources/Info.plist || true
+            # The store IPA ships only permissively licensed starter games:
+            # Apotris is AGPL and BlindJump's GBA build is GPL, both of which
+            # clash with App Store distribution. Drop them and regenerate the
+            # project so the build no longer references the files.
+            rm "Tinbox/Resources/StarterGames/Apotris.gba" "Tinbox/Resources/StarterGames/BlindJump.gba"
+            rm Tinbox/Resources/Licenses/starter-apotris.txt Tinbox/Resources/Licenses/starter-blindjump.txt
+            python3 Scripts/gen_xcodeproj.py
             echo "Store edition configured"
           fi
           # Every upload needs a unique, increasing build number.

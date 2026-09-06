@@ -182,6 +182,11 @@ jobs:
           set -o pipefail
           sed -i '' 's/static let store = false/static let store = true/' Tinbox/Edition.swift
           plutil -remove NSCameraUsageDescription Tinbox/Resources/Info.plist || true
+          # Store edition carries only permissively licensed starter games
+          # (no GPL/AGPL ROMs). Regenerate the project without them.
+          rm "Tinbox/Resources/StarterGames/Apotris.gba" "Tinbox/Resources/StarterGames/BlindJump.gba"
+          rm Tinbox/Resources/Licenses/starter-apotris.txt Tinbox/Resources/Licenses/starter-blindjump.txt
+          python3 Scripts/gen_xcodeproj.py
           xcodebuild build \
             -project Tinbox.xcodeproj -scheme "$SCHEME" -configuration Release \
             -destination 'generic/platform=iOS' \
@@ -193,7 +198,7 @@ jobs:
           rm -rf ipa-store && mkdir -p ipa-store/Payload
           cp -R "$APP" ipa-store/Payload/
           (cd ipa-store && zip -qry ../Tinbox-store-unsigned.ipa Payload)
-          git checkout -- Tinbox/Edition.swift Tinbox/Resources/Info.plist
+          git checkout -- Tinbox Tinbox.xcodeproj
           ls -la Tinbox-store-unsigned.ipa
 
       - name: Upload store IPA
