@@ -116,6 +116,44 @@ jobs:
           SHOT_DELAY=6 shot 10-settings -tinbox-sheet settings
 
           xcrun simctl terminate "$UDID" "$BUNDLE_ID" || true
+          xcrun simctl shutdown "$UDID" || true
+
+          # ---- iPad (the listing needs a 13-inch set too) ----
+          IPAD=$(xcrun simctl list devices available -j | jq -r '
+            .devices | to_entries[] | select(.key | contains("iOS")) | .value[]
+            | select(.name | test("iPad Pro 13")) | .udid' | head -n 1)
+          if [ -z "$IPAD" ]; then
+            IPAD=$(xcrun simctl list devices available -j | jq -r '
+              .devices | to_entries[] | select(.key | contains("iOS")) | .value[]
+              | select(.name | test("iPad")) | .udid' | head -n 1)
+          fi
+          xcrun simctl boot "$IPAD" || true
+          xcrun simctl bootstatus "$IPAD" -b
+          xcrun simctl install "$IPAD" "$APP"
+          xcrun simctl status_bar "$IPAD" override --time "9:41" \
+            --dataNetwork wifi --wifiMode active --wifiBars 3 \
+            --batteryState discharging --batteryLevel 100
+          mkdir -p shots-ipad
+
+          xcrun simctl launch "$IPAD" "$BUNDLE_ID" > /dev/null 2>&1
+          sleep 14
+          xcrun simctl terminate "$IPAD" "$BUNDLE_ID" || true
+
+          pshot() {
+            local name="$1"; shift
+            xcrun simctl terminate "$IPAD" "$BUNDLE_ID" 2>/dev/null || true
+            xcrun simctl launch "$IPAD" "$BUNDLE_ID" "$@" > /dev/null 2>&1
+            sleep "${SHOT_DELAY:-8}"
+            xcrun simctl io "$IPAD" screenshot "shots-ipad/$name.png"
+          }
+
+          pshot ipad-01-library
+          SHOT_DELAY=17 pshot ipad-02-game -tinbox-autoplay -tinbox-game Tobu
+          pshot ipad-03-quickmenu -tinbox-autoplay -tinbox-game Tobu -tinbox-sheet quickMenu
+          SHOT_DELAY=6 pshot ipad-04-glass -tinbox-theme Glass
+          SHOT_DELAY=6 pshot ipad-05-themes -tinbox-sheet themes
+
+          xcrun simctl terminate "$IPAD" "$BUNDLE_ID" || true
 
       - name: Normalize to App Store sizes
         run: |
@@ -134,11 +172,28 @@ jobs:
               sips --cropToHeightWidth 1284 2778 "$f" > /dev/null
             fi
           done
-          sips -g pixelWidth -g pixelHeight shots/*.png | paste - - - | sed 's|shots/||'
+          # iPad: the 13-inch sims are already accepted sizes (2064x2752 or
+          # 2048x2732). Anything else gets scaled and cropped to 2048x2732.
+          for f in shots-ipad/*.png; do
+            W=$(sips -g pixelWidth  "$f" | awk '/pixelWidth/{print $2}')
+            H=$(sips -g pixelHeight "$f" | awk '/pixelHeight/{print $2}')
+            if [ "$W" = "2064" ] && [ "$H" = "2752" ]; then continue; fi
+            if [ "$W" = "2048" ] && [ "$H" = "2732" ]; then continue; fi
+            sips --resampleWidth 2048 "$f" > /dev/null
+            sips --cropToHeightWidth 2732 2048 "$f" > /dev/null
+          done
+          sips -g pixelWidth -g pixelHeight shots/*.png shots-ipad/*.png | paste - - - | sed 's|shots.*/||'
 
       - name: Upload screenshots
         uses: actions/upload-artifact@v4
         with:
           name: appstore-screenshots
           path: shots/
+          retention-days: 30
+
+      - name: Upload iPad screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: appstore-screenshots-ipad
+          path: shots-ipad/
           retention-days: 30
