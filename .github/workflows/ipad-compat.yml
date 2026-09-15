@@ -86,6 +86,16 @@ jobs:
           sleep 16
           xcrun simctl io "$UDID" screenshot compat/01-ingame.png
 
+          # All screenshots before any tap injection: the evidence must not
+          # depend on the flakier tooling below.
+          xcrun simctl terminate "$UDID" "$BUNDLE_ID" 2>/dev/null || true
+          xcrun simctl launch "$UDID" "$BUNDLE_ID" -tinbox-autoplay -tinbox-game Tobu -tinbox-landscape > /dev/null 2>&1
+          sleep 18
+          xcrun simctl io "$UDID" screenshot compat/04-landscape.png
+          xcrun simctl terminate "$UDID" "$BUNDLE_ID" 2>/dev/null || true
+          xcrun simctl launch "$UDID" "$BUNDLE_ID" -tinbox-autoplay -tinbox-game Tobu > /dev/null 2>&1
+          sleep 16
+
           # Where is the app's window? In compatibility mode it is a centered
           # iPhone-shaped window. Derive tap points from the screenshot: MENU
           # sits bottom-center of the app window. Print sizes for the log,
@@ -125,8 +135,11 @@ jobs:
           TAP=$(cat compat/window.txt | tail -n 1)
 
           # Real touch: tap where MENU lives. If touch routing works, the
-          # Quick Menu sheet appears in the next screenshot.
-          idb connect "$UDID" || true
+          # Quick Menu sheet appears in the next screenshot. Best effort:
+          # a tap-tool failure must not discard the screenshot evidence.
+          set +e
+          command -v idb_companion; ls -la /usr/local/bin/idb_companion "$(brew --prefix)/bin/idb_companion" 2>&1 | head -3
+          idb connect "$UDID"
           idb ui tap $TAP --udid "$UDID"
           sleep 3
           xcrun simctl io "$UDID" screenshot compat/02-after-menu-tap.png
@@ -150,12 +163,8 @@ jobs:
           ATAP=$(cat compat/atap.txt | tail -n 1)
           idb ui tap $ATAP --udid "$UDID"
           xcrun simctl io "$UDID" screenshot compat/03-a-press.png
-
-          # The landscape layout is a separate code path; capture it too.
-          xcrun simctl terminate "$UDID" "$BUNDLE_ID" 2>/dev/null || true
-          xcrun simctl launch "$UDID" "$BUNDLE_ID" -tinbox-autoplay -tinbox-game Tobu -tinbox-landscape > /dev/null 2>&1
-          sleep 18
-          xcrun simctl io "$UDID" screenshot compat/04-landscape.png
+          set -e
+          true
 
           xcrun simctl spawn "$UDID" log show --last 90s --predicate 'process == "Tinbox"' > compat/device.log 2>/dev/null || true
 
