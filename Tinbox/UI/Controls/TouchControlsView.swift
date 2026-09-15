@@ -48,11 +48,18 @@ struct TouchControlsView: View {
         s.width.isFinite && s.height.isFinite && s.width >= 160 && s.height >= 120
     }
 
+    /// If every size source is broken, controls still draw on an iPhone-shaped
+    /// canvas rather than not at all. App Review's iPad ran the app in the new
+    /// windowed compatibility mode and got an empty controls area (2026-09-15);
+    /// whatever the geometry reports, rendering something is always correct.
+    private static let emergencySize = CGSize(width: 393, height: 520)
+
     var body: some View {
-        // Bridge transient degenerate sizes with the latched one, but never
-        // position from .zero: a squeezed real size beats garbage frames.
-        let effective = TouchControlsView.isPlausible(size) ? size
-            : (stableSize == .zero ? size : stableSize)
+        let effective: CGSize = {
+            if TouchControlsView.isPlausible(size) { return size }
+            if TouchControlsView.isPlausible(stableSize) { return stableSize }
+            return TouchControlsView.emergencySize
+        }()
         let frames = ControlGeometry.frames(layout: layout, metrics: metrics, in: effective,
                                             showFastForward: showFastForward, showShoulders: showShoulders)
         ZStack(alignment: .topLeading) {
@@ -82,9 +89,9 @@ struct TouchControlsView: View {
                                     if control == .fastForward { onFastForwardDoubleTap() }
                                 },
                                 onScrub: onScrub)
-                .frame(width: size.width, height: size.height)
+                .frame(width: effective.width, height: effective.height)
         }
-        .frame(width: size.width, height: size.height)
+        .frame(width: effective.width, height: effective.height)
         // Positions must never animate — not from a first zero-size pass, and
         // not from sheet-spring transactions passing through.
         .transaction { $0.animation = nil }

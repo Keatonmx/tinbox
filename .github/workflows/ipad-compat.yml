@@ -59,6 +59,9 @@ jobs:
       - name: Install idb (real touch injection)
         run: |
           brew install idb-companion 2>&1 | tail -n 1
+          # The Python client looks for the companion at /usr/local/bin,
+          # Homebrew on Apple Silicon installs to /opt/homebrew.
+          sudo ln -sf "$(brew --prefix)/bin/idb_companion" /usr/local/bin/idb_companion
           pip3 install --quiet --break-system-packages fb-idb || pip3 install --quiet fb-idb
 
       - name: Run on iPad in compatibility mode
@@ -147,6 +150,12 @@ jobs:
           ATAP=$(cat compat/atap.txt | tail -n 1)
           idb ui tap $ATAP --udid "$UDID"
           xcrun simctl io "$UDID" screenshot compat/03-a-press.png
+
+          # The landscape layout is a separate code path; capture it too.
+          xcrun simctl terminate "$UDID" "$BUNDLE_ID" 2>/dev/null || true
+          xcrun simctl launch "$UDID" "$BUNDLE_ID" -tinbox-autoplay -tinbox-game Tobu -tinbox-landscape > /dev/null 2>&1
+          sleep 18
+          xcrun simctl io "$UDID" screenshot compat/04-landscape.png
 
           xcrun simctl spawn "$UDID" log show --last 90s --predicate 'process == "Tinbox"' > compat/device.log 2>/dev/null || true
 
