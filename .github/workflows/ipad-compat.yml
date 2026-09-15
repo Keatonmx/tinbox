@@ -1,0 +1,159 @@
+name: iPad compatibility check
+
+# Reproduces App Review's iPad test: the iPhone-only build running in
+# "Designed for iPhone" compatibility mode on an iPad simulator, with real
+# injected touches. Screenshots before/after tapping MENU show whether the
+# touch controls actually work there.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  ipad-compat:
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      SCHEME: Tinbox
+      BUNDLE_ID: com.redfernsoutpost.tinbox
+      DERIVED: ${{ github.workspace }}/DerivedData
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -n 1)"
+          xcodebuild -version
+
+      - name: Cache libmgba xcframework
+        id: mgba-cache
+        uses: actions/cache@v4
+        with:
+          path: Vendor/mgba-dist
+          key: mgba-dist-${{ runner.os }}-${{ hashFiles('Scripts/build-mgba.sh', 'Scripts/mgba-ios.patch') }}-v1
+
+      - name: Build libmgba
+        if: steps.mgba-cache.outputs.cache-hit != 'true'
+        run: |
+          chmod +x Scripts/build-mgba.sh
+          Scripts/build-mgba.sh 2>&1 | tail -n 5
+
+      - name: Configure store edition
+        run: |
+          sed -i '' 's/static let store = false/static let store = true/' Tinbox/Edition.swift
+          plutil -remove NSCameraUsageDescription Tinbox/Resources/Info.plist || true
+          rm "Tinbox/Resources/StarterGames/Apotris.gba" "Tinbox/Resources/StarterGames/BlindJump.gba"
+          rm Tinbox/Resources/Licenses/starter-apotris.txt Tinbox/Resources/Licenses/starter-blindjump.txt
+          python3 Scripts/gen_xcodeproj.py
+
+      - name: Build for iOS Simulator
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project Tinbox.xcodeproj -scheme "$SCHEME" -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$DERIVED" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
+            2>&1 | tee xcodebuild.log | (grep -E "error:|BUILD " || true)
+
+      - name: Install idb (real touch injection)
+        run: |
+          brew install idb-companion 2>&1 | tail -n 1
+          pip3 install --quiet --break-system-packages fb-idb || pip3 install --quiet fb-idb
+
+      - name: Run on iPad in compatibility mode
+        run: |
+          APP="$DERIVED/Build/Products/Debug-iphonesimulator/Tinbox.app"
+          UDID=$(xcrun simctl list devices available -j | jq -r '
+            .devices | to_entries[] | select(.key | contains("iOS")) | .value[]
+            | select(.name | test("iPad Pro 13")) | .udid' | head -n 1)
+          if [ -z "$UDID" ]; then
+            UDID=$(xcrun simctl list devices available -j | jq -r '
+              .devices | to_entries[] | select(.key | contains("iOS")) | .value[]
+              | select(.name | test("iPad")) | .udid' | head -n 1)
+          fi
+          xcrun simctl list devices | grep "$UDID" || true
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl install "$UDID" "$APP"
+
+          mkdir -p compat
+          # Boot a game (starter games seed on first launch; autoplay opens one).
+          xcrun simctl launch "$UDID" "$BUNDLE_ID" -tinbox-autoplay -tinbox-game Tobu
+          sleep 16
+          xcrun simctl io "$UDID" screenshot compat/01-ingame.png
+
+          # Where is the app's window? In compatibility mode it is a centered
+          # iPhone-shaped window. Derive tap points from the screenshot: MENU
+          # sits bottom-center of the app window. Print sizes for the log,
+          # then tap the screen midpoint at 92% height of the content window.
+          python3 - << 'EOF' > compat/tap-point.txt
+          import subprocess, struct, zlib
+          def png_size(path):
+              with open(path, 'rb') as f:
+                  data = f.read(33)
+              w, h = struct.unpack('>II', data[16:24])
+              return w, h
+          w, h = png_size('compat/01-ingame.png')
+          print(w, h)
+          EOF
+          cat compat/tap-point.txt
+
+          # The app window in compat mode: detect it by finding non-black
+          # columns/rows of the screenshot, then tap MENU inside it.
+          pip3 install --quiet --break-system-packages pillow || pip3 install --quiet pillow
+          python3 - << 'EOF' > compat/window.txt
+          from PIL import Image
+          img = Image.open('compat/01-ingame.png').convert('RGB')
+          W, H = img.size
+          px = img.load()
+          def rowlit(y): return sum(sum(px[x, y]) > 40 for x in range(0, W, 8)) > 4
+          def collit(x): return sum(sum(px[x, y]) > 40 for y in range(0, H, 8)) > 4
+          top = next(y for y in range(0, H, 4) if rowlit(y))
+          bot = next(y for y in range(H - 1, 0, -4) if rowlit(y))
+          left = next(x for x in range(0, W, 4) if collit(x))
+          right = next(x for x in range(W - 1, 0, -4) if collit(x))
+          # Screenshot pixels are 2x points on iPad sims.
+          cx = (left + right) / 2 / 2
+          menu_y = (top + (bot - top) * 0.925) / 2
+          print(f"{int(cx)} {int(menu_y)}")
+          EOF
+          cat compat/window.txt
+          TAP=$(cat compat/window.txt | tail -n 1)
+
+          # Real touch: tap where MENU lives. If touch routing works, the
+          # Quick Menu sheet appears in the next screenshot.
+          idb connect "$UDID" || true
+          idb ui tap $TAP --udid "$UDID"
+          sleep 3
+          xcrun simctl io "$UDID" screenshot compat/02-after-menu-tap.png
+
+          # Also tap where the A button lives (right side, ~72% height).
+          python3 - << 'EOF' > compat/atap.txt
+          from PIL import Image
+          img = Image.open('compat/01-ingame.png').convert('RGB')
+          W, H = img.size
+          px = img.load()
+          def collit(x): return sum(sum(px[x, y]) > 40 for y in range(0, H, 8)) > 4
+          left = next(x for x in range(0, W, 4) if collit(x))
+          right = next(x for x in range(W - 1, 0, -4) if collit(x))
+          def rowlit(y): return sum(sum(px[x, y]) > 40 for x in range(0, W, 8)) > 4
+          top = next(y for y in range(0, H, 4) if rowlit(y))
+          bot = next(y for y in range(H - 1, 0, -4) if rowlit(y))
+          ax = (left + (right - left) * 0.82) / 2
+          ay = (top + (bot - top) * 0.72) / 2
+          print(f"{int(ax)} {int(ay)}")
+          EOF
+          ATAP=$(cat compat/atap.txt | tail -n 1)
+          idb ui tap $ATAP --udid "$UDID"
+          xcrun simctl io "$UDID" screenshot compat/03-a-press.png
+
+          xcrun simctl spawn "$UDID" log show --last 90s --predicate 'process == "Tinbox"' > compat/device.log 2>/dev/null || true
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ipad-compat-evidence
+          path: compat/
+          if-no-files-found: warn
