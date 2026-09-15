@@ -41,11 +41,18 @@ struct TouchControlsView: View {
     @State private var stableSize: CGSize = .zero
 
     private static func isPlausible(_ s: CGSize) -> Bool {
-        s.width.isFinite && s.height.isFinite && s.width >= 200 && s.height >= 250
+        // Only reject truly degenerate relayout passes. iPad's resizable
+        // Designed-for-iPhone windows can hand us a genuinely short controls
+        // area, and that must still lay out for real (App Review rejection
+        // 2026-09-15: controls drawn from a zero fallback size on iPad).
+        s.width.isFinite && s.height.isFinite && s.width >= 160 && s.height >= 120
     }
 
     var body: some View {
-        let effective = TouchControlsView.isPlausible(size) ? size : stableSize
+        // Bridge transient degenerate sizes with the latched one, but never
+        // position from .zero: a squeezed real size beats garbage frames.
+        let effective = TouchControlsView.isPlausible(size) ? size
+            : (stableSize == .zero ? size : stableSize)
         let frames = ControlGeometry.frames(layout: layout, metrics: metrics, in: effective,
                                             showFastForward: showFastForward, showShoulders: showShoulders)
         ZStack(alignment: .topLeading) {

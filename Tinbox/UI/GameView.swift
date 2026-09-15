@@ -50,10 +50,18 @@ struct PortraitGameView: View {
     private let metrics = ControlMetrics(isLandscape: false)
 
     var body: some View {
-        VStack(spacing: 0) {
-            topBar
-            screenBand
-            controlsArea
+        GeometryReader { geo in
+            // The screen band wants width / aspect, but a squat window (iPad's
+            // resizable Designed-for-iPhone mode) must never starve the
+            // controls area: cap the band and let the game letterbox inside.
+            let idealBand = geo.size.width / max(CGFloat(session.videoAspect), 0.5) + 26
+            let bandHeight = min(idealBand, max(180, geo.size.height - 396))
+            VStack(spacing: 0) {
+                topBar
+                screenBand.frame(height: bandHeight)
+                controlsArea
+            }
+            .frame(width: geo.size.width, height: geo.size.height)
         }
         // Glass: the cover glow shows through around the screen and controls,
         // calmed by a scrim so it never competes with gameplay.
@@ -141,7 +149,7 @@ struct PortraitGameView: View {
         }
         .overlay(EggScreenOverlays())
         .padding(.top, 6)
-        .fixedSize(horizontal: false, vertical: true)
+        // Height comes from the body's band calculation; the game letterboxes.
         // Lid-open: hinged at the bottom like the icon's clamshell.
         .rotation3DEffect(.degrees(lidOpen ? 0 : -72), axis: (x: 1, y: 0, z: 0),
                           anchor: .bottom, perspective: 0.55)
