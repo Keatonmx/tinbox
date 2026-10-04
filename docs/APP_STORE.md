@@ -83,7 +83,7 @@ and BlindJump (GBA binary is GPL via libgba) before archiving; both stay in the
 sideload build. Verified against the upstream repos 2026-09-06; licence texts
 ship verbatim in Resources/Licenses/starter-*.txt.
 
-- 1.1: Speedrun timer
+- 1.1: Speedrun timer (SHIPPED, gate lifted)
 - 1.2: Postcards
 - 1.3: Game Boy Camera (restores NSCameraUsageDescription)
 - 1.4: Inside the save (Gen-3 party)

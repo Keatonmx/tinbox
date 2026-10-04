@@ -20,7 +20,7 @@ enum EggText {
     static var saving: String { "SAVING… DON'T TURN OFF THE POWER" }
     static var secretTheme: String { sanitized ? "X" : "SA-X" }
     static var secretToast: String { sanitized ? "Hidden theme unlocked" : "SA-X has found you · new theme unlocked" }
-    static var glitchCaption: String { sanitized ? "" : "MISSINGNO." }
+    static var glitchCaption: String { "MISSINGNO." }
     static var abruptExit: String { sanitized ? "ERR · last session ended abruptly. Your spot was saved."
                                               : "Resetti would be very upset right now. Your spot was saved." }
     static var letterGreeting: String { sanitized ? "Dear Player," : "Dear Villager," }

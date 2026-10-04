@@ -13,7 +13,7 @@ enum Edition {
     static let store = false
 
     // Feature gates: all on for sideload, held back in the store's v1.0.
-    static var speedrunTimer: Bool { !store }
+    static var speedrunTimer: Bool { true }      // shipped in 1.1
     static var postcards: Bool { !store }
     static var gbCamera: Bool { !store }
     static var saveInsight: Bool { !store }

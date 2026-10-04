@@ -232,7 +232,7 @@ def main():
         'HEADER_SEARCH_PATHS': ['$(inherited)', '$(SRCROOT)/Vendor/mgba-dist/include'],
         'INFOPLIST_FILE': f'{SRC_DIR}/Resources/Info.plist',
         'LD_RUNPATH_SEARCH_PATHS': ['$(inherited)', '@executable_path/Frameworks'],
-        'MARKETING_VERSION': '1.0',
+        'MARKETING_VERSION': '1.1',
         'OTHER_LDFLAGS': ['$(inherited)', '-lz'],
         'PRODUCT_BUNDLE_IDENTIFIER': BUNDLE_ID,
         'PRODUCT_NAME': '$(TARGET_NAME)',

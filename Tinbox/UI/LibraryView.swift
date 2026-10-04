@@ -56,7 +56,7 @@ struct LibraryView: View {
                             if !EggText.glitchCaption.isEmpty {
                                 Text(EggText.glitchCaption)
                                     .font(Typography.mono8Bold).tracking(1)
-                                    .foregroundColor(Palette.textQuaternary)
+                                    .foregroundColor(Palette.textTertiary)
                             }
                             Text("No games match")
                                 .font(Typography.meta13)
@@ -186,7 +186,7 @@ struct LibraryView: View {
                     if model.games.isEmpty, !EggText.glitchCaption.isEmpty {
                         Text(EggText.glitchCaption)
                             .font(Typography.mono8Bold).tracking(1)
-                            .foregroundColor(Palette.textQuaternary)
+                            .foregroundColor(Palette.textTertiary)
                     }
                 }
             }
@@ -375,7 +375,7 @@ struct CoverArt: View {
                         if geo.size.width >= 110, !EggText.glitchCaption.isEmpty {
                             Text(EggText.glitchCaption)
                                 .font(Typography.mono8Bold).tracking(1)
-                                .foregroundColor(Palette.textQuaternary)
+                                .foregroundColor(Palette.textTertiary)
                         }
                     }
                     .frame(width: geo.size.width, height: geo.size.height)
