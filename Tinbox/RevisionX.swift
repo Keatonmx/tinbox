@@ -416,7 +416,7 @@ struct DarkRoomCue: View {
         VStack(alignment: .leading, spacing: 4) {
             Text("It's pitch black in here…")
                 .font(.system(size: 14, weight: .semibold, design: .monospaced))
-            Text("Tap ☀ and slide the sun to light the way.")
+            Text("Tap the sun button and slide it to light the way.")
                 .font(.system(size: 12, design: .monospaced))
                 .opacity(0.85)
         }

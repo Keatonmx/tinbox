@@ -88,9 +88,9 @@ struct TimeCapsuleSheet: View {
                 Text("Your playthrough, remembered")
                     .font(Typography.rowSemibold).foregroundColor(.white)
             }
-            introPoint("⏱", "While you play, Tinbox quietly keeps a snapshot every \(model.settings.timeCapsuleMinutes) minutes, plus one when you leave a game and whenever you tap Capture. Each one is a real save state with a picture.")
-            introPoint("↩", "Scrub the filmstrip to any moment of any day and jump back to it. Your current spot is saved to the Auto slot first, so exploring the past never loses the present.")
-            introPoint("📦", "The tin looks after its own space: very old stretches thin out to every other snapshot instead of being deleted, so the start of your adventure stays in the capsule. Cadence and on/off live in Settings › Advanced.")
+            introPoint("clock", "Every \(model.settings.timeCapsuleMinutes) minutes of play, Tinbox saves a snapshot. It saves one when you leave a game too, and whenever you tap Capture. Each one is a full save state with a screenshot.")
+            introPoint("arrow.uturn.backward", "Drag along the strip to find a moment, then tap Jump to this moment. Your current spot goes to the Auto slot first, so you can always get back.")
+            introPoint("archivebox", "Older snapshots get thinned out over time instead of deleted, so you keep moments from the whole playthrough without filling up your phone. Change how often it saves in Settings › Advanced.")
             Button {
                 ButtonHaptics.shared.tap()
                 model.settings.hasSeenCapsuleIntro = true
@@ -112,9 +112,12 @@ struct TimeCapsuleSheet: View {
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
-    private func introPoint(_ glyph: String, _ text: String) -> some View {
+    private func introPoint(_ symbol: String, _ text: String) -> some View {
         HStack(alignment: .top, spacing: 10) {
-            Text(glyph).font(.system(size: 15))
+            Image(systemName: symbol)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(theme.accentText)
+                .frame(width: 20)
             Text(text).font(Typography.meta13).foregroundColor(Palette.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
